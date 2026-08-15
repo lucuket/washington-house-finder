@@ -1,0 +1,14 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.env
+.venv
+env/
+venv/
+cloudflared.exe
+*.log
+audit_*.py
+verify_*.py
+clean_all_sold.py
+mingit.zip

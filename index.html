@@ -1,0 +1,683 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Washington Elite House Finder | Premium Real Estate Explorer</title>
+    <meta name="description" content="Discover, map, compare, and analyze premium homes across Washington state with custom search filters, mortgage estimators, and interactive GIS mapping.">
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+    <!-- Leaflet.js CSS for Interactive Mapping -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+
+    <!-- Application Stylesheet -->
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <!-- Ambient Background Depth Layers -->
+    <div class="ambient-glow ambient-glow-1"></div>
+    <div class="ambient-glow ambient-glow-2"></div>
+
+    <div class="app-layout-wrapper">
+        <!-- Top App Navigation Header -->
+        <header class="app-topbar" id="app-topbar">
+            <div class="topbar-brand">
+                <div class="brand-badge">
+                    <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+                        <polyline points="9 22 9 12 15 12 15 22"></polyline>
+                    </svg>
+                </div>
+                <div class="brand-text">
+                    <h1>AERO<span>ESTATE</span></h1>
+                    <span class="brand-subtitle">Washington State Collection</span>
+                </div>
+            </div>
+
+            <!-- Header Quick Stats -->
+            <div class="topbar-stats">
+                <div class="stat-pill" title="Total active properties in database">
+                    <span class="stat-dot active"></span>
+                    <span class="stat-label">Active:</span>
+                    <strong id="total-count-badge">0</strong>
+                </div>
+                <div class="stat-pill" title="Properties matching current filters">
+                    <span class="stat-label">Matched:</span>
+                    <strong id="matched-count-badge">0</strong>
+                </div>
+                <div class="stat-pill favorite-pill" id="favorites-badge-btn" title="View Favorited Homes">
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+                        <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+                    </svg>
+                    <span class="stat-label">Saved:</span>
+                    <strong id="favorites-count-badge">0</strong>
+                </div>
+            </div>
+
+            <!-- Top Actions -->
+            <div class="topbar-actions">
+                <button class="btn btn-secondary btn-sm" id="btn-export-csv" title="Export current search results to CSV">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                        <polyline points="7 10 12 15 17 10"></polyline>
+                        <line x1="12" y1="15" x2="12" y2="3"></line>
+                    </svg>
+                    <span>Export CSV</span>
+                </button>
+
+                <button class="btn btn-primary btn-sm" id="btn-open-scraper" title="Run live real-time MLS scraping query">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"></path>
+                    </svg>
+                    <span>Live Scraper</span>
+                </button>
+            </div>
+        </header>
+
+        <!-- Main Content Area with Sidebar & Workspace -->
+        <div class="app-body">
+            <!-- Filter & Controls Sidebar -->
+            <aside class="app-sidebar" id="app-sidebar">
+                <div class="sidebar-header">
+                    <h2>Refine Search</h2>
+                    <button class="btn-text-reset" id="btn-reset-filters" title="Reset all filters to default">Reset</button>
+                </div>
+
+                <div class="sidebar-content">
+                    <!-- Quick Text Search -->
+                    <div class="filter-block">
+                        <label for="search-input" class="filter-label">Quick Search</label>
+                        <div class="search-input-wrapper">
+                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="11" cy="11" r="8"></circle>
+                                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                            </svg>
+                            <input type="text" id="search-input" placeholder="Address, City, ZIP, keyword..." autocomplete="off">
+                            <button class="clear-search-btn hidden" id="clear-search-btn">&times;</button>
+                        </div>
+                    </div>
+
+                    <!-- City Filter -->
+                    <div class="filter-block">
+                        <label for="city-select" class="filter-label">Washington City</label>
+                        <div class="select-wrapper">
+                            <select id="city-select" class="form-select">
+                                <option value="all">All Washington Cities</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Price Range Slider -->
+                    <div class="filter-block">
+                        <div class="filter-label-split">
+                            <span class="filter-label">Price Range</span>
+                            <span class="filter-value-display" id="price-range-display">$350k – $500k</span>
+                        </div>
+                        <div class="range-dual-container">
+                            <input type="range" id="price-min-slider" min="300000" max="600000" step="5000" value="350000">
+                            <input type="range" id="price-max-slider" min="300000" max="600000" step="5000" value="500000">
+                        </div>
+                        <div class="range-labels">
+                            <span>$300k</span>
+                            <span>$450k</span>
+                            <span>$600k</span>
+                        </div>
+                    </div>
+
+                    <!-- Bedrooms Selector Pills -->
+                    <div class="filter-block">
+                        <span class="filter-label">Bedrooms (Min)</span>
+                        <div class="pill-group" id="beds-pill-group">
+                            <button class="pill-btn" data-beds="1">Any</button>
+                            <button class="pill-btn active" data-beds="2">2+</button>
+                            <button class="pill-btn" data-beds="3">3+</button>
+                            <button class="pill-btn" data-beds="4">4+</button>
+                            <button class="pill-btn" data-beds="5">5+</button>
+                        </div>
+                    </div>
+
+                    <!-- Bathrooms Selector Pills -->
+                    <div class="filter-block">
+                        <span class="filter-label">Bathrooms (Min)</span>
+                        <div class="pill-group" id="baths-pill-group">
+                            <button class="pill-btn" data-baths="1">Any</button>
+                            <button class="pill-btn active" data-baths="1.5">1.5+</button>
+                            <button class="pill-btn" data-baths="2">2+</button>
+                            <button class="pill-btn" data-baths="3">3+</button>
+                        </div>
+                    </div>
+
+                    <!-- Square Footage Range -->
+                    <div class="filter-block">
+                        <div class="filter-label-split">
+                            <span class="filter-label">Living Area (SqFt)</span>
+                            <span class="filter-value-display" id="sqft-range-display">1,200 – 2,000 sqft</span>
+                        </div>
+                        <div class="range-dual-container">
+                            <input type="range" id="sqft-min-slider" min="800" max="3000" step="50" value="1200">
+                            <input type="range" id="sqft-max-slider" min="800" max="3000" step="50" value="2000">
+                        </div>
+                    </div>
+
+                    <!-- Garage Spaces -->
+                    <div class="filter-block">
+                        <span class="filter-label">Garage Spaces</span>
+                        <div class="pill-group" id="garage-pill-group">
+                            <button class="pill-btn" data-garage="0">Any</button>
+                            <button class="pill-btn active" data-garage="2">2+ Car</button>
+                            <button class="pill-btn" data-garage="3">3+ Car</button>
+                        </div>
+                    </div>
+
+                    <!-- Lot Size Slider -->
+                    <div class="filter-block">
+                        <div class="filter-label-split">
+                            <span class="filter-label">Min Lot Size</span>
+                            <span class="filter-value-display" id="lot-display">6,500+ sqft</span>
+                        </div>
+                        <input type="range" id="lot-slider" min="3000" max="25000" step="500" value="6500" class="single-range">
+                    </div>
+
+                    <!-- Max HOA Fee Slider -->
+                    <div class="filter-block">
+                        <div class="filter-label-split">
+                            <span class="filter-label">Max HOA Fee</span>
+                            <span class="filter-value-display" id="hoa-display">≤ $50/mo</span>
+                        </div>
+                        <input type="range" id="hoa-slider" min="0" max="300" step="10" value="50" class="single-range">
+                    </div>
+
+                    <!-- Star Rating Filter -->
+                    <div class="filter-block">
+                        <label for="rating-filter" class="filter-label">Minimum User Rating</label>
+                        <select id="rating-filter" class="form-select">
+                            <option value="0">All Ratings (0–5 Stars)</option>
+                            <option value="1">★☆☆☆☆ (1+ Star)</option>
+                            <option value="2">★★☆☆☆ (2+ Stars)</option>
+                            <option value="3">★★★☆☆ (3+ Stars)</option>
+                            <option value="4">★★★★☆ (4+ Stars)</option>
+                            <option value="5">★★★★★ (5 Stars Only)</option>
+                        </select>
+                    </div>
+
+                    <!-- Favorites Toggle -->
+                    <div class="filter-block toggle-block">
+                        <label class="switch-control" for="filter-favorites-toggle">
+                            <input type="checkbox" id="filter-favorites-toggle">
+                            <span class="switch-track"></span>
+                            <span class="switch-text">Show Favorites Only</span>
+                        </label>
+                    </div>
+
+                    <!-- Quick Market Stats Sidebar Card -->
+                    <div class="market-quick-card">
+                        <div class="quick-card-title">
+                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+                            </svg>
+                            <span>Washington Market Insights</span>
+                        </div>
+                        <div class="quick-stat-row">
+                            <span class="q-label">Avg Home Price</span>
+                            <span class="q-val" id="market-avg-price">$438,400</span>
+                        </div>
+                        <div class="quick-stat-row">
+                            <span class="q-label">Avg Price / SqFt</span>
+                            <span class="q-val" id="market-avg-ppsqft">$274/sqft</span>
+                        </div>
+                        <div class="quick-stat-row">
+                            <span class="q-label">Avg Living Size</span>
+                            <span class="q-val" id="market-avg-sqft">1,610 sqft</span>
+                        </div>
+                    </div>
+                </div>
+            </aside>
+
+            <!-- Main Interactive Workspace -->
+            <main class="app-workspace" id="app-workspace">
+                <!-- Workspace Control Toolbar -->
+                <div class="workspace-toolbar">
+                    <div class="toolbar-left">
+                        <h2 class="workspace-heading" id="workspace-title">Washington Listings</h2>
+                        <span class="results-chip" id="results-count-label">Loading homes...</span>
+                    </div>
+
+                    <div class="toolbar-right">
+                        <!-- Sorting Dropdown -->
+                        <div class="sort-wrapper">
+                            <label for="sort-dropdown">Sort:</label>
+                            <select id="sort-dropdown" class="form-select-sm">
+                                <option value="default">Best Match</option>
+                                <option value="price_asc">Price: Low to High</option>
+                                <option value="price_desc">Price: High to Low</option>
+                                <option value="price_per_sqft_asc">Price/SqFt: Low to High</option>
+                                <option value="sqft_desc">Size: Largest SqFt</option>
+                                <option value="lot_desc">Lot: Largest Area</option>
+                                <option value="year_desc">Year: Newest Built</option>
+                                <option value="rating_desc">User Rating: Highest</option>
+                            </select>
+                        </div>
+
+                        <!-- View Mode Switcher -->
+                        <div class="view-mode-tabs">
+                            <button class="view-tab-btn active" data-view="split" title="Split Map & Cards View" id="view-tab-split">
+                                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                                    <rect x="3" y="3" width="8" height="18" rx="1"></rect>
+                                    <rect x="13" y="3" width="8" height="18" rx="1"></rect>
+                                </svg>
+                                <span>Split</span>
+                            </button>
+                            <button class="view-tab-btn" data-view="grid" title="Cards Grid Only" id="view-tab-grid">
+                                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                                    <rect x="3" y="3" width="7" height="7" rx="1"></rect>
+                                    <rect x="14" y="3" width="7" height="7" rx="1"></rect>
+                                    <rect x="14" y="14" width="7" height="7" rx="1"></rect>
+                                    <rect x="3" y="14" width="7" height="7" rx="1"></rect>
+                                </svg>
+                                <span>Grid</span>
+                            </button>
+                            <button class="view-tab-btn" data-view="map" title="Full Map Only" id="view-tab-map">
+                                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"></polygon>
+                                    <line x1="8" y1="2" x2="8" y2="18"></line>
+                                    <line x1="16" y1="6" x2="16" y2="22"></line>
+                                </svg>
+                                <span>Map</span>
+                            </button>
+                            <button class="view-tab-btn" data-view="analytics" title="Market Analytics" id="view-tab-analytics">
+                                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                                    <line x1="18" y1="20" x2="18" y2="10"></line>
+                                    <line x1="12" y1="20" x2="12" y2="4"></line>
+                                    <line x1="6" y1="20" x2="6" y2="14"></line>
+                                </svg>
+                                <span>Analytics</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Workspace Viewport Container -->
+                <div class="workspace-viewport view-split" id="workspace-viewport">
+                    <!-- Map Column / Container -->
+                    <div class="map-container-wrapper" id="map-container-wrapper">
+                        <div id="leaflet-map" class="leaflet-map-view"></div>
+                        <div class="map-overlay-badge">
+                            <span class="map-dot"></span>
+                            <span id="map-marker-count">56 pins on map</span>
+                        </div>
+                    </div>
+
+                    <!-- Cards Column / Container -->
+                    <div class="cards-container-wrapper" id="cards-container-wrapper">
+                        <!-- Empty State Notice -->
+                        <div class="empty-state-notice hidden" id="empty-state-notice">
+                            <div class="empty-icon">
+                                <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5">
+                                    <circle cx="11" cy="11" r="8"></circle>
+                                    <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                                </svg>
+                            </div>
+                            <h3>No Matching Homes Found</h3>
+                            <p>Try widening your price range, reducing minimum square footage, or clearing city filters.</p>
+                            <button class="btn btn-secondary" id="btn-empty-reset">Reset All Filters</button>
+                        </div>
+
+                        <!-- Gallery Cards Grid -->
+                        <div class="cards-grid" id="cards-grid">
+                            <!-- Dynamically populated via app.js -->
+                        </div>
+                    </div>
+
+                    <!-- Analytics Dashboard Tab (Hidden by default) -->
+                    <div class="analytics-view-wrapper hidden" id="analytics-view-wrapper">
+                        <div class="analytics-grid">
+                            <div class="analytics-card metric-card">
+                                <h3>Price Summary</h3>
+                                <div class="metric-row">
+                                    <span class="m-label">Average Listing Price:</span>
+                                    <strong class="m-val" id="an-avg-price">$0</strong>
+                                </div>
+                                <div class="metric-row">
+                                    <span class="m-label">Median Listing Price:</span>
+                                    <strong class="m-val" id="an-median-price">$0</strong>
+                                </div>
+                                <div class="metric-row">
+                                    <span class="m-label">Price Range:</span>
+                                    <strong class="m-val" id="an-price-range">$0 – $0</strong>
+                                </div>
+                                <div class="metric-row">
+                                    <span class="m-label">Avg Price / SqFt:</span>
+                                    <strong class="m-val highlight" id="an-avg-ppsqft">$0/sqft</strong>
+                                </div>
+                            </div>
+
+                            <div class="analytics-card">
+                                <h3>Price Bracket Distribution</h3>
+                                <div class="distribution-bars" id="price-distribution-bars">
+                                    <!-- Dynamic bars -->
+                                </div>
+                            </div>
+
+                            <div class="analytics-card">
+                                <h3>Listings by Washington City</h3>
+                                <div class="city-distribution-list" id="city-distribution-list">
+                                    <!-- Dynamic list -->
+                                </div>
+                            </div>
+
+                            <div class="analytics-card">
+                                <h3>Garage Capacity Distribution</h3>
+                                <div class="garage-distribution-list" id="garage-distribution-list">
+                                    <!-- Dynamic list -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- ================================================================= -->
+    <!-- MODALS & DRAWERS -->
+    <!-- ================================================================= -->
+
+    <!-- Floating Comparison Tray Dock (Bottom) -->
+    <div class="compare-dock hidden" id="compare-dock">
+        <div class="compare-dock-inner">
+            <div class="compare-dock-header">
+                <div class="dock-title">
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="3" y="3" width="7" height="18" rx="1"></rect>
+                        <rect x="14" y="3" width="7" height="18" rx="1"></rect>
+                    </svg>
+                    <strong>Compare Homes</strong>
+                    <span class="dock-count-badge" id="compare-count-badge">0 / 4</span>
+                </div>
+                <button class="dock-clear-btn" id="btn-compare-clear">Clear All</button>
+            </div>
+
+            <div class="compare-thumbnails-row" id="compare-thumbnails-row">
+                <!-- Selected slots 1..4 injected dynamically -->
+            </div>
+
+            <div class="compare-dock-actions">
+                <button class="btn btn-primary" id="btn-open-comparison-matrix" disabled>
+                    Compare Side-by-Side
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="9 18 15 12 9 6"></polyline>
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Fullscreen Comparison Matrix Modal -->
+    <div class="modal-backdrop hidden" id="comparison-modal">
+        <div class="modal-box modal-xl">
+            <div class="modal-header">
+                <div class="modal-header-info">
+                    <h2>Side-by-Side Home Comparison</h2>
+                    <p>Compare detailed specs, monthly payments, lot sizes, and personal ratings across your selected Washington properties.</p>
+                </div>
+                <button class="modal-close-icon" id="btn-close-comparison">&times;</button>
+            </div>
+            <div class="modal-body comparison-table-wrapper" id="comparison-table-wrapper">
+                <!-- Dynamically generated comparison table -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Mortgage & Monthly Payment Estimator Modal -->
+    <div class="modal-backdrop hidden" id="mortgage-modal">
+        <div class="modal-box modal-lg">
+            <div class="modal-header">
+                <div class="modal-header-info">
+                    <h2>Monthly Mortgage & Cost Estimator</h2>
+                    <p id="calc-prop-address">Estimated payment for 1234 Main St, Seattle, WA</p>
+                </div>
+                <button class="modal-close-icon" id="btn-close-mortgage">&times;</button>
+            </div>
+
+            <div class="modal-body mortgage-calculator-grid">
+                <!-- Controls Column -->
+                <div class="mortgage-controls">
+                    <div class="calc-field">
+                        <label for="calc-home-price">Home Listing Price ($)</label>
+                        <input type="number" id="calc-home-price" class="form-input" step="1000">
+                    </div>
+
+                    <div class="calc-field-row">
+                        <div class="calc-field">
+                            <label for="calc-down-pct">Down Payment (%)</label>
+                            <input type="number" id="calc-down-pct" class="form-input" value="20" min="0" max="100" step="1">
+                        </div>
+                        <div class="calc-field">
+                            <label for="calc-down-amount">Down Payment ($)</label>
+                            <input type="text" id="calc-down-amount" class="form-input" readonly>
+                        </div>
+                    </div>
+
+                    <div class="calc-field-row">
+                        <div class="calc-field">
+                            <label for="calc-loan-term">Loan Term</label>
+                            <select id="calc-loan-term" class="form-select">
+                                <option value="30">30-Year Fixed</option>
+                                <option value="15">15-Year Fixed</option>
+                                <option value="20">20-Year Fixed</option>
+                            </select>
+                        </div>
+                        <div class="calc-field">
+                            <label for="calc-interest-rate">Interest Rate (%)</label>
+                            <input type="number" id="calc-interest-rate" class="form-input" value="6.65" step="0.05" min="1" max="15">
+                        </div>
+                    </div>
+
+                    <div class="calc-field-row">
+                        <div class="calc-field">
+                            <label for="calc-tax-rate">WA Property Tax (%)</label>
+                            <input type="number" id="calc-tax-rate" class="form-input" value="1.02" step="0.05" min="0" max="5">
+                        </div>
+                        <div class="calc-field">
+                            <label for="calc-insurance">Annual Insurance ($)</label>
+                            <input type="number" id="calc-insurance" class="form-input" value="1200" step="50">
+                        </div>
+                    </div>
+
+                    <div class="calc-field">
+                        <label for="calc-hoa-fee">Monthly HOA Fee ($/mo)</label>
+                        <input type="number" id="calc-hoa-fee" class="form-input" value="0" step="10">
+                    </div>
+                </div>
+
+                <!-- Summary Breakdown Column -->
+                <div class="mortgage-summary-card">
+                    <div class="total-payment-header">
+                        <span class="total-label">Total Estimated Payment</span>
+                        <div class="total-amount-display" id="calc-total-monthly">$2,450<span class="per-mo">/mo</span></div>
+                    </div>
+
+                    <!-- Payment Visual Segmented Bar -->
+                    <div class="payment-visual-bar" id="calc-visual-bar">
+                        <div class="bar-segment seg-principal" style="width: 70%;" title="Principal & Interest"></div>
+                        <div class="bar-segment seg-tax" style="width: 18%;" title="Property Tax"></div>
+                        <div class="bar-segment seg-ins" style="width: 8%;" title="Home Insurance"></div>
+                        <div class="bar-segment seg-hoa" style="width: 4%;" title="HOA Fee"></div>
+                    </div>
+
+                    <div class="breakdown-list">
+                        <div class="breakdown-item">
+                            <span class="dot-indicator dot-principal"></span>
+                            <span class="b-name">Principal & Interest</span>
+                            <strong class="b-val" id="calc-val-pi">$1,720/mo</strong>
+                        </div>
+                        <div class="breakdown-item">
+                            <span class="dot-indicator dot-tax"></span>
+                            <span class="b-name">Property Taxes</span>
+                            <strong class="b-val" id="calc-val-tax">$380/mo</strong>
+                        </div>
+                        <div class="breakdown-item">
+                            <span class="dot-indicator dot-ins"></span>
+                            <span class="b-name">Home Insurance</span>
+                            <strong class="b-val" id="calc-val-ins">$100/mo</strong>
+                        </div>
+                        <div class="breakdown-item">
+                            <span class="dot-indicator dot-hoa"></span>
+                            <span class="b-name">HOA Dues</span>
+                            <strong class="b-val" id="calc-val-hoa">$0/mo</strong>
+                        </div>
+                    </div>
+
+                    <div class="loan-amount-badge">
+                        <span>Loan Principal:</span>
+                        <strong id="calc-loan-principal">$360,000</strong>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Fullscreen Photo Lightbox Modal -->
+    <div class="modal-backdrop hidden" id="photo-lightbox-modal">
+        <div class="lightbox-container">
+            <button class="lightbox-close-btn" id="btn-close-lightbox" title="Close Lightbox (Esc)">&times;</button>
+            
+            <div class="lightbox-header-info">
+                <div class="l-info-main">
+                    <h3 id="lightbox-address">1234 Main St, Seattle, WA</h3>
+                    <p id="lightbox-specs">3 Beds • 2.0 Baths • 1,600 sqft • Built 2021</p>
+                </div>
+                <div class="l-info-actions">
+                    <span class="l-price" id="lightbox-price">$450,000</span>
+                    <a href="#" target="_blank" class="btn btn-secondary btn-sm" id="lightbox-external-link">
+                        View on Realtor.com
+                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                            <polyline points="15 3 21 3 21 9"></polyline>
+                            <line x1="10" y1="14" x2="21" y2="3"></line>
+                        </svg>
+                    </a>
+                </div>
+            </div>
+
+            <!-- Main Stage -->
+            <div class="lightbox-stage">
+                <button class="stage-nav-btn prev" id="btn-lightbox-prev" title="Previous Image (Left Arrow)">
+                    <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2.5">
+                        <polyline points="15 18 9 12 15 6"></polyline>
+                    </svg>
+                </button>
+
+                <div class="stage-image-wrapper">
+                    <img src="" alt="Property View" id="lightbox-active-img">
+                    <div class="lightbox-counter-pill">
+                        <span id="lightbox-current-num">1</span> / <span id="lightbox-total-num">1</span>
+                    </div>
+                </div>
+
+                <button class="stage-nav-btn next" id="btn-lightbox-next" title="Next Image (Right Arrow)">
+                    <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2.5">
+                        <polyline points="9 18 15 12 9 6"></polyline>
+                    </svg>
+                </button>
+            </div>
+
+            <!-- Bottom Thumbnails Strip -->
+            <div class="lightbox-thumbnails-strip" id="lightbox-thumbnails-strip">
+                <!-- Dynamic thumbnail images -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Personal Notes & Rating Modal -->
+    <div class="modal-backdrop hidden" id="note-modal">
+        <div class="modal-box modal-md">
+            <div class="modal-header">
+                <div class="modal-header-info">
+                    <h2>Personal Notes & Rating</h2>
+                    <p id="note-modal-address">Property address</p>
+                </div>
+                <button class="modal-close-icon" id="btn-close-note">&times;</button>
+            </div>
+            <div class="modal-body note-editor-body">
+                <div class="rating-picker-block">
+                    <label>Your Rating:</label>
+                    <div class="star-picker-interactive" id="star-picker-interactive">
+                        <span class="star-pick" data-val="1">★</span>
+                        <span class="star-pick" data-val="2">★</span>
+                        <span class="star-pick" data-val="3">★</span>
+                        <span class="star-pick" data-val="4">★</span>
+                        <span class="star-pick" data-val="5">★</span>
+                    </div>
+                    <span class="rating-text-label" id="rating-text-label">Not rated</span>
+                </div>
+
+                <div class="note-textarea-block">
+                    <label for="note-textarea">Personal Notes (Auto-saved):</label>
+                    <textarea id="note-textarea" rows="5" placeholder="Add custom impressions, garage workshop potential, remodel ideas, neighborhood notes..."></textarea>
+                </div>
+
+                <div class="note-modal-actions">
+                    <span class="save-status-indicator" id="note-save-status">Saved</span>
+                    <button class="btn btn-primary" id="btn-save-note">Save & Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Live Scraper Progress Modal -->
+    <div class="modal-backdrop hidden" id="scraper-modal">
+        <div class="modal-box modal-md scraper-console-modal">
+            <div class="modal-header">
+                <div class="modal-header-info">
+                    <h2>Live Washington MLS Scraper</h2>
+                    <p>Scraping active for-sale listings matching your custom constraints via HomeHarvest.</p>
+                </div>
+                <button class="modal-close-icon" id="btn-close-scraper">&times;</button>
+            </div>
+
+            <div class="modal-body scraper-body">
+                <div class="scraper-progress-wrapper">
+                    <div class="progress-bar-track">
+                        <div class="progress-bar-fill" id="scraper-progress-fill" style="width: 0%;"></div>
+                    </div>
+                    <div class="progress-labels">
+                        <span id="scraper-status-text">Ready to run query</span>
+                        <span id="scraper-pct-text">0%</span>
+                    </div>
+                </div>
+
+                <!-- Live Log Terminal Box -->
+                <div class="scraper-terminal" id="scraper-terminal">
+                    <div class="term-line info">> Washington HouseFinder Scraper v2.0 Ready</div>
+                    <div class="term-line">> Target locations: Spokane, Olympia, Vancouver, Tacoma, Kennewick, Bellingham</div>
+                    <div class="term-line">> Criteria: $350k-$500k | 1200-2000 sqft | 2+ Garage | 6500+ Lot | ≤$50 HOA</div>
+                </div>
+
+                <div class="scraper-actions">
+                    <button class="btn btn-secondary" id="btn-cancel-scraper">Close</button>
+                    <button class="btn btn-primary" id="btn-start-live-scrape">
+                        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                            <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                        </svg>
+                        Start Live Scan
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification Container -->
+    <div class="toast-container" id="toast-container"></div>
+
+    <!-- Leaflet.js Script -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    
+    <!-- Application Logic -->
+    <script src="app.js"></script>
+</body>
+</html>
