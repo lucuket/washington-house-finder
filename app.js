@@ -1248,13 +1248,27 @@ document.addEventListener('DOMContentLoaded', () => {
             card.addEventListener('mouseenter', () => highlightMarker(p.id, true));
             card.addEventListener('mouseleave', () => highlightMarker(p.id, false));
 
-            // Card click opens drawer (unless clicking buttons/inputs)
+            // Card click opens drawer
             card.addEventListener('click', (e) => {
-                if (e.target.closest('button') || e.target.closest('input') || e.target.closest('.card-star-rating')) {
+                // Ignore clicks on specific interactive sub-controls
+                if (e.target.closest('.card-star-rating') ||
+                    e.target.closest('.compare-checkbox-label') ||
+                    e.target.closest('.card-note-trigger') ||
+                    e.target.closest('.card-fav-btn') ||
+                    e.target.closest('.gallery-arrow-btn') ||
+                    e.target.closest('a')) {
                     return;
                 }
                 openPropertyDrawer(p.id);
             });
+
+            const viewDetailsBtn = card.querySelector('.card-view-drawer-btn');
+            if (viewDetailsBtn) {
+                viewDetailsBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    openPropertyDrawer(p.id);
+                });
+            }
 
             // Enter key opens drawer
             card.addEventListener('keydown', (e) => {
@@ -1538,10 +1552,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const fullAddress = `${prop.address}, ${prop.city}, WA ${prop.zip || ''}`.trim();
         const lat = prop.latitude || 47.5;
         const lon = prop.longitude || -120.5;
-        // Official FCC National Broadband Map direct search location query filtered to wireline Cable & Fiber
+        // Official FCC National Broadband Map entry URL
         const fccMapUrl = (prop.broadband && prop.broadband.fcc_url)
             ? prop.broadband.fcc_url
-            : `https://broadbandmap.fcc.gov/location-summary/fixed?version=dec2025&zoom=15&vlon=${lon}&vlat=${lat}&speed=100_20&tech=1_2_3`;
+            : 'https://broadbandmap.fcc.gov/home';
 
         return {
             fiberProviders,
