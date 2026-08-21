@@ -141,7 +141,17 @@ document.addEventListener('DOMContentLoaded', () => {
     const viewTabSplit = document.getElementById('view-tab-split');
     const viewTabGrid = document.getElementById('view-tab-grid');
     const viewTabMap = document.getElementById('view-tab-map');
+    const viewTabDeals = document.getElementById('view-tab-deals');
     const viewTabAnalytics = document.getElementById('view-tab-analytics');
+
+    // Top Deals View Elements
+    const dealsViewWrapper = document.getElementById('deals-view-wrapper');
+    const dealsEvaluationGrid = document.getElementById('deals-evaluation-grid');
+    const dealsTotalCount = document.getElementById('deals-total-count');
+    const dealsAvgDiscount = document.getElementById('deals-avg-discount');
+    const dealsAvgDollarSavings = document.getElementById('deals-avg-dollar-savings');
+    const dealsTopCity = document.getElementById('deals-top-city');
+    const dealsFilterPills = document.getElementById('deals-filter-pills');
 
     // Map Overlays
     const mapMarkerCount = document.getElementById('map-marker-count');
@@ -168,6 +178,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const drawerPrice = document.getElementById('drawer-price');
     const drawerEstMonthly = document.getElementById('drawer-est-monthly');
     const drawerSignalsList = document.getElementById('drawer-signals-list');
+    
+    // Drawer Deal Evaluation Card References
+    const drawerDealEvalCard = document.getElementById('drawer-deal-eval-card');
+    const drawerDealGradeText = document.getElementById('drawer-deal-grade-text');
+    const drawerDealScoreBadge = document.getElementById('drawer-deal-score-badge');
+    const drawerDealSummaryBox = document.getElementById('drawer-deal-summary-box');
+    const drawerDealMetricsGrid = document.getElementById('drawer-deal-metrics-grid');
+
     const drawerScoreVal = document.getElementById('drawer-score-val');
     const drawerScoreSummary = document.getElementById('drawer-score-summary');
     const drawerScoreBars = document.getElementById('drawer-score-bars');
@@ -669,6 +687,111 @@ document.addEventListener('DOMContentLoaded', () => {
         return scored.slice(0, limit).map(item => item.prop);
     }
 
+    // -------------------------------------------------------------------------
+    // Executive Deal & Value Evaluation Algorithm (100% Transparent MLS Analysis)
+    // -------------------------------------------------------------------------
+    function computeExecutiveDealEvaluation(p) {
+        if (!p) return null;
+        const ppsqft = Math.round(p.price / Math.max(1, p.sqft));
+        const cityMed = cityMedians[p.city] || marketMedians;
+        const cityMedPpsqft = (cityMed && cityMed.ppsqft) ? cityMed.ppsqft : 300;
+        const ppsqftDiff = cityMedPpsqft - ppsqft;
+        const ppsqftPct = Math.round((ppsqftDiff / cityMedPpsqft) * 100);
+        const estDollarSavings = Math.round(ppsqftDiff * p.sqft);
+
+        // 1. Price / SqFt Score (0-100)
+        let priceScore = 60 + Math.round(ppsqftPct * 1.3);
+        priceScore = Math.max(10, Math.min(100, priceScore));
+
+        // 2. Lot Value Score (0-100)
+        const acres = p.lot_sqft / 43560;
+        let lotScore = 50;
+        if (acres >= 0.5) lotScore = 100;
+        else if (acres >= 0.25) lotScore = 85 + Math.round((acres - 0.25) * 60);
+        else if (acres >= 0.15) lotScore = 70 + Math.round((acres - 0.15) * 150);
+        else lotScore = Math.max(20, Math.round(acres * 400));
+        lotScore = Math.min(100, lotScore);
+
+        // 3. Carrying Cost (HOA) Score (0-100)
+        let hoaScore = 100;
+        if (p.hoa > 0) {
+            if (p.hoa <= 35) hoaScore = 85;
+            else if (p.hoa <= 75) hoaScore = 70;
+            else if (p.hoa <= 150) hoaScore = 50;
+            else hoaScore = Math.max(10, 50 - Math.round((p.hoa - 150) / 5));
+        }
+
+        // 4. Garage & Workshop Capacity (0-100)
+        let garageScore = 50;
+        if (p.garage >= 3) garageScore = 100;
+        else if (p.garage === 2) garageScore = 85;
+        else if (p.garage === 1) garageScore = 60;
+
+        // 5. Living Space Efficiency (0-100)
+        let spaceScore = 60;
+        if (p.sqft >= 2400) spaceScore = 98;
+        else if (p.sqft >= 1800) spaceScore = 85 + Math.round((p.sqft - 1800) / 40);
+        else if (p.sqft >= 1400) spaceScore = 70 + Math.round((p.sqft - 1400) / 26);
+        else spaceScore = Math.max(30, 40 + Math.round((p.sqft - 800) / 20));
+        spaceScore = Math.min(100, spaceScore);
+
+        // 6. Age & Modern Efficiency (0-100)
+        let ageScore = 50;
+        if (p.year_built >= 2015) ageScore = 100;
+        else if (p.year_built >= 2000) ageScore = 85 + Math.round((p.year_built - 2000));
+        else if (p.year_built >= 1980) ageScore = 65 + Math.round((p.year_built - 1980));
+        else ageScore = Math.max(30, 40 + Math.round((p.year_built - 1940) / 2));
+        ageScore = Math.min(100, ageScore);
+
+        // Weighted composite deal score
+        const dealScore = Math.round(
+            (priceScore * 0.35) +
+            (lotScore * 0.20) +
+            (hoaScore * 0.15) +
+            (spaceScore * 0.15) +
+            (garageScore * 0.10) +
+            (ageScore * 0.05)
+        );
+
+        // Factual Deal Narrative
+        const ppsqftText = ppsqftPct > 0 
+            ? `priced ${ppsqftPct}% below the ${p.city} median ($${cityMedPpsqft}/sqft)` 
+            : `priced at $${ppsqft}/sqft in ${p.city}`;
+        const lotText = acres >= 0.2 ? `a substantial ${acres.toFixed(2)}-acre (${p.lot_sqft.toLocaleString()} sqft) parcel` : `a ${p.lot_sqft.toLocaleString()} sqft lot`;
+        const hoaText = p.hoa === 0 ? `zero monthly HOA dues ($0)` : `low $${p.hoa}/mo HOA`;
+        const garageText = p.garage >= 2 ? `a ${p.garage}-car garage` : `${p.garage} garage space`;
+
+        const narrative = `This ${p.city} property offers ${p.sqft.toLocaleString()} sqft ${ppsqftText}, paired with ${lotText}, ${hoaText}, and ${garageText}. It yields an estimated market value advantage of ~$${Math.abs(estDollarSavings).toLocaleString()}.`;
+
+        let grade = "C";
+        let gradeLabel = "Fair Value";
+        if (dealScore >= 90) { grade = "A+"; gradeLabel = "Exceptional Value (Top 5% in WA)"; }
+        else if (dealScore >= 82) { grade = "A"; gradeLabel = "Strong Value Find"; }
+        else if (dealScore >= 74) { grade = "B+"; gradeLabel = "Above Average Value"; }
+        else if (dealScore >= 65) { grade = "B"; gradeLabel = "Market Parity"; }
+
+        return {
+            dealScore,
+            grade,
+            gradeLabel,
+            ppsqft,
+            cityMedPpsqft,
+            ppsqftDiff,
+            ppsqftPct,
+            estDollarSavings,
+            acres,
+            factors: {
+                price: { label: "$/SqFt Advantage", score: priceScore, desc: `${ppsqftPct > 0 ? '-' + ppsqftPct + '%' : '+' + Math.abs(ppsqftPct) + '%'} vs median` },
+                lot: { label: "Lot & Acreage Space", score: lotScore, desc: `${acres.toFixed(2)} Acres (${p.lot_sqft.toLocaleString()} sf)` },
+                hoa: { label: "Carrying Cost Efficiency", score: hoaScore, desc: p.hoa === 0 ? '$0 HOA' : `$${p.hoa}/mo` },
+                space: { label: "Living Area Usability", score: spaceScore, desc: `${p.sqft.toLocaleString()} SqFt` },
+                garage: { label: "Garage & Workshop", score: garageScore, desc: `${p.garage}-Car Garage` },
+                age: { label: "Construction & Era", score: ageScore, desc: `Built ${p.year_built}` }
+            },
+            narrative
+        };
+    }
+
     function calculateEstimatedMonthly(price, hoa = 0, customDownPct = null) {
         const downPct = customDownPct !== null ? customDownPct : mortgageAssumptions.downPct;
         const downAmount = price * (downPct / 100);
@@ -880,6 +1003,8 @@ document.addEventListener('DOMContentLoaded', () => {
         updateMapMarkers(filteredProperties);
         renderActiveFilterTags();
         updateHeaderAndMarketStats();
+        if (activeView === 'deals') renderDealsView();
+        if (activeView === 'analytics') renderAnalytics();
         syncStateToUrl();
     }
 
@@ -947,6 +1072,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const isCompared = comparisonSet.has(p.id);
             const scoreVal = p._score ? p._score.total : 80;
             const signals = calculateValueSignals(p);
+            const dealEval = computeExecutiveDealEvaluation(p);
+            const isTopDeal = dealEval && dealEval.dealScore >= 85;
 
             // Stars HTML
             let starsHtml = '';
@@ -968,6 +1095,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <img src="${currentPhoto}" alt="${p.address}" class="card-img" id="img-${p.id}" loading="lazy" onerror="this.src='https://images.unsplash.com/photo-1570129477492-45c003edd2be?auto=format&fit=crop&w=800&q=80'">
                     <div class="card-media-tags-top">
                         <span class="card-city-badge">${p.city}, WA</span>
+                        ${isTopDeal ? `<span class="card-deal-badge" title="${dealEval.gradeLabel}">💎 TOP DEAL</span>` : ''}
                     </div>
                     <span class="card-score-badge mono" title="Smart Shortlist Score: ${scoreVal}/100">Score ${scoreVal}</span>
                     
@@ -1351,6 +1479,34 @@ document.addEventListener('DOMContentLoaded', () => {
             span.textContent = s.label;
             drawerSignalsList.appendChild(span);
         });
+
+        // Executive Deal & Comprehensive Valuation Card
+        const dealEval = computeExecutiveDealEvaluation(prop);
+        if (drawerDealEvalCard && dealEval) {
+            if (drawerDealGradeText) drawerDealGradeText.textContent = dealEval.gradeLabel.toUpperCase();
+            if (drawerDealScoreBadge) drawerDealScoreBadge.textContent = `Deal Score: ${dealEval.dealScore}/100`;
+            if (drawerDealSummaryBox) drawerDealSummaryBox.textContent = dealEval.narrative;
+            if (drawerDealMetricsGrid) {
+                drawerDealMetricsGrid.innerHTML = `
+                    <div class="deal-metric-cell">
+                        <span class="dmc-label">$/SqFt Delta</span>
+                        <strong class="dmc-val ${dealEval.ppsqftPct > 0 ? 'good' : ''} mono">${dealEval.ppsqftPct > 0 ? '↓ ' + dealEval.ppsqftPct + '% vs median' : 'At median'}</strong>
+                    </div>
+                    <div class="deal-metric-cell">
+                        <span class="dmc-label">Est. Value Advantage</span>
+                        <strong class="dmc-val ${dealEval.estDollarSavings > 0 ? 'good' : ''} mono">${dealEval.estDollarSavings > 0 ? '+$' + dealEval.estDollarSavings.toLocaleString() : 'Parity'}</strong>
+                    </div>
+                    <div class="deal-metric-cell">
+                        <span class="dmc-label">Lot &amp; Acreage</span>
+                        <strong class="dmc-val good mono">${dealEval.acres.toFixed(2)} Ac (${dealEval.factors.lot.score}/100)</strong>
+                    </div>
+                    <div class="deal-metric-cell">
+                        <span class="dmc-label">Carrying Dues</span>
+                        <strong class="dmc-val good mono">${prop.hoa === 0 ? '$0 HOA' : '$' + prop.hoa + '/mo'}</strong>
+                    </div>
+                `;
+            }
+        }
 
         // Smart Score
         const scoreObj = computeSmartScore(prop);
@@ -2248,17 +2404,181 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // -------------------------------------------------------------------------
+    // Top Value Deals & Excellent Finds Workstation View
+    // -------------------------------------------------------------------------
+    let currentDealCityFilter = 'all';
+
+    function renderDealsView(cityFilter = currentDealCityFilter) {
+        currentDealCityFilter = cityFilter;
+        if (!dealsEvaluationGrid) return;
+
+        // Filter properties based on current global filters + deal city filter
+        let candidates = filteredProperties.length ? filteredProperties : allProperties;
+        if (cityFilter !== 'all') {
+            candidates = candidates.filter(p => p.city.toLowerCase() === cityFilter.toLowerCase());
+        }
+
+        // Evaluate all candidates
+        const evaluated = candidates.map(p => ({
+            property: p,
+            eval: computeExecutiveDealEvaluation(p)
+        }));
+
+        // Sort by dealScore descending
+        evaluated.sort((a, b) => b.eval.dealScore - a.eval.dealScore);
+
+        // Limit to top 24 best deals
+        const topDeals = evaluated.slice(0, 24);
+
+        // Calculate Summary Stats
+        if (dealsTotalCount) dealsTotalCount.textContent = topDeals.length;
+        if (topDeals.length > 0) {
+            const avgDiscount = Math.round(topDeals.reduce((sum, d) => sum + Math.max(0, d.eval.ppsqftPct), 0) / topDeals.length);
+            const avgSavings = Math.round(topDeals.reduce((sum, d) => sum + Math.max(0, d.eval.estDollarSavings), 0) / topDeals.length);
+            if (dealsAvgDiscount) dealsAvgDiscount.textContent = `${avgDiscount}%`;
+            if (dealsAvgDollarSavings) dealsAvgDollarSavings.textContent = `~$${avgSavings.toLocaleString()}`;
+            
+            const cityCounts = {};
+            topDeals.forEach(d => {
+                const c = d.property.city;
+                cityCounts[c] = (cityCounts[c] || 0) + 1;
+            });
+            const topC = Object.entries(cityCounts).sort((a, b) => b[1] - a[1])[0];
+            if (dealsTopCity && topC) dealsTopCity.textContent = `${topC[0]} (${topC[1]} deals)`;
+        }
+
+        // Render Cards Grid
+        dealsEvaluationGrid.innerHTML = '';
+        const fragment = document.createDocumentFragment();
+
+        topDeals.forEach((item, index) => {
+            const p = item.property;
+            const ev = item.eval;
+            const primaryPhoto = (p.photos && p.photos.length) ? p.photos[0] : 'https://images.unsplash.com/photo-1570129477492-45c003edd2be?auto=format&fit=crop&w=800&q=80';
+            const estMonthly = calculateEstimatedMonthly(p.price, p.hoa);
+
+            const card = document.createElement('div');
+            card.className = 'deal-eval-card-item';
+            card.innerHTML = `
+                <div class="deal-card-top">
+                    <div class="deal-thumb-box">
+                        <img src="${primaryPhoto}" alt="${p.address}" loading="lazy" onerror="this.src='https://images.unsplash.com/photo-1568605117036-5fe5e7bab0b7?auto=format&fit=crop&w=400&q=75'">
+                        <span class="deal-rank-badge">#${index + 1} TOP VALUE</span>
+                    </div>
+                    <div class="deal-top-info">
+                        <div class="deal-price-line">
+                            <span class="deal-card-price mono">$${p.price.toLocaleString()}</span>
+                            <span class="deal-card-monthly mono">~$${estMonthly.total.toLocaleString()}/mo</span>
+                        </div>
+                        <span class="deal-card-addr" title="${p.address}">${p.address}</span>
+                        <span class="deal-card-sub">${p.city}, WA ${p.zip || ''}</span>
+                        <div class="deal-card-specs-row mono">
+                            <span>${p.beds}b / ${p.baths}ba</span>
+                            <span>•</span>
+                            <span>${p.sqft.toLocaleString()} sqft</span>
+                            <span>•</span>
+                            <span>${p.garage} Car</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="deal-card-body">
+                    <div class="deal-verdict-banner">
+                        <div class="deal-verdict-title">
+                            <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><polygon points="6 2 18 2 22 8 12 22 2 8 6 2"></polygon></svg>
+                            <span>${ev.gradeLabel}</span>
+                        </div>
+                        <span class="deal-score-pill mono">Deal Score: ${ev.dealScore}/100</span>
+                    </div>
+
+                    <div class="deal-savings-highlight-row">
+                        <div class="savings-block">
+                            <span class="savings-label">$/SqFt vs ${p.city} Median</span>
+                            <span class="savings-val mono">${ev.ppsqftPct > 0 ? '↓ ' + ev.ppsqftPct + '% below median' : 'At median'} ($${ev.ppsqft}/sf)</span>
+                        </div>
+                        <div class="savings-block">
+                            <span class="savings-label">Est. Value Advantage</span>
+                            <span class="savings-val mono">${ev.estDollarSavings > 0 ? '+$' + ev.estDollarSavings.toLocaleString() + ' Value' : 'Parity'}</span>
+                        </div>
+                    </div>
+
+                    <div class="deal-factor-bars-list">
+                        <div class="deal-bar-row">
+                            <div class="deal-bar-labels">
+                                <span>$/SqFt Advantage ($${ev.ppsqft}/sf vs $${ev.cityMedPpsqft}/sf)</span>
+                                <span class="mono">${ev.factors.price.score}/100</span>
+                            </div>
+                            <div class="deal-bar-track">
+                                <div class="deal-bar-fill" style="width: ${ev.factors.price.score}%"></div>
+                            </div>
+                        </div>
+                        <div class="deal-bar-row">
+                            <div class="deal-bar-labels">
+                                <span>Lot &amp; Land Value (${ev.acres.toFixed(2)} Ac / ${p.lot_sqft.toLocaleString()} sf)</span>
+                                <span class="mono">${ev.factors.lot.score}/100</span>
+                            </div>
+                            <div class="deal-bar-track">
+                                <div class="deal-bar-fill" style="width: ${ev.factors.lot.score}%"></div>
+                            </div>
+                        </div>
+                        <div class="deal-bar-row">
+                            <div class="deal-bar-labels">
+                                <span>Carrying Cost Savings (${p.hoa === 0 ? '$0 HOA' : '$' + p.hoa + '/mo'})</span>
+                                <span class="mono">${ev.factors.hoa.score}/100</span>
+                            </div>
+                            <div class="deal-bar-track">
+                                <div class="deal-bar-fill" style="width: ${ev.factors.hoa.score}%"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <p class="deal-narrative-text">${ev.narrative}</p>
+                </div>
+
+                <div class="deal-card-footer">
+                    <label class="compare-checkbox-label">
+                        <input type="checkbox" class="compare-check" data-id="${p.id}" ${comparisonSet.has(p.id) ? 'checked' : ''}>
+                        <span>Compare</span>
+                    </label>
+                    <button class="btn btn-primary btn-sm deal-open-drawer-btn" data-id="${p.id}">
+                        Full Evaluation &rarr;
+                    </button>
+                </div>
+            `;
+
+            card.querySelector('.deal-open-drawer-btn').addEventListener('click', () => {
+                openPropertyDrawer(p.id);
+            });
+
+            card.querySelector('.compare-check').addEventListener('change', (e) => {
+                toggleComparison(p.id, e.target.checked);
+            });
+
+            fragment.appendChild(card);
+        });
+
+        dealsEvaluationGrid.appendChild(fragment);
+    }
+
+    // -------------------------------------------------------------------------
     // View Switcher
     // -------------------------------------------------------------------------
     function setViewMode(mode) {
         activeView = mode;
-        [viewTabSplit, viewTabGrid, viewTabMap, viewTabAnalytics].forEach(btn => btn.classList.remove('active'));
+        [viewTabSplit, viewTabGrid, viewTabMap, viewTabDeals, viewTabAnalytics].filter(Boolean).forEach(btn => btn.classList.remove('active'));
         workspaceViewport.className = `workspace-viewport view-${mode}`;
 
-        if (mode === 'split') viewTabSplit.classList.add('active');
-        if (mode === 'grid') viewTabGrid.classList.add('active');
-        if (mode === 'map') viewTabMap.classList.add('active');
-        if (mode === 'analytics') viewTabAnalytics.classList.add('active');
+        if (mode === 'split' && viewTabSplit) viewTabSplit.classList.add('active');
+        if (mode === 'grid' && viewTabGrid) viewTabGrid.classList.add('active');
+        if (mode === 'map' && viewTabMap) viewTabMap.classList.add('active');
+        if (mode === 'deals' && viewTabDeals) {
+            viewTabDeals.classList.add('active');
+            renderDealsView();
+        }
+        if (mode === 'analytics' && viewTabAnalytics) {
+            viewTabAnalytics.classList.add('active');
+            renderAnalytics();
+        }
 
         if (map && (mode === 'split' || mode === 'map')) {
             setTimeout(() => map.invalidateSize(), 150);
@@ -2746,7 +3066,20 @@ document.addEventListener('DOMContentLoaded', () => {
         viewTabSplit.addEventListener('click', () => setViewMode('split'));
         viewTabGrid.addEventListener('click', () => setViewMode('grid'));
         viewTabMap.addEventListener('click', () => setViewMode('map'));
+        if (viewTabDeals) viewTabDeals.addEventListener('click', () => setViewMode('deals'));
         viewTabAnalytics.addEventListener('click', () => setViewMode('analytics'));
+
+        // Deals Area Filter Pills
+        if (dealsFilterPills) {
+            dealsFilterPills.querySelectorAll('.deal-pill').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    dealsFilterPills.querySelectorAll('.deal-pill').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    const city = btn.getAttribute('data-city') || 'all';
+                    renderDealsView(city);
+                });
+            });
+        }
 
         // Map Overlays
         mapBoundsFilterToggle.addEventListener('change', (e) => {

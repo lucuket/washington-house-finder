@@ -400,7 +400,15 @@
                                 </svg>
                                 <span>Map</span>
                             </button>
-                            <button class="view-tab-btn" data-view="analytics" title="Market Analytics (4)" id="view-tab-analytics" role="tab" aria-selected="false">
+                            <button class="view-tab-btn" data-view="deals" title="Top Value Deals & Excellent Finds (4)" id="view-tab-deals" role="tab" aria-selected="false">
+                                <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polygon points="6 2 18 2 22 8 12 22 2 8 6 2"></polygon>
+                                    <line x1="2" y1="8" x2="22" y2="8"></line>
+                                    <line x1="12" y1="22" x2="12" y2="8"></line>
+                                </svg>
+                                <span>Top Deals</span>
+                            </button>
+                            <button class="view-tab-btn" data-view="analytics" title="Market Analytics (5)" id="view-tab-analytics" role="tab" aria-selected="false">
                                 <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2">
                                     <line x1="18" y1="20" x2="18" y2="10"></line>
                                     <line x1="12" y1="20" x2="12" y2="4"></line>
@@ -471,6 +479,60 @@
                                     <span>WA State</span>
                                 </button>
                             </div>
+                        </div>
+                    </div>
+
+                    <!-- Top Value Deals & Excellent Finds Tab (Hidden by default) -->
+                    <div class="deals-view-wrapper hidden" id="deals-view-wrapper">
+                        <div class="deals-header-hero">
+                            <div class="deals-hero-content">
+                                <div class="deals-hero-badge">
+                                    <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><polygon points="6 2 18 2 22 8 12 22 2 8 6 2"></polygon></svg>
+                                    <span>EXECUTIVE VALUE REPORT</span>
+                                </div>
+                                <h2>Washington State Excellent Finds &amp; Top Value Deals</h2>
+                                <p>Algorithmic valuation scoring across $/sqft discounts vs local city medians, acreage value, zero-HOA carrying savings, and living space efficiency.</p>
+                            </div>
+
+                            <!-- Deals Metric Summary Bar -->
+                            <div class="deals-metric-summary-bar">
+                                <div class="deal-stat-block">
+                                    <span class="d-stat-label">Top Deals Evaluated</span>
+                                    <strong class="d-stat-val mono" id="deals-total-count">0</strong>
+                                </div>
+                                <div class="deal-stat-block">
+                                    <span class="d-stat-label">Avg $/SqFt Savings</span>
+                                    <strong class="d-stat-val highlight mono" id="deals-avg-discount">0%</strong>
+                                </div>
+                                <div class="deal-stat-block">
+                                    <span class="d-stat-label">Avg Market Delta</span>
+                                    <strong class="d-stat-val emerald mono" id="deals-avg-dollar-savings">-$0</strong>
+                                </div>
+                                <div class="deal-stat-block">
+                                    <span class="d-stat-label">Top Deal Metros</span>
+                                    <strong class="d-stat-val mono" id="deals-top-city">Everett / Marysville</strong>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- City Filter Bar for Deals -->
+                        <div class="deals-region-filter-bar">
+                            <span class="deals-filter-label">Filter Deals by Area:</span>
+                            <div class="deals-filter-pills" id="deals-filter-pills">
+                                <button class="deal-pill active" data-city="all">All WA Deals</button>
+                                <button class="deal-pill" data-city="Everett">Everett</button>
+                                <button class="deal-pill" data-city="Marysville">Marysville</button>
+                                <button class="deal-pill" data-city="Lynnwood">Lynnwood</button>
+                                <button class="deal-pill" data-city="Lake Stevens">Lake Stevens</button>
+                                <button class="deal-pill" data-city="Snohomish">Snohomish</button>
+                                <button class="deal-pill" data-city="Spokane">Spokane</button>
+                                <button class="deal-pill" data-city="Tri-Cities">Tri-Cities</button>
+                            </div>
+                        </div>
+
+                        <!-- Deals Comprehensive Evaluation Grid -->
+                        <div class="deals-evaluation-grid" id="deals-evaluation-grid">
+                            <!-- Populated dynamically via app.js -->
                         </div>
                     </div>
 
@@ -621,6 +683,25 @@
                     </div>
                     <div class="drawer-signals-list" id="drawer-signals-list">
                         <!-- Value signal tags injected here -->
+                    </div>
+                </div>
+
+                <!-- Executive Deal & Comprehensive Valuation Card -->
+                <div class="drawer-section-card deal-eval-card" id="drawer-deal-eval-card">
+                    <div class="deal-eval-header">
+                        <div class="deal-eval-badge-pill">
+                            <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><polygon points="6 2 18 2 22 8 12 22 2 8 6 2"></polygon></svg>
+                            <span id="drawer-deal-grade-text">TOP VALUE EVALUATION</span>
+                        </div>
+                        <span class="deal-eval-score-badge mono" id="drawer-deal-score-badge">Deal Score: 92/100</span>
+                    </div>
+
+                    <div class="deal-eval-summary-box" id="drawer-deal-summary-box">
+                        <!-- Concrete synthesized valuation text -->
+                    </div>
+
+                    <div class="deal-eval-metrics-grid" id="drawer-deal-metrics-grid">
+                        <!-- Dynamic deal radar metrics -->
                     </div>
                 </div>
 
