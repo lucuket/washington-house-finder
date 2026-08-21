@@ -3096,3 +3096,403 @@ body.density-compact .card-price {
     letter-spacing: 0.03em;
     z-index: 5;
 }
+
+/* ==========================================================================
+   Mobile & iPhone Optimization (iOS Safari, Touch Targets, Responsive Layout)
+   ========================================================================== */
+
+.mobile-filter-btn {
+    display: none;
+}
+
+.mobile-sidebar-close-btn {
+    display: none;
+}
+
+.mobile-bottom-nav {
+    display: none;
+}
+
+@media (max-width: 768px) {
+    /* Safe Area & Layout */
+    html, body {
+        height: 100%;
+        overflow: hidden;
+        -webkit-text-size-adjust: 100%;
+    }
+
+    .app-layout-wrapper {
+        height: 100dvh;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+    }
+
+    /* Header adjustments */
+    .app-topbar {
+        height: 52px;
+        padding: 0 12px;
+        flex-shrink: 0;
+    }
+
+    .topbar-left {
+        gap: 8px;
+    }
+
+    .brand-tagline {
+        display: none;
+    }
+
+    .app-title {
+        font-size: 14px;
+    }
+
+    .brand-badge {
+        width: 28px;
+        height: 28px;
+    }
+
+    .topbar-stats {
+        gap: 4px;
+    }
+
+    .stat-pill {
+        padding: 3px 6px;
+        font-size: 10.5px;
+    }
+
+    .stat-pill .stat-label {
+        display: none;
+    }
+
+    .topbar-actions .cmd-palette-trigger,
+    .topbar-actions #btn-density-toggle,
+    .topbar-actions #btn-open-scoring,
+    .topbar-actions #btn-export-csv,
+    .topbar-actions #btn-open-scraper {
+        display: none;
+    }
+
+    .mobile-filter-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 5px 10px;
+        font-size: 11.5px;
+        font-weight: 700;
+    }
+
+    /* Mobile Off-Canvas Sidebar */
+    .sidebar-backdrop {
+        position: fixed;
+        inset: 0;
+        background-color: rgba(15, 23, 42, 0.6);
+        backdrop-filter: blur(2px);
+        z-index: 2000;
+        display: block;
+    }
+
+    .sidebar-backdrop.hidden {
+        display: none;
+    }
+
+    .app-sidebar {
+        position: fixed;
+        top: 0;
+        left: 0;
+        bottom: 0;
+        width: 86vw;
+        max-width: 340px;
+        height: 100dvh;
+        z-index: 2001;
+        transform: translateX(-100%);
+        transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+        box-shadow: 4px 0 24px rgba(0, 0, 0, 0.25);
+        background-color: var(--bg-surface);
+        display: flex;
+        flex-direction: column;
+    }
+
+    .app-sidebar.mobile-open {
+        transform: translateX(0);
+    }
+
+    .sidebar-header {
+        padding: 12px 14px;
+    }
+
+    .sidebar-header-right {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .mobile-sidebar-close-btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 32px;
+        height: 32px;
+        border-radius: var(--radius-md);
+        background-color: var(--bg-surface-secondary);
+        border: 1px solid var(--border-subtle);
+        color: var(--text-primary);
+        font-size: 20px;
+        cursor: pointer;
+        line-height: 1;
+    }
+
+    .sidebar-content {
+        padding: 14px;
+        gap: 14px;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+        padding-bottom: calc(30px + env(safe-area-inset-bottom, 0px));
+    }
+
+    /* Main Body & Workspace */
+    .app-body {
+        flex: 1;
+        height: calc(100dvh - 52px - 56px);
+        overflow: hidden;
+        position: relative;
+    }
+
+    .workspace-toolbar {
+        padding: 6px 12px;
+        height: auto;
+        min-height: 40px;
+        gap: 6px;
+    }
+
+    .workspace-toolbar-left h2 {
+        font-size: 13px;
+    }
+
+    .workspace-toolbar-right .view-mode-tabs {
+        display: none;
+    }
+
+    .workspace-toolbar-right .sort-wrapper label {
+        display: none;
+    }
+
+    .workspace-toolbar-right .form-select-sm {
+        padding: 3px 6px;
+        font-size: 11px;
+    }
+
+    /* Workspace Viewport */
+    .workspace-viewport {
+        height: calc(100% - 40px);
+        width: 100%;
+        display: block;
+        position: relative;
+    }
+
+    /* Split View on Mobile: Stacks cleanly */
+    .workspace-viewport.view-split {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .workspace-viewport.view-split .cards-container-wrapper {
+        flex: 1 1 60%;
+        max-width: 100%;
+        min-width: 100%;
+        height: auto;
+        padding: 10px;
+        border-right: none;
+    }
+
+    .workspace-viewport.view-split .map-container-wrapper {
+        flex: 0 0 40%;
+        min-height: 200px;
+        max-height: 35vh;
+        width: 100%;
+        border-bottom: 1px solid var(--border-subtle);
+        order: -1;
+    }
+
+    /* Grid View on Mobile */
+    .workspace-viewport.view-grid .cards-container-wrapper {
+        padding: 10px;
+        height: 100%;
+        width: 100%;
+    }
+
+    .cards-grid {
+        grid-template-columns: 1fr;
+        gap: 12px;
+    }
+
+    .property-card {
+        width: 100%;
+    }
+
+    .card-media {
+        height: 200px;
+    }
+
+    /* Map View on Mobile */
+    .workspace-viewport.view-map .map-container-wrapper {
+        height: 100%;
+        width: 100%;
+    }
+
+    .map-overlay-bar {
+        top: 6px;
+        left: 6px;
+        right: 6px;
+        gap: 4px;
+    }
+
+    .map-region-pills {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        max-width: 100%;
+        padding: 2px;
+    }
+
+    .map-region-pill {
+        padding: 3px 7px;
+        font-size: 10px;
+        flex-shrink: 0;
+    }
+
+    .map-quick-actions {
+        padding: 2px 6px;
+    }
+
+    .btn-map-action span {
+        display: none;
+    }
+
+    /* Deals View on Mobile */
+    .workspace-viewport.view-deals .deals-view-wrapper {
+        padding: 12px;
+    }
+
+    .deals-header-hero {
+        padding: 16px;
+        gap: 12px;
+    }
+
+    .deals-hero-content h2 {
+        font-size: 17px;
+    }
+
+    .deals-metric-summary-bar {
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+    }
+
+    .deals-evaluation-grid {
+        grid-template-columns: 1fr;
+        gap: 14px;
+    }
+
+    .deal-card-top {
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .deal-thumb-box {
+        width: 100%;
+        height: 160px;
+    }
+
+    /* Mobile Bottom Navigation Bar */
+    .mobile-bottom-nav {
+        display: flex;
+        align-items: center;
+        justify-content: space-around;
+        height: 56px;
+        padding-bottom: env(safe-area-inset-bottom, 0px);
+        background: #ffffff;
+        border-top: 1px solid var(--border-medium);
+        position: sticky;
+        bottom: 0;
+        z-index: 1000;
+        box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.05);
+        flex-shrink: 0;
+    }
+
+    .mobile-nav-item {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 2px;
+        font-size: 10px;
+        font-weight: 700;
+        color: var(--text-muted);
+        background: none;
+        border: none;
+        flex: 1;
+        height: 100%;
+        cursor: pointer;
+        padding: 4px 0;
+    }
+
+    .mobile-nav-item.active {
+        color: var(--brand-primary);
+    }
+
+    .mobile-nav-item:active {
+        transform: scale(0.95);
+    }
+
+    /* Property Detail Drawer on Mobile / iPhone */
+    .property-detail-drawer {
+        z-index: 2500;
+    }
+
+    .property-detail-drawer .drawer-panel {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        width: 100vw;
+        max-width: 100vw;
+        height: 100dvh;
+        border-radius: 0;
+        box-shadow: none;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .drawer-header {
+        padding: 10px 14px;
+        flex-shrink: 0;
+    }
+
+    .drawer-body {
+        padding: 12px 14px calc(28px + env(safe-area-inset-bottom, 0px));
+        gap: 14px;
+    }
+
+    .drawer-gallery-stage {
+        height: 220px;
+    }
+
+    .drawer-specs-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .deal-eval-metrics-grid {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    /* Lightbox & Comparison on iPhone */
+    .lightbox-image-stage {
+        height: 60vh;
+    }
+
+    .comparison-modal-card {
+        width: 96vw;
+        max-height: 90dvh;
+        padding: 14px;
+    }
+}

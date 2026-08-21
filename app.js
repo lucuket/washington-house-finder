@@ -274,6 +274,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const toastContainer = document.getElementById('toast-container');
 
+    // Mobile & iPhone Controls
+    const btnMobileFilters = document.getElementById('btn-mobile-filters');
+    const btnMobileSidebarClose = document.getElementById('btn-mobile-sidebar-close');
+    const sidebarBackdrop = document.getElementById('sidebar-backdrop');
+    const mobNavSplit = document.getElementById('mob-nav-split');
+    const mobNavGrid = document.getElementById('mob-nav-grid');
+    const mobNavMap = document.getElementById('mob-nav-map');
+    const mobNavDeals = document.getElementById('mob-nav-deals');
+    const mobNavFilters = document.getElementById('mob-nav-filters');
+
     // -------------------------------------------------------------------------
     // -------------------------------------------------------------------------
     // Leaflet GIS Mapping (Strictly Locked to Washington State)
@@ -2551,6 +2561,19 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // -------------------------------------------------------------------------
+    // Mobile Off-Canvas Drawer Control
+    // -------------------------------------------------------------------------
+    function openMobileSidebar() {
+        if (appSidebar) appSidebar.classList.add('mobile-open');
+        if (sidebarBackdrop) sidebarBackdrop.classList.remove('hidden');
+    }
+
+    function closeMobileSidebar() {
+        if (appSidebar) appSidebar.classList.remove('mobile-open');
+        if (sidebarBackdrop) sidebarBackdrop.classList.add('hidden');
+    }
+
+    // -------------------------------------------------------------------------
     // View Switcher
     // -------------------------------------------------------------------------
     function setViewMode(mode) {
@@ -2569,6 +2592,17 @@ document.addEventListener('DOMContentLoaded', () => {
             viewTabAnalytics.classList.add('active');
             renderAnalytics();
         }
+
+        // Sync Mobile Bottom Navigation Tabs
+        const mobButtons = [
+            { id: 'split', el: mobNavSplit },
+            { id: 'grid', el: mobNavGrid },
+            { id: 'map', el: mobNavMap },
+            { id: 'deals', el: mobNavDeals }
+        ];
+        mobButtons.forEach(b => {
+            if (b.el) b.el.classList.toggle('active', b.id === mode);
+        });
 
         if (map && (mode === 'split' || mode === 'map')) {
             setTimeout(() => map.invalidateSize(), 150);
@@ -3211,6 +3245,17 @@ document.addEventListener('DOMContentLoaded', () => {
             if (e.key === '3') setViewMode('map');
             if (e.key === '4') setViewMode('analytics');
         });
+
+        // Mobile & iPhone Navigation & Drawer Handlers
+        if (btnMobileFilters) btnMobileFilters.addEventListener('click', openMobileSidebar);
+        if (btnMobileSidebarClose) btnMobileSidebarClose.addEventListener('click', closeMobileSidebar);
+        if (sidebarBackdrop) sidebarBackdrop.addEventListener('click', closeMobileSidebar);
+        if (mobNavFilters) mobNavFilters.addEventListener('click', openMobileSidebar);
+
+        if (mobNavSplit) mobNavSplit.addEventListener('click', () => setViewMode('split'));
+        if (mobNavGrid) mobNavGrid.addEventListener('click', () => setViewMode('grid'));
+        if (mobNavMap) mobNavMap.addEventListener('click', () => setViewMode('map'));
+        if (mobNavDeals) mobNavDeals.addEventListener('click', () => setViewMode('deals'));
     }
 
     // -------------------------------------------------------------------------
