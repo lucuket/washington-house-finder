@@ -326,14 +326,14 @@ document.addEventListener('DOMContentLoaded', () => {
         const mapElement = document.getElementById('leaflet-map');
         if (!mapElement) return;
 
-        // Centered over Washington State with smooth, unclipped view
+        // Centered strictly over Washington State with tight, responsive focus
         map = L.map('leaflet-map', {
-            center: [47.35, -120.4],
-            zoom: 7,
-            minZoom: 5.5,
+            center: [47.45, -120.5],
+            zoom: 7.2,
+            minZoom: 6.5,
             maxZoom: 18,
-            maxBounds: L.latLngBounds([43.5, -128.5], [51.0, -113.0]),
-            maxBoundsViscosity: 0.2,
+            maxBounds: L.latLngBounds([44.8, -126.0], [49.8, -116.0]),
+            maxBoundsViscosity: 0.85,
             zoomControl: false,
             attributionControl: false
         });
@@ -379,7 +379,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
-        map.fitBounds(WA_BOUNDS, { padding: [20, 20] });
+        map.fitBounds(WA_BOUNDS, { padding: [15, 15] });
 
         // Ensure map renders properly after DOM paint
         setTimeout(() => {
@@ -397,14 +397,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 e.stopPropagation();
                 regionPills.forEach(p => p.classList.remove('active'));
                 pill.classList.add('active');
+
                 const reg = pill.getAttribute('data-region');
-                if (reg && REGION_BOUNDS[reg]) {
+                if (reg === 'all') {
+                    resetWashingtonView();
+                } else if (reg && REGION_BOUNDS[reg]) {
                     const { center, zoom } = REGION_BOUNDS[reg];
-                    if (reg === 'all') {
-                        map.fitBounds(WA_BOUNDS, { padding: [15, 15] });
-                    } else {
-                        map.setView(center, zoom, { animate: true });
-                    }
+                    map.flyTo(center, zoom, { duration: 0.8 });
                 }
             });
         });
@@ -2879,27 +2878,33 @@ document.addEventListener('DOMContentLoaded', () => {
     // -------------------------------------------------------------------------
     function setupEventListeners() {
         // Search Input
-        searchInput.addEventListener('input', (e) => {
-            const val = e.target.value;
-            filterState.search = val;
-            clearSearchBtn.classList.toggle('hidden', !val);
+        if (searchInput) {
+            searchInput.addEventListener('input', (e) => {
+                const val = e.target.value;
+                filterState.search = val;
+                if (clearSearchBtn) clearSearchBtn.classList.toggle('hidden', !val);
 
-            clearTimeout(searchDebounceTimer);
-            searchDebounceTimer = setTimeout(applyFilters, 150);
-        });
+                clearTimeout(searchDebounceTimer);
+                searchDebounceTimer = setTimeout(applyFilters, 150);
+            });
+        }
 
-        clearSearchBtn.addEventListener('click', () => {
-            searchInput.value = '';
-            filterState.search = '';
-            clearSearchBtn.classList.add('hidden');
-            applyFilters();
-        });
+        if (clearSearchBtn) {
+            clearSearchBtn.addEventListener('click', () => {
+                if (searchInput) searchInput.value = '';
+                filterState.search = '';
+                clearSearchBtn.classList.add('hidden');
+                applyFilters();
+            });
+        }
 
         // City Selector
-        citySelect.addEventListener('change', (e) => {
-            filterState.city = e.target.value;
-            applyFilters();
-        });
+        if (citySelect) {
+            citySelect.addEventListener('change', (e) => {
+                filterState.city = e.target.value;
+                applyFilters();
+            });
+        }
 
         let sliderDebounceTimer = null;
         function triggerFilterDebounced(delay = 40) {
@@ -2910,234 +2915,272 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // Price Dual Sliders
-        priceMinSlider.addEventListener('input', () => {
-            let min = parseInt(priceMinSlider.value, 10);
-            let max = parseInt(priceMaxSlider.value, 10);
-            if (min > max - 10000) {
-                min = max - 10000;
-                priceMinSlider.value = min;
-            }
-            filterState.minPrice = min;
-            priceRangeDisplay.textContent = `$${Math.round(min/1000)}k – $${Math.round(max/1000)}k`;
-            triggerFilterDebounced(40);
-        });
-        priceMinSlider.addEventListener('change', applyFilters);
+        if (priceMinSlider) {
+            priceMinSlider.addEventListener('input', () => {
+                let min = parseInt(priceMinSlider.value, 10);
+                let max = parseInt(priceMaxSlider.value, 10);
+                if (min > max - 10000) {
+                    min = max - 10000;
+                    priceMinSlider.value = min;
+                }
+                filterState.minPrice = min;
+                if (priceRangeDisplay) priceRangeDisplay.textContent = `$${Math.round(min/1000)}k – $${Math.round(max/1000)}k`;
+                triggerFilterDebounced(40);
+            });
+            priceMinSlider.addEventListener('change', applyFilters);
+        }
 
-        priceMaxSlider.addEventListener('input', () => {
-            let min = parseInt(priceMinSlider.value, 10);
-            let max = parseInt(priceMaxSlider.value, 10);
-            if (max < min + 10000) {
-                max = min + 10000;
-                priceMaxSlider.value = max;
-            }
-            filterState.maxPrice = max;
-            priceRangeDisplay.textContent = `$${Math.round(min/1000)}k – $${Math.round(max/1000)}k`;
-            triggerFilterDebounced(40);
-        });
-        priceMaxSlider.addEventListener('change', applyFilters);
+        if (priceMaxSlider) {
+            priceMaxSlider.addEventListener('input', () => {
+                let min = parseInt(priceMinSlider.value, 10);
+                let max = parseInt(priceMaxSlider.value, 10);
+                if (max < min + 10000) {
+                    max = min + 10000;
+                    priceMaxSlider.value = max;
+                }
+                filterState.maxPrice = max;
+                if (priceRangeDisplay) priceRangeDisplay.textContent = `$${Math.round(min/1000)}k – $${Math.round(max/1000)}k`;
+                triggerFilterDebounced(40);
+            });
+            priceMaxSlider.addEventListener('change', applyFilters);
+        }
 
         // SqFt Dual Sliders
-        sqftMinSlider.addEventListener('input', () => {
-            let min = parseInt(sqftMinSlider.value, 10);
-            let max = parseInt(sqftMaxSlider.value, 10);
-            if (min > max - 100) {
-                min = max - 100;
-                sqftMinSlider.value = min;
-            }
-            filterState.minSqft = min;
-            sqftRangeDisplay.textContent = `${min.toLocaleString()} – ${max.toLocaleString()} sqft`;
-            triggerFilterDebounced(40);
-        });
-        sqftMinSlider.addEventListener('change', applyFilters);
+        if (sqftMinSlider) {
+            sqftMinSlider.addEventListener('input', () => {
+                let min = parseInt(sqftMinSlider.value, 10);
+                let max = parseInt(sqftMaxSlider.value, 10);
+                if (min > max - 100) {
+                    min = max - 100;
+                    sqftMinSlider.value = min;
+                }
+                filterState.minSqft = min;
+                if (sqftRangeDisplay) sqftRangeDisplay.textContent = `${min.toLocaleString()} – ${max.toLocaleString()} sqft`;
+                triggerFilterDebounced(40);
+            });
+            sqftMinSlider.addEventListener('change', applyFilters);
+        }
 
-        sqftMaxSlider.addEventListener('input', () => {
-            let min = parseInt(sqftMinSlider.value, 10);
-            let max = parseInt(sqftMaxSlider.value, 10);
-            if (max < min + 100) {
-                max = min + 100;
-                sqftMaxSlider.value = max;
-            }
-            filterState.maxSqft = max;
-            sqftRangeDisplay.textContent = `${min.toLocaleString()} – ${max.toLocaleString()} sqft`;
-            triggerFilterDebounced(40);
-        });
-        sqftMaxSlider.addEventListener('change', applyFilters);
+        if (sqftMaxSlider) {
+            sqftMaxSlider.addEventListener('input', () => {
+                let min = parseInt(sqftMinSlider.value, 10);
+                let max = parseInt(sqftMaxSlider.value, 10);
+                if (max < min + 100) {
+                    max = min + 100;
+                    sqftMaxSlider.value = max;
+                }
+                filterState.maxSqft = max;
+                if (sqftRangeDisplay) sqftRangeDisplay.textContent = `${min.toLocaleString()} – ${max.toLocaleString()} sqft`;
+                triggerFilterDebounced(40);
+            });
+            sqftMaxSlider.addEventListener('change', applyFilters);
+        }
 
         // Bedrooms Pills
-        bedsPillGroup.querySelectorAll('.pill-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                bedsPillGroup.querySelectorAll('.pill-btn').forEach(b => b.classList.remove('active'));
-                btn.classList.add('active');
-                filterState.minBeds = parseInt(btn.getAttribute('data-beds'), 10);
-                applyFilters();
+        if (bedsPillGroup) {
+            bedsPillGroup.querySelectorAll('.pill-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    bedsPillGroup.querySelectorAll('.pill-btn').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    filterState.minBeds = parseInt(btn.getAttribute('data-beds'), 10);
+                    applyFilters();
+                });
             });
-        });
+        }
 
         // Bathrooms Pills
-        bathsPillGroup.querySelectorAll('.pill-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                bathsPillGroup.querySelectorAll('.pill-btn').forEach(b => b.classList.remove('active'));
-                btn.classList.add('active');
-                filterState.minBaths = parseFloat(btn.getAttribute('data-baths'));
-                applyFilters();
+        if (bathsPillGroup) {
+            bathsPillGroup.querySelectorAll('.pill-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    bathsPillGroup.querySelectorAll('.pill-btn').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    filterState.minBaths = parseFloat(btn.getAttribute('data-baths'));
+                    applyFilters();
+                });
             });
-        });
+        }
 
         // Garage Pills
-        garagePillGroup.querySelectorAll('.pill-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                garagePillGroup.querySelectorAll('.pill-btn').forEach(b => b.classList.remove('active'));
-                btn.classList.add('active');
-                filterState.minGarage = parseInt(btn.getAttribute('data-garage'), 10);
-                applyFilters();
+        if (garagePillGroup) {
+            garagePillGroup.querySelectorAll('.pill-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    garagePillGroup.querySelectorAll('.pill-btn').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    filterState.minGarage = parseInt(btn.getAttribute('data-garage'), 10);
+                    applyFilters();
+                });
             });
-        });
+        }
 
         // HOA Slider
-        hoaSlider.addEventListener('input', () => {
-            const val = parseInt(hoaSlider.value, 10);
-            filterState.maxHoa = val;
-            hoaDisplay.textContent = val === 0 ? '$0/mo (No HOA)' : `≤ $${val}/mo`;
-            triggerFilterDebounced(40);
-        });
-        hoaSlider.addEventListener('change', applyFilters);
+        if (hoaSlider) {
+            hoaSlider.addEventListener('input', () => {
+                const val = parseInt(hoaSlider.value, 10);
+                filterState.maxHoa = val;
+                if (hoaDisplay) hoaDisplay.textContent = val === 0 ? '$0/mo (No HOA)' : `≤ $${val}/mo`;
+                triggerFilterDebounced(40);
+            });
+            hoaSlider.addEventListener('change', applyFilters);
+        }
 
         // Advanced Accordion Toggle
-        btnToggleAdvanced.addEventListener('click', () => {
-            const isHidden = advancedFiltersBody.classList.contains('hidden');
-            advancedFiltersBody.classList.toggle('hidden', !isHidden);
-            btnToggleAdvanced.setAttribute('aria-expanded', String(isHidden));
-        });
+        if (btnToggleAdvanced && advancedFiltersBody) {
+            btnToggleAdvanced.addEventListener('click', () => {
+                const isHidden = advancedFiltersBody.classList.contains('hidden');
+                advancedFiltersBody.classList.toggle('hidden', !isHidden);
+                btnToggleAdvanced.setAttribute('aria-expanded', String(isHidden));
+            });
+        }
 
         // Advanced: Lot Slider
-        lotSlider.addEventListener('input', () => {
-            const val = parseInt(lotSlider.value, 10);
-            filterState.minLot = val;
-            lotDisplay.textContent = `${val.toLocaleString()}+ sqft`;
-            triggerFilterDebounced(40);
-        });
-        lotSlider.addEventListener('change', applyFilters);
+        if (lotSlider) {
+            lotSlider.addEventListener('input', () => {
+                const val = parseInt(lotSlider.value, 10);
+                filterState.minLot = val;
+                if (lotDisplay) lotDisplay.textContent = `${val.toLocaleString()}+ sqft`;
+                triggerFilterDebounced(40);
+            });
+            lotSlider.addEventListener('change', applyFilters);
+        }
 
         // Advanced: Year Select
-        yearSelect.addEventListener('change', (e) => {
-            filterState.minYear = parseInt(e.target.value, 10);
-            applyFilters();
-        });
+        if (yearSelect) {
+            yearSelect.addEventListener('change', (e) => {
+                filterState.minYear = parseInt(e.target.value, 10);
+                applyFilters();
+            });
+        }
 
         // Advanced: Max $/sqft Slider
-        maxPpsqftSlider.addEventListener('input', () => {
-            const val = parseInt(maxPpsqftSlider.value, 10);
-            filterState.maxPpsqft = val;
-            maxPpsqftDisplay.textContent = val >= 500 ? 'No Limit' : `≤ $${val}/sqft`;
-            triggerFilterDebounced(40);
-        });
-        maxPpsqftSlider.addEventListener('change', applyFilters);
+        if (maxPpsqftSlider) {
+            maxPpsqftSlider.addEventListener('input', () => {
+                const val = parseInt(maxPpsqftSlider.value, 10);
+                filterState.maxPpsqft = val;
+                if (maxPpsqftDisplay) maxPpsqftDisplay.textContent = val >= 500 ? 'No Limit' : `≤ $${val}/sqft`;
+                triggerFilterDebounced(40);
+            });
+            maxPpsqftSlider.addEventListener('change', applyFilters);
+        }
 
         // Advanced: Star Rating Filter
-        ratingFilter.addEventListener('change', (e) => {
-            filterState.minRating = parseInt(e.target.value, 10);
-            applyFilters();
-        });
+        if (ratingFilter) {
+            ratingFilter.addEventListener('change', (e) => {
+                filterState.minRating = parseInt(e.target.value, 10);
+                applyFilters();
+            });
+        }
 
         // Shortlist Filter Toggle
-        filterFavoritesToggle.addEventListener('change', (e) => {
-            filterState.favoritesOnly = e.target.checked;
-            applyFilters();
-        });
-        favoritesBadgeBtn.addEventListener('click', () => {
-            filterFavoritesToggle.checked = !filterFavoritesToggle.checked;
-            filterState.favoritesOnly = filterFavoritesToggle.checked;
-            applyFilters();
-        });
+        if (filterFavoritesToggle) {
+            filterFavoritesToggle.addEventListener('change', (e) => {
+                filterState.favoritesOnly = e.target.checked;
+                applyFilters();
+            });
+        }
+        if (favoritesBadgeBtn && filterFavoritesToggle) {
+            favoritesBadgeBtn.addEventListener('click', () => {
+                filterFavoritesToggle.checked = !filterFavoritesToggle.checked;
+                filterState.favoritesOnly = filterFavoritesToggle.checked;
+                applyFilters();
+            });
+        }
 
         // Sort Dropdown
-        sortDropdown.addEventListener('change', (e) => {
-            filterState.sortBy = e.target.value;
-            applyFilters();
-        });
+        if (sortDropdown) {
+            sortDropdown.addEventListener('change', (e) => {
+                filterState.sortBy = e.target.value;
+                applyFilters();
+            });
+        }
 
         // Reset Filter Buttons
-        btnResetFilters.addEventListener('click', resetAllFilters);
-        btnEmptyReset.addEventListener('click', resetAllFilters);
+        if (btnResetFilters) btnResetFilters.addEventListener('click', resetAllFilters);
+        if (btnEmptyReset) btnEmptyReset.addEventListener('click', resetAllFilters);
 
         // Preset Menu
-        btnPresetsMenu.addEventListener('click', (e) => {
-            e.stopPropagation();
-            const isHidden = presetDropdownMenu.classList.contains('hidden');
-            presetDropdownMenu.classList.toggle('hidden', !isHidden);
-            btnPresetsMenu.setAttribute('aria-expanded', String(isHidden));
-        });
-        document.addEventListener('click', () => presetDropdownMenu.classList.add('hidden'));
-
-        presetDropdownMenu.querySelectorAll('.dropdown-item[data-preset]').forEach(item => {
-            item.addEventListener('click', () => {
-                const presetKey = item.getAttribute('data-preset');
-                presetDropdownMenu.classList.add('hidden');
-                activePresetLabel.textContent = item.textContent;
-
-                switch (presetKey) {
-                    case 'all':
-                        resetAllFilters();
-                        break;
-                    case 'best-value':
-                        resetAllFilters();
-                        filterState.maxPpsqft = 275;
-                        maxPpsqftSlider.value = 275;
-                        maxPpsqftDisplay.textContent = '≤ $275/sqft';
-                        filterState.sortBy = 'price_per_sqft_asc';
-                        sortDropdown.value = 'price_per_sqft_asc';
-                        applyFilters();
-                        break;
-                    case 'large-lots':
-                        resetAllFilters();
-                        filterState.minLot = 8000;
-                        lotSlider.value = 8000;
-                        lotDisplay.textContent = '8,000+ sqft';
-                        filterState.sortBy = 'lot_desc';
-                        sortDropdown.value = 'lot_desc';
-                        applyFilters();
-                        break;
-                    case 'three-garage':
-                        resetAllFilters();
-                        filterState.minGarage = 3;
-                        garagePillGroup.querySelectorAll('.pill-btn').forEach(b => b.classList.toggle('active', b.getAttribute('data-garage') === '3'));
-                        applyFilters();
-                        break;
-                    case 'low-hoa':
-                        resetAllFilters();
-                        filterState.maxHoa = 25;
-                        hoaSlider.value = 25;
-                        hoaDisplay.textContent = '≤ $25/mo';
-                        applyFilters();
-                        break;
-                    case 'newer-homes':
-                        resetAllFilters();
-                        filterState.minYear = 2000;
-                        yearSelect.value = '2000';
-                        filterState.sortBy = 'year_desc';
-                        sortDropdown.value = 'year_desc';
-                        applyFilters();
-                        break;
-                }
+        if (btnPresetsMenu && presetDropdownMenu) {
+            btnPresetsMenu.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const isHidden = presetDropdownMenu.classList.contains('hidden');
+                presetDropdownMenu.classList.toggle('hidden', !isHidden);
+                btnPresetsMenu.setAttribute('aria-expanded', String(isHidden));
             });
-        });
+            document.addEventListener('click', () => presetDropdownMenu.classList.add('hidden'));
 
-        btnSaveCurrentPreset.addEventListener('click', (e) => {
-            e.stopPropagation();
-            presetDropdownMenu.classList.add('hidden');
-            saveCurrentPreset();
-        });
+            presetDropdownMenu.querySelectorAll('.dropdown-item[data-preset]').forEach(item => {
+                item.addEventListener('click', () => {
+                    const presetKey = item.getAttribute('data-preset');
+                    presetDropdownMenu.classList.add('hidden');
+                    if (activePresetLabel) activePresetLabel.textContent = item.textContent;
+
+                    switch (presetKey) {
+                        case 'all':
+                            resetAllFilters();
+                            break;
+                        case 'best-value':
+                            resetAllFilters();
+                            filterState.maxPpsqft = 275;
+                            if (maxPpsqftSlider) maxPpsqftSlider.value = 275;
+                            if (maxPpsqftDisplay) maxPpsqftDisplay.textContent = '≤ $275/sqft';
+                            filterState.sortBy = 'price_per_sqft_asc';
+                            if (sortDropdown) sortDropdown.value = 'price_per_sqft_asc';
+                            applyFilters();
+                            break;
+                        case 'large-lots':
+                            resetAllFilters();
+                            filterState.minLot = 8000;
+                            if (lotSlider) lotSlider.value = 8000;
+                            if (lotDisplay) lotDisplay.textContent = '8,000+ sqft';
+                            filterState.sortBy = 'lot_desc';
+                            if (sortDropdown) sortDropdown.value = 'lot_desc';
+                            applyFilters();
+                            break;
+                        case 'three-garage':
+                            resetAllFilters();
+                            filterState.minGarage = 3;
+                            if (garagePillGroup) {
+                                garagePillGroup.querySelectorAll('.pill-btn').forEach(b => b.classList.toggle('active', b.getAttribute('data-garage') === '3'));
+                            }
+                            applyFilters();
+                            break;
+                        case 'low-hoa':
+                            resetAllFilters();
+                            filterState.maxHoa = 25;
+                            if (hoaSlider) hoaSlider.value = 25;
+                            if (hoaDisplay) hoaDisplay.textContent = '≤ $25/mo';
+                            applyFilters();
+                            break;
+                        case 'newer-homes':
+                            resetAllFilters();
+                            filterState.minYear = 2000;
+                            if (yearSelect) yearSelect.value = '2000';
+                            filterState.sortBy = 'year_desc';
+                            if (sortDropdown) sortDropdown.value = 'year_desc';
+                            applyFilters();
+                            break;
+                    }
+                });
+            });
+        }
+
+        if (btnSaveCurrentPreset) {
+            btnSaveCurrentPreset.addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (presetDropdownMenu) presetDropdownMenu.classList.add('hidden');
+                saveCurrentPreset();
+            });
+        }
 
         // Density Switcher
-        btnDensityToggle.addEventListener('click', toggleDensity);
+        if (btnDensityToggle) btnDensityToggle.addEventListener('click', toggleDensity);
 
         // Command Palette Trigger & Input
-        btnOpenCmdPalette.addEventListener('click', openCommandPalette);
-        cmdPaletteInput.addEventListener('input', (e) => renderCommandPaletteResults(e.target.value));
+        if (btnOpenCmdPalette) btnOpenCmdPalette.addEventListener('click', openCommandPalette);
+        if (cmdPaletteInput) cmdPaletteInput.addEventListener('input', (e) => renderCommandPaletteResults(e.target.value));
 
         // Smart Scoring Trigger & Weight Sliders
-        btnOpenScoring.addEventListener('click', openScoringModal);
-        btnCloseScoring.addEventListener('click', () => scoringModal.classList.add('hidden'));
+        if (btnOpenScoring) btnOpenScoring.addEventListener('click', openScoringModal);
+        if (btnCloseScoring) btnCloseScoring.addEventListener('click', () => scoringModal && scoringModal.classList.add('hidden'));
         ['w-ppsqft', 'w-sqft', 'w-lot', 'w-garage', 'w-year', 'w-hoa', 'w-rating'].forEach(id => {
             const el = document.getElementById(id);
             const valEl = document.getElementById(`${id}-val`);
@@ -3145,18 +3188,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 el.addEventListener('input', () => { valEl.textContent = `${el.value}%`; });
             }
         });
-        btnSaveWeights.addEventListener('click', saveScoringWeights);
-        btnResetWeights.addEventListener('click', () => {
-            scoreWeights = { ppsqft: 30, sqft: 15, lot: 15, garage: 10, year: 10, hoa: 10, rating: 10 };
-            openScoringModal();
-        });
+        if (btnSaveWeights) btnSaveWeights.addEventListener('click', saveScoringWeights);
+        if (btnResetWeights) {
+            btnResetWeights.addEventListener('click', () => {
+                scoreWeights = { ppsqft: 30, sqft: 15, lot: 15, garage: 10, year: 10, hoa: 10, rating: 10 };
+                openScoringModal();
+            });
+        }
 
         // View Tabs
-        viewTabSplit.addEventListener('click', () => setViewMode('split'));
-        viewTabGrid.addEventListener('click', () => setViewMode('grid'));
-        viewTabMap.addEventListener('click', () => setViewMode('map'));
+        if (viewTabSplit) viewTabSplit.addEventListener('click', () => setViewMode('split'));
+        if (viewTabGrid) viewTabGrid.addEventListener('click', () => setViewMode('grid'));
+        if (viewTabMap) viewTabMap.addEventListener('click', () => setViewMode('map'));
         if (viewTabDeals) viewTabDeals.addEventListener('click', () => setViewMode('deals'));
-        viewTabAnalytics.addEventListener('click', () => setViewMode('analytics'));
+        if (viewTabAnalytics) viewTabAnalytics.addEventListener('click', () => setViewMode('analytics'));
 
         // Deals Area Filter Pills
         if (dealsFilterPills) {
@@ -3171,58 +3216,72 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // Map Overlays
-        mapBoundsFilterToggle.addEventListener('change', (e) => {
-            filterState.mapBoundsOnly = e.target.checked;
-            applyFilters();
-        });
-        btnMapFitResults.addEventListener('click', fitMapToResults);
-        btnMapResetView.addEventListener('click', resetWashingtonView);
+        if (mapBoundsFilterToggle) {
+            mapBoundsFilterToggle.addEventListener('change', (e) => {
+                filterState.mapBoundsOnly = e.target.checked;
+                applyFilters();
+            });
+        }
+        if (btnMapFitResults) btnMapFitResults.addEventListener('click', fitMapToResults);
+        if (btnMapResetView) btnMapResetView.addEventListener('click', resetWashingtonView);
 
         // Drawer Controls
-        btnCloseDrawer.addEventListener('click', closePropertyDrawer);
-        drawerBackdrop.addEventListener('click', closePropertyDrawer);
-        btnDrawerPrev.addEventListener('click', () => stepDrawerProperty(-1));
-        btnDrawerNext.addEventListener('click', () => stepDrawerProperty(1));
-        btnDrawerFavorite.addEventListener('click', () => {
-            if (selectedPropId) toggleFavorite(selectedPropId);
-        });
+        if (btnCloseDrawer) btnCloseDrawer.addEventListener('click', closePropertyDrawer);
+        if (drawerBackdrop) drawerBackdrop.addEventListener('click', closePropertyDrawer);
+        if (btnDrawerPrev) btnDrawerPrev.addEventListener('click', () => stepDrawerProperty(-1));
+        if (btnDrawerNext) btnDrawerNext.addEventListener('click', () => stepDrawerProperty(1));
+        if (btnDrawerFavorite) {
+            btnDrawerFavorite.addEventListener('click', () => {
+                if (selectedPropId) toggleFavorite(selectedPropId);
+            });
+        }
 
         // Drawer Photo Navigation
-        btnDrawerImgPrev.addEventListener('click', () => {
-            if (!selectedPropId) return;
-            cycleCardPhoto(selectedPropId, -1);
-            const prop = allProperties.find(p => p.id === selectedPropId);
-            if (prop) openPropertyDrawer(prop.id);
-        });
-        btnDrawerImgNext.addEventListener('click', () => {
-            if (!selectedPropId) return;
-            cycleCardPhoto(selectedPropId, 1);
-            const prop = allProperties.find(p => p.id === selectedPropId);
-            if (prop) openPropertyDrawer(prop.id);
-        });
-        btnDrawerFullscreen.addEventListener('click', () => {
-            if (selectedPropId) {
-                const idx = activePhotoIndices[selectedPropId] || 0;
-                openPhotoLightbox(selectedPropId, idx);
-            }
-        });
+        if (btnDrawerImgPrev) {
+            btnDrawerImgPrev.addEventListener('click', () => {
+                if (!selectedPropId) return;
+                cycleCardPhoto(selectedPropId, -1);
+                const prop = allProperties.find(p => p.id === selectedPropId);
+                if (prop) openPropertyDrawer(prop.id);
+            });
+        }
+        if (btnDrawerImgNext) {
+            btnDrawerImgNext.addEventListener('click', () => {
+                if (!selectedPropId) return;
+                cycleCardPhoto(selectedPropId, 1);
+                const prop = allProperties.find(p => p.id === selectedPropId);
+                if (prop) openPropertyDrawer(prop.id);
+            });
+        }
+        if (btnDrawerFullscreen) {
+            btnDrawerFullscreen.addEventListener('click', () => {
+                if (selectedPropId) {
+                    const idx = activePhotoIndices[selectedPropId] || 0;
+                    openPhotoLightbox(selectedPropId, idx);
+                }
+            });
+        }
 
         // Drawer Star Picker
-        drawerStarPicker.querySelectorAll('.star-pick').forEach(star => {
-            star.addEventListener('click', () => {
-                if (!selectedPropId) return;
-                const val = parseInt(star.getAttribute('data-val'), 10);
-                updatePropertyRating(selectedPropId, val);
+        if (drawerStarPicker) {
+            drawerStarPicker.querySelectorAll('.star-pick').forEach(star => {
+                star.addEventListener('click', () => {
+                    if (!selectedPropId) return;
+                    const val = parseInt(star.getAttribute('data-val'), 10);
+                    updatePropertyRating(selectedPropId, val);
+                });
             });
-        });
+        }
 
         // Drawer Notes
-        drawerNotesTextarea.addEventListener('input', saveDrawerNotesDebounced);
+        if (drawerNotesTextarea) drawerNotesTextarea.addEventListener('input', saveDrawerNotesDebounced);
 
         // Drawer Mortgage Customize Link
-        btnDrawerCustomizeMortgage.addEventListener('click', () => {
-            if (selectedPropId) openMortgageEstimator(selectedPropId);
-        });
+        if (btnDrawerCustomizeMortgage) {
+            btnDrawerCustomizeMortgage.addEventListener('click', () => {
+                if (selectedPropId) openMortgageEstimator(selectedPropId);
+            });
+        }
 
         // Comparison Dock & Matrix
         if (btnOpenComparisonMatrix) btnOpenComparisonMatrix.addEventListener('click', openComparisonMatrix);
@@ -3285,21 +3344,21 @@ document.addEventListener('DOMContentLoaded', () => {
             if (isTyping) return;
 
             // Slash '/' key focuses search
-            if (e.key === '/') {
+            if (e.key === '/' && searchInput) {
                 e.preventDefault();
                 searchInput.focus();
                 return;
             }
 
             // Lightbox Arrow Keys
-            if (!photoLightboxModal.classList.contains('hidden')) {
+            if (photoLightboxModal && !photoLightboxModal.classList.contains('hidden')) {
                 if (e.key === 'ArrowLeft') stepLightbox(-1);
                 if (e.key === 'ArrowRight') stepLightbox(1);
                 return;
             }
 
             // Drawer Navigation (J/K or Up/Down)
-            if (!propertyDetailDrawer.classList.contains('hidden')) {
+            if (propertyDetailDrawer && !propertyDetailDrawer.classList.contains('hidden')) {
                 if (e.key === 'j' || e.key === 'ArrowDown') stepDrawerProperty(1);
                 if (e.key === 'k' || e.key === 'ArrowUp') stepDrawerProperty(-1);
                 if (e.key === 'f' && selectedPropId) toggleFavorite(selectedPropId);
@@ -3310,7 +3369,8 @@ document.addEventListener('DOMContentLoaded', () => {
             if (e.key === '1') setViewMode('split');
             if (e.key === '2') setViewMode('grid');
             if (e.key === '3') setViewMode('map');
-            if (e.key === '4') setViewMode('analytics');
+            if (e.key === '4') setViewMode('deals');
+            if (e.key === '5') setViewMode('analytics');
         });
 
         // Mobile & iPhone Navigation & Drawer Handlers
