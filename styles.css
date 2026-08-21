@@ -1,5 +1,5 @@
 /* ==========================================================================
-   Washington Home Search — Realtor / Redfin / Zillow Inspired Design System
+   Washington Home Search — Modern Realtor / Redfin / Zillow Design System
    High-Density Washington State Residential Property Workstation
    ========================================================================== */
 
@@ -15,7 +15,7 @@
     --accent-emerald: #16a34a;
     --accent-emerald-light: #ecfdf5;
     --accent-emerald-border: #a7f3d0;
-    --accent-amber: #d97706;
+    --accent-amber: #f59e0b;
     --accent-amber-light: #fffbeb;
     --accent-amber-border: #fde68a;
     --accent-blue: #2563eb;
@@ -24,11 +24,11 @@
     --accent-rose: #e11d48;
 
     /* Surfaces & Neutrals (Light Clean Realtor Canvas) */
-    --bg-page: #f8fafc;
+    --bg-page: #f1f5f9;
     --bg-surface: #ffffff;
-    --bg-surface-secondary: #f1f5f9;
+    --bg-surface-secondary: #f8fafc;
     --bg-surface-tertiary: #e2e8f0;
-    --bg-backdrop: rgba(15, 23, 42, 0.65);
+    --bg-backdrop: rgba(15, 23, 42, 0.5);
 
     /* Borders */
     --border-subtle: #e2e8f0;
@@ -43,16 +43,18 @@
     --text-inverse: #ffffff;
 
     /* Shadows & Elevations */
-    --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.08), 0 2px 4px -1px rgba(0, 0, 0, 0.04);
-    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-    --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.12), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.04);
+    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.07), 0 1px 2px rgba(0, 0, 0, 0.04);
+    --shadow-md: 0 4px 12px -1px rgba(0, 0, 0, 0.08), 0 2px 4px -1px rgba(0, 0, 0, 0.04);
+    --shadow-lg: 0 10px 20px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    --shadow-xl: 0 20px 30px -5px rgba(0, 0, 0, 0.14), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    --shadow-drawer: -8px 0 32px rgba(15, 23, 42, 0.18), -2px 0 8px rgba(15, 23, 42, 0.06);
 
     /* Radii */
     --radius-sm: 4px;
     --radius-md: 6px;
-    --radius-lg: 8px;
-    --radius-xl: 12px;
+    --radius-lg: 10px;
+    --radius-xl: 14px;
     --radius-full: 9999px;
 
     /* Typography Stack */
@@ -61,8 +63,9 @@
 
     /* Layout Dimensions */
     --topbar-height: 56px;
-    --sidebar-width: 320px;
-    --drawer-width: 520px;
+    --toolbar-height: 48px;
+    --sidebar-width: 310px;
+    --drawer-width: 560px;
 }
 
 /* Base Reset */
@@ -131,27 +134,27 @@ html, body {
 .topbar-left {
     display: flex;
     align-items: center;
-    gap: 20px;
+    gap: 18px;
 }
 
 .topbar-brand {
     display: flex;
     align-items: center;
-    gap: 9px;
+    gap: 10px;
     text-decoration: none;
     user-select: none;
 }
 
 .brand-badge {
-    width: 32px;
-    height: 32px;
-    background-color: var(--brand-primary);
+    width: 34px;
+    height: 34px;
+    background: linear-gradient(135deg, #d92228 0%, #b91c1c 100%);
     color: #ffffff;
     border-radius: var(--radius-md);
     display: flex;
     align-items: center;
     justify-content: center;
-    box-shadow: 0 2px 4px rgba(200, 32, 38, 0.25);
+    box-shadow: 0 2px 6px rgba(200, 32, 38, 0.3);
 }
 
 .brand-text {
@@ -160,7 +163,7 @@ html, body {
 }
 
 .app-title {
-    font-size: 15px;
+    font-size: 15.5px;
     font-weight: 800;
     color: var(--text-primary);
     line-height: 1.15;
@@ -168,10 +171,10 @@ html, body {
 }
 
 .brand-tagline {
-    font-size: 10.5px;
-    font-weight: 500;
+    font-size: 10px;
+    font-weight: 700;
     color: var(--brand-primary);
-    letter-spacing: 0.02em;
+    letter-spacing: 0.04em;
     text-transform: uppercase;
 }
 
@@ -207,6 +210,7 @@ html, body {
     color: var(--brand-primary);
     cursor: pointer;
     transition: all 0.15s ease;
+    font-family: inherit;
 }
 
 .stat-pill.favorite-pill:hover {
@@ -246,17 +250,20 @@ html, body {
     background-color: var(--brand-primary);
     color: #ffffff;
     border-color: var(--brand-primary);
+    box-shadow: 0 1px 3px rgba(200, 32, 38, 0.2);
 }
 
 .btn-primary:hover {
     background-color: var(--brand-primary-hover);
     border-color: var(--brand-primary-hover);
+    box-shadow: 0 2px 5px rgba(200, 32, 38, 0.3);
 }
 
 .btn-secondary {
     background-color: var(--bg-surface);
     color: var(--text-secondary);
     border-color: var(--border-medium);
+    box-shadow: var(--shadow-xs);
 }
 
 .btn-secondary:hover {
@@ -347,6 +354,7 @@ html, body {
     display: flex;
     flex: 1;
     height: calc(100vh - var(--topbar-height));
+    width: 100vw;
     overflow: hidden;
     position: relative;
 }
@@ -356,14 +364,16 @@ html, body {
    ========================================================================== */
 .app-sidebar {
     width: var(--sidebar-width);
+    min-width: var(--sidebar-width);
     background-color: var(--bg-surface);
     border-right: 1px solid var(--border-subtle);
     display: flex;
     flex-direction: column;
     flex-shrink: 0;
-    z-index: 50;
+    z-index: 30;
     overflow-y: auto;
     overflow-x: hidden;
+    box-shadow: 1px 0 4px rgba(0, 0, 0, 0.02);
 }
 
 .sidebar-header {
@@ -415,59 +425,73 @@ html, body {
     gap: 6px;
 }
 
-.filter-label-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-}
-
-.filter-label-row label {
+.filter-label, .filter-label-split {
     font-size: 11.5px;
     font-weight: 600;
     color: var(--text-secondary);
 }
 
-.filter-val-badge {
+.filter-label-split {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.filter-value-display {
     font-size: 11.5px;
     font-weight: 700;
     color: var(--brand-primary);
 }
 
 /* Inputs & Form Elements */
-.input-with-icon {
+.search-input-wrapper {
     position: relative;
     display: flex;
     align-items: center;
 }
 
-.input-with-icon svg {
+.search-icon {
     position: absolute;
     left: 10px;
     color: var(--text-muted);
     pointer-events: none;
 }
 
-.input-with-icon input {
-    padding-left: 32px;
-    padding-right: 28px;
+.search-input-wrapper input {
+    width: 100%;
+    padding: 7px 28px 7px 32px;
+    background-color: var(--bg-surface-secondary);
+    border: 1px solid var(--border-medium);
+    border-radius: var(--radius-md);
+    color: var(--text-primary);
+    font-size: 12.5px;
+    font-family: inherit;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
 }
 
-.input-clear-btn {
+.search-input-wrapper input:focus {
+    background-color: #ffffff;
+    border-color: var(--brand-primary);
+    box-shadow: 0 0 0 2px var(--brand-primary-light);
+    outline: none;
+}
+
+.clear-search-btn {
     position: absolute;
     right: 8px;
     background: none;
     border: none;
     color: var(--text-muted);
-    font-size: 14px;
+    font-size: 16px;
     cursor: pointer;
     line-height: 1;
 }
 
-.input-clear-btn:hover {
+.clear-search-btn:hover {
     color: var(--text-primary);
 }
 
-.form-input, .form-select {
+.form-select, .form-select-sm {
     width: 100%;
     padding: 7px 10px;
     background-color: var(--bg-surface);
@@ -479,33 +503,39 @@ html, body {
     transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
-.form-input:focus, .form-select:focus {
+.form-select-sm {
+    padding: 4px 8px;
+    font-size: 11.5px;
+}
+
+.form-select:focus, .form-select-sm:focus {
     border-color: var(--brand-primary);
     box-shadow: 0 0 0 2px var(--brand-primary-light);
+    outline: none;
 }
 
 /* Range Sliders */
-.dual-slider-wrap {
+.range-dual-container {
     position: relative;
     height: 20px;
     display: flex;
     align-items: center;
 }
 
-.range-slider {
+.range-dual-container input[type="range"],
+.single-range {
     width: 100%;
     accent-color: var(--brand-primary);
     cursor: pointer;
 }
 
-.dual-slider-wrap input[type="range"] {
+.range-dual-container input[type="range"] {
     position: absolute;
     width: 100%;
     pointer-events: auto;
-    accent-color: var(--brand-primary);
 }
 
-.slider-ticks {
+.range-labels {
     display: flex;
     justify-content: space-between;
     font-size: 10px;
@@ -549,7 +579,7 @@ html, body {
 }
 
 /* Accordion */
-.filter-accordion-header {
+.accordion-toggle {
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -564,88 +594,56 @@ html, body {
     cursor: pointer;
 }
 
-.filter-accordion-header:hover {
+.accordion-toggle:hover {
     background-color: var(--bg-surface-tertiary);
     color: var(--text-primary);
 }
 
-.filter-accordion-body {
+.advanced-filters-body {
     display: flex;
     flex-direction: column;
-    gap: 14px;
+    gap: 12px;
     padding-top: 10px;
 }
 
-/* Switch Toggle */
-.filter-toggle-row {
+/* Switch Controls */
+.switch-control {
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    gap: 8px;
     padding: 8px 10px;
     background-color: var(--bg-surface-secondary);
     border: 1px solid var(--border-subtle);
     border-radius: var(--radius-md);
+    cursor: pointer;
 }
 
-.filter-toggle-row label {
+.switch-control input {
+    accent-color: var(--brand-primary);
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+}
+
+.switch-text {
     font-size: 12px;
     font-weight: 600;
     color: var(--text-primary);
-    cursor: pointer;
-}
-
-.switch {
-    position: relative;
-    display: inline-block;
-    width: 34px;
-    height: 18px;
-}
-
-.switch input {
-    opacity: 0;
-    width: 0;
-    height: 0;
-}
-
-.slider-switch {
-    position: absolute;
-    cursor: pointer;
-    top: 0; left: 0; right: 0; bottom: 0;
-    background-color: var(--border-strong);
-    transition: .2s;
-    border-radius: 34px;
-}
-
-.slider-switch:before {
-    position: absolute;
-    content: "";
-    height: 14px;
-    width: 14px;
-    left: 2px;
-    bottom: 2px;
-    background-color: white;
-    transition: .2s;
-    border-radius: 50%;
-}
-
-input:checked + .slider-switch {
-    background-color: var(--brand-primary);
-}
-
-input:checked + .slider-switch:before {
-    transform: translateX(16px);
 }
 
 /* Sidebar Quick Market Stats */
-.sidebar-market-stats {
+.market-quick-card {
     margin-top: auto;
     background-color: var(--bg-surface-secondary);
     border: 1px solid var(--border-subtle);
     border-radius: var(--radius-lg);
     padding: 10px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
 }
 
-.market-stats-header {
+.quick-card-title {
     display: flex;
     align-items: center;
     gap: 6px;
@@ -654,67 +652,77 @@ input:checked + .slider-switch:before {
     text-transform: uppercase;
     letter-spacing: 0.05em;
     color: var(--text-muted);
-    margin-bottom: 8px;
 }
 
-.stats-mini-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 6px;
-}
-
-.stat-mini-card {
+.quick-stat-row {
     display: flex;
-    flex-direction: column;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 11.5px;
 }
 
-.stat-mini-label {
-    font-size: 10px;
+.q-label {
     color: var(--text-muted);
 }
 
-.stat-mini-val {
-    font-size: 12px;
+.q-val {
     font-weight: 700;
     color: var(--text-primary);
 }
 
 /* ==========================================================================
-   Workspace Viewport (Split, Grid, Map, Analytics)
+   Main Interactive Workspace (Toolbar + Split Viewport)
    ========================================================================== */
-.workspace-viewport {
+.app-workspace {
     flex: 1;
     display: flex;
     flex-direction: column;
     overflow: hidden;
+    height: 100%;
+    position: relative;
     background-color: var(--bg-page);
 }
 
-/* Workspace Control Bar */
-.workspace-controls-bar {
+/* Workspace Control Toolbar */
+.workspace-toolbar {
+    height: var(--toolbar-height);
+    background-color: var(--bg-surface);
+    border-bottom: 1px solid var(--border-subtle);
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 8px 16px;
-    background-color: var(--bg-surface);
-    border-bottom: 1px solid var(--border-subtle);
+    padding: 0 16px;
     flex-shrink: 0;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.02);
+    z-index: 10;
 }
 
-.controls-left {
+.toolbar-left {
     display: flex;
     align-items: center;
     gap: 12px;
 }
 
-.results-count-heading {
-    font-size: 14px;
-    font-weight: 700;
+.workspace-title-row {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+}
+
+.workspace-heading {
+    font-size: 14.5px;
+    font-weight: 800;
     color: var(--text-primary);
 }
 
-/* Active Filter Tag Chips */
-.active-filter-tags {
+.results-chip {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-muted);
+}
+
+/* Active Filter Tags */
+.active-filter-tags-row {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
@@ -761,8 +769,8 @@ input:checked + .slider-switch:before {
     text-decoration: underline;
 }
 
-/* Controls Right */
-.controls-right {
+/* Toolbar Right */
+.toolbar-right {
     display: flex;
     align-items: center;
     gap: 12px;
@@ -780,7 +788,7 @@ input:checked + .slider-switch:before {
     font-weight: 600;
 }
 
-.view-tabs-group {
+.view-mode-tabs {
     display: flex;
     background-color: var(--bg-surface-secondary);
     border: 1px solid var(--border-subtle);
@@ -813,72 +821,93 @@ input:checked + .slider-switch:before {
     box-shadow: var(--shadow-sm);
 }
 
-/* Viewport Layout Modes */
-.workspace-panes-wrapper {
-    display: flex;
+/* ==========================================================================
+   Workspace Viewport (Split Map & Cards)
+   ========================================================================== */
+.workspace-viewport {
     flex: 1;
+    display: flex;
     overflow: hidden;
+    height: calc(100% - var(--toolbar-height));
+    width: 100%;
     position: relative;
 }
 
 /* View Mode: Split */
-.workspace-viewport.view-split .workspace-cards-pane {
-    width: 50%;
+.workspace-viewport.view-split .cards-container-wrapper {
+    flex: 1 1 50%;
+    min-width: 340px;
+    max-width: 55%;
+    height: 100%;
     overflow-y: auto;
-    border-right: 1px solid var(--border-subtle);
-}
-
-.workspace-viewport.view-split .workspace-map-pane {
-    width: 50%;
-    display: block;
-}
-
-.workspace-viewport.view-split .workspace-analytics-pane {
-    display: none;
-}
-
-/* View Mode: Grid */
-.workspace-viewport.view-grid .workspace-cards-pane {
-    width: 100%;
-    overflow-y: auto;
-}
-
-.workspace-viewport.view-grid .workspace-map-pane,
-.workspace-viewport.view-grid .workspace-analytics-pane {
-    display: none;
-}
-
-/* View Mode: Map */
-.workspace-viewport.view-map .workspace-cards-pane,
-.workspace-viewport.view-map .workspace-analytics-pane {
-    display: none;
-}
-
-.workspace-viewport.view-map .workspace-map-pane {
-    width: 100%;
-    display: block;
-}
-
-/* View Mode: Analytics */
-.workspace-viewport.view-analytics .workspace-cards-pane,
-.workspace-viewport.view-analytics .workspace-map-pane {
-    display: none;
-}
-
-.workspace-viewport.view-analytics .workspace-analytics-pane {
-    width: 100%;
-    display: block;
-    overflow-y: auto;
-}
-
-/* ==========================================================================
-   Property Cards Grid (Redfin / Zillow Style)
-   ========================================================================== */
-.workspace-cards-pane {
+    background-color: var(--bg-page);
     padding: 14px;
+    border-right: 1px solid var(--border-subtle);
+    display: block;
+}
+
+.workspace-viewport.view-split .map-container-wrapper {
+    flex: 1 1 50%;
+    min-width: 320px;
+    height: 100%;
+    position: relative;
+    display: block;
+    overflow: hidden;
+}
+
+.workspace-viewport.view-split .analytics-view-wrapper {
+    display: none;
+}
+
+/* View Mode: Listings Grid Only */
+.workspace-viewport.view-grid .cards-container-wrapper {
+    flex: 1 1 100%;
+    width: 100%;
+    height: 100%;
+    overflow-y: auto;
+    background-color: var(--bg-page);
+    padding: 18px;
+    display: block;
+}
+
+.workspace-viewport.view-grid .map-container-wrapper,
+.workspace-viewport.view-grid .analytics-view-wrapper {
+    display: none;
+}
+
+/* View Mode: Full Map Only */
+.workspace-viewport.view-map .cards-container-wrapper,
+.workspace-viewport.view-map .analytics-view-wrapper {
+    display: none;
+}
+
+.workspace-viewport.view-map .map-container-wrapper {
+    flex: 1 1 100%;
+    width: 100%;
+    height: 100%;
+    display: block;
+    position: relative;
+}
+
+/* View Mode: Analytics Dashboard */
+.workspace-viewport.view-analytics .cards-container-wrapper,
+.workspace-viewport.view-map .map-container-wrapper {
+    display: none;
+}
+
+.workspace-viewport.view-analytics .analytics-view-wrapper {
+    flex: 1 1 100%;
+    width: 100%;
+    height: 100%;
+    overflow-y: auto;
+    display: block;
+    padding: 20px;
     background-color: var(--bg-page);
 }
 
+/* ==========================================================================
+   Property Cards Grid (Dimensional Realtor / Redfin Style)
+   ========================================================================== */
 .cards-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
@@ -893,13 +922,13 @@ input:checked + .slider-switch:before {
     display: flex;
     flex-direction: column;
     box-shadow: var(--shadow-sm);
-    transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+    transition: transform 0.18s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.18s ease, border-color 0.18s ease;
     cursor: pointer;
     position: relative;
 }
 
 .property-card:hover {
-    transform: translateY(-2px);
+    transform: translateY(-3px);
     box-shadow: var(--shadow-md);
     border-color: var(--border-medium);
 }
@@ -914,7 +943,7 @@ input:checked + .slider-switch:before {
     position: relative;
     width: 100%;
     aspect-ratio: 16 / 10;
-    background-color: var(--bg-surface-secondary);
+    background-color: #e2e8f0;
     overflow: hidden;
 }
 
@@ -923,11 +952,11 @@ input:checked + .slider-switch:before {
     height: 100%;
     object-fit: cover;
     display: block;
-    transition: transform 0.3s ease;
+    transition: transform 0.35s ease;
 }
 
 .property-card:hover .card-img {
-    transform: scale(1.03);
+    transform: scale(1.04);
 }
 
 /* Tags on Image */
@@ -935,21 +964,21 @@ input:checked + .slider-switch:before {
     position: absolute;
     top: 8px;
     left: 8px;
-    padding: 2px 7px;
-    background: rgba(15, 23, 42, 0.75);
+    padding: 3px 8px;
+    background: rgba(15, 23, 42, 0.8);
     color: #ffffff;
     font-size: 10.5px;
     font-weight: 700;
     border-radius: var(--radius-sm);
     letter-spacing: 0.02em;
-    backdrop-filter: blur(2px);
+    backdrop-filter: blur(4px);
 }
 
 .card-score-tag {
     position: absolute;
     top: 8px;
-    left: calc(8px + 78px);
-    padding: 2px 6px;
+    left: calc(8px + 82px);
+    padding: 3px 7px;
     background: #ffffff;
     color: var(--text-primary);
     font-size: 11px;
@@ -957,14 +986,15 @@ input:checked + .slider-switch:before {
     font-family: var(--font-mono);
     border-radius: var(--radius-sm);
     box-shadow: var(--shadow-sm);
+    border: 1px solid rgba(0,0,0,0.06);
 }
 
 .card-favorite-btn {
     position: absolute;
     top: 8px;
     right: 8px;
-    width: 30px;
-    height: 30px;
+    width: 32px;
+    height: 32px;
     border-radius: 50%;
     background-color: rgba(255, 255, 255, 0.95);
     border: none;
@@ -973,12 +1003,12 @@ input:checked + .slider-switch:before {
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.15);
+    box-shadow: 0 2px 6px rgba(0,0,0,0.16);
     transition: transform 0.15s ease, color 0.15s ease;
 }
 
 .card-favorite-btn:hover {
-    transform: scale(1.1);
+    transform: scale(1.12);
     color: var(--accent-rose);
 }
 
@@ -992,13 +1022,13 @@ input:checked + .slider-switch:before {
     position: absolute;
     top: 50%;
     transform: translateY(-50%);
-    width: 26px;
-    height: 26px;
+    width: 28px;
+    height: 28px;
     border-radius: 50%;
-    background-color: rgba(255, 255, 255, 0.9);
+    background-color: rgba(255, 255, 255, 0.92);
     border: none;
     color: var(--text-primary);
-    font-size: 16px;
+    font-size: 18px;
     font-weight: 700;
     display: flex;
     align-items: center;
@@ -1006,7 +1036,7 @@ input:checked + .slider-switch:before {
     cursor: pointer;
     opacity: 0;
     transition: opacity 0.15s ease, background-color 0.15s ease;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    box-shadow: 0 2px 6px rgba(0,0,0,0.25);
 }
 
 .property-card:hover .card-nav-arrow {
@@ -1019,23 +1049,23 @@ input:checked + .slider-switch:before {
 
 .card-photo-counter {
     position: absolute;
-    bottom: 6px;
+    bottom: 8px;
     right: 8px;
-    padding: 1px 6px;
-    background-color: rgba(15, 23, 42, 0.7);
+    padding: 2px 7px;
+    background-color: rgba(15, 23, 42, 0.75);
     color: #ffffff;
     font-size: 10px;
-    font-weight: 600;
+    font-weight: 700;
     font-family: var(--font-mono);
     border-radius: var(--radius-full);
 }
 
 /* Card Body Content */
 .card-body {
-    padding: 12px;
+    padding: 13px 14px;
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 9px;
 }
 
 .card-price-row {
@@ -1052,14 +1082,19 @@ input:checked + .slider-switch:before {
 }
 
 .card-mortgage-badge {
-    font-size: 11px;
+    font-size: 11.5px;
     font-weight: 700;
     color: var(--accent-emerald);
     background-color: var(--accent-emerald-light);
     border: 1px solid var(--accent-emerald-border);
-    padding: 2px 6px;
+    padding: 2px 7px;
     border-radius: var(--radius-sm);
     cursor: pointer;
+    transition: background-color 0.1s ease;
+}
+
+.card-mortgage-badge:hover {
+    background-color: #dcfce7;
 }
 
 .card-address-block {
@@ -1086,7 +1121,7 @@ input:checked + .slider-switch:before {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
     gap: 4px;
-    padding: 6px 0;
+    padding: 7px 0;
     border-top: 1px solid var(--border-subtle);
     border-bottom: 1px solid var(--border-subtle);
 }
@@ -1120,7 +1155,7 @@ input:checked + .slider-switch:before {
 .chip {
     display: inline-flex;
     align-items: center;
-    padding: 2px 6px;
+    padding: 2px 7px;
     background-color: var(--bg-surface-secondary);
     border: 1px solid var(--border-subtle);
     border-radius: var(--radius-sm);
@@ -1153,7 +1188,7 @@ input:checked + .slider-switch:before {
 
 .card-star-rating {
     display: flex;
-    gap: 1px;
+    gap: 2px;
     color: var(--border-strong);
     font-size: 14px;
     cursor: pointer;
@@ -1212,7 +1247,7 @@ input:checked + .slider-switch:before {
 }
 
 .card-view-drawer-btn {
-    padding: 4px 8px;
+    padding: 4px 9px;
     font-size: 11px;
 }
 
@@ -1246,21 +1281,26 @@ input:checked + .slider-switch:before {
 /* ==========================================================================
    Leaflet Map Pane & Price Pins (Redfin / Zillow Style)
    ========================================================================== */
-.workspace-map-pane {
+.map-container-wrapper {
     position: relative;
     height: 100%;
     width: 100%;
-    background-color: #e5e7eb;
+    background-color: #e2e8f0;
 }
 
 #leaflet-map {
-    height: 100%;
-    width: 100%;
+    width: 100% !important;
+    height: 100% !important;
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
     z-index: 1;
 }
 
 /* Map Top Overlay Controls */
-.map-overlay-controls {
+.map-overlay-bar {
     position: absolute;
     top: 12px;
     left: 12px;
@@ -1272,14 +1312,10 @@ input:checked + .slider-switch:before {
     z-index: 400;
 }
 
-.map-control-group {
-    display: flex;
+.map-overlay-badge {
+    display: inline-flex;
     align-items: center;
     gap: 6px;
-    pointer-events: auto;
-}
-
-.map-badge {
     background-color: var(--bg-surface);
     border: 1px solid var(--border-medium);
     padding: 4px 10px;
@@ -1288,9 +1324,24 @@ input:checked + .slider-switch:before {
     font-weight: 600;
     color: var(--text-primary);
     box-shadow: var(--shadow-md);
+    pointer-events: auto;
 }
 
-.map-bounds-toggle-label {
+.map-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background-color: var(--accent-emerald);
+}
+
+.map-quick-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    pointer-events: auto;
+}
+
+.map-search-area-toggle {
     display: inline-flex;
     align-items: center;
     gap: 6px;
@@ -1305,7 +1356,15 @@ input:checked + .slider-switch:before {
     cursor: pointer;
 }
 
+.map-search-area-toggle input {
+    accent-color: var(--brand-primary);
+    cursor: pointer;
+}
+
 .btn-map-action {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
     background-color: var(--bg-surface);
     border: 1px solid var(--border-medium);
     padding: 4px 10px;
@@ -1414,36 +1473,45 @@ input:checked + .slider-switch:before {
 }
 
 /* ==========================================================================
-   Property Detail Inspection Drawer (Realtor Workstation)
+   Property Detail Side Drawer (NO Darkening Overlay)
    ========================================================================== */
-.drawer-backdrop {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100vw;
-    height: 100vh;
-    background-color: var(--bg-backdrop);
-    z-index: 200;
-}
-
 .property-detail-drawer {
     position: fixed;
     top: 0;
     right: 0;
     width: var(--drawer-width);
-    max-width: 90vw;
+    max-width: 92vw;
     height: 100vh;
+    z-index: 1000;
+    pointer-events: none;
+}
+
+.property-detail-drawer.hidden {
+    display: none !important;
+}
+
+/* Backdrop hidden to prevent greying out the workspace */
+.drawer-backdrop {
+    display: none !important;
+}
+
+.drawer-panel {
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 100%;
+    height: 100%;
     background-color: var(--bg-surface);
     border-left: 1px solid var(--border-medium);
-    box-shadow: var(--shadow-xl);
-    z-index: 250;
+    box-shadow: var(--shadow-drawer);
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    animation: slideInRight 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    pointer-events: auto;
+    animation: drawerSlideIn 0.22s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-@keyframes slideInRight {
+@keyframes drawerSlideIn {
     from { transform: translateX(100%); }
     to { transform: translateX(0); }
 }
@@ -1458,25 +1526,18 @@ input:checked + .slider-switch:before {
     flex-shrink: 0;
 }
 
-.drawer-address-block h2 {
-    font-size: 16px;
-    font-weight: 800;
-    color: var(--text-primary);
-    letter-spacing: -0.01em;
-}
-
-.drawer-address-block p {
-    font-size: 12px;
-    color: var(--text-muted);
-}
-
-.drawer-header-actions {
+.drawer-header-left {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 10px;
 }
 
-.drawer-nav-btn, .drawer-fav-btn, .drawer-close-btn {
+.drawer-nav-arrows {
+    display: flex;
+    gap: 4px;
+}
+
+.btn-drawer-nav, .btn-drawer-icon, .btn-drawer-close {
     width: 32px;
     height: 32px;
     border-radius: var(--radius-md);
@@ -1491,15 +1552,33 @@ input:checked + .slider-switch:before {
     transition: all 0.12s ease;
 }
 
-.drawer-nav-btn:hover, .drawer-close-btn:hover {
+.btn-drawer-nav:hover, .btn-drawer-close:hover {
     background-color: var(--bg-surface-tertiary);
     color: var(--text-primary);
 }
 
-.drawer-fav-btn.favorited {
+.btn-drawer-icon.favorited {
     background-color: var(--brand-primary-subtle);
     border-color: #fca5a5;
     color: var(--accent-rose);
+}
+
+.drawer-title-block h3 {
+    font-size: 15px;
+    font-weight: 800;
+    color: var(--text-primary);
+    letter-spacing: -0.01em;
+}
+
+.drawer-subtitle {
+    font-size: 11.5px;
+    color: var(--text-muted);
+}
+
+.drawer-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
 }
 
 .drawer-body {
@@ -1513,21 +1592,27 @@ input:checked + .slider-switch:before {
 
 /* Drawer Gallery */
 .drawer-gallery-stage {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.gallery-image-wrapper {
     position: relative;
     width: 100%;
     aspect-ratio: 16 / 10;
-    background-color: var(--bg-surface-secondary);
+    background-color: #e2e8f0;
     border-radius: var(--radius-lg);
     overflow: hidden;
 }
 
-.drawer-active-img {
+.drawer-main-img {
     width: 100%;
     height: 100%;
     object-fit: cover;
 }
 
-.drawer-gallery-counter {
+.gallery-counter-badge {
     position: absolute;
     bottom: 8px;
     right: 8px;
@@ -1536,18 +1621,17 @@ input:checked + .slider-switch:before {
     color: #ffffff;
     font-size: 11px;
     font-weight: 700;
-    font-family: var(--font-mono);
     border-radius: var(--radius-full);
 }
 
-.btn-drawer-fullscreen {
+.btn-fullscreen-lightbox {
     position: absolute;
     top: 8px;
     right: 8px;
     width: 30px;
     height: 30px;
     border-radius: var(--radius-md);
-    background-color: rgba(255, 255, 255, 0.9);
+    background-color: rgba(255, 255, 255, 0.92);
     border: none;
     color: var(--text-primary);
     display: flex;
@@ -1556,6 +1640,28 @@ input:checked + .slider-switch:before {
     cursor: pointer;
     box-shadow: 0 2px 5px rgba(0,0,0,0.2);
 }
+
+.gallery-arrow-btn {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background-color: rgba(255, 255, 255, 0.92);
+    border: none;
+    color: var(--text-primary);
+    font-size: 20px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+}
+
+.gallery-arrow-btn.prev { left: 10px; }
+.gallery-arrow-btn.next { right: 10px; }
 
 .drawer-thumbnails-strip {
     display: flex;
@@ -1576,22 +1682,25 @@ input:checked + .slider-switch:before {
     flex-shrink: 0;
 }
 
-.drawer-thumb:hover {
-    opacity: 1;
-}
-
+.drawer-thumb:hover { opacity: 1; }
 .drawer-thumb.active {
     border-color: var(--brand-primary);
     opacity: 1;
 }
 
-/* Drawer Financial Header */
-.drawer-financial-summary {
+/* Price Section */
+.drawer-price-section {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border-subtle);
+}
+
+.drawer-price-main {
     display: flex;
     align-items: baseline;
     justify-content: space-between;
-    padding-bottom: 12px;
-    border-bottom: 1px solid var(--border-subtle);
 }
 
 .drawer-price {
@@ -1613,50 +1722,47 @@ input:checked + .slider-switch:before {
     gap: 6px;
 }
 
-/* Drawer Section Common */
-.drawer-section {
+/* Drawer Section Cards */
+.drawer-section-card {
+    background-color: var(--bg-surface-secondary);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-lg);
+    padding: 12px 14px;
     display: flex;
     flex-direction: column;
     gap: 10px;
 }
 
-.drawer-section-title {
+.score-card-header {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    font-size: 12px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    color: var(--text-secondary);
+    gap: 12px;
 }
 
-/* Smart Score Breakdown */
 .score-badge-large {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    background-color: var(--bg-surface-secondary);
-    border: 1px solid var(--border-subtle);
+    font-size: 22px;
+    font-weight: 800;
+    color: var(--brand-primary);
+    background-color: #ffffff;
+    border: 1px solid var(--border-medium);
     padding: 6px 12px;
     border-radius: var(--radius-md);
 }
 
-.score-badge-large strong {
-    font-size: 20px;
-    font-weight: 800;
-    color: var(--brand-primary);
-    font-family: var(--font-mono);
+.score-title-block strong {
+    font-size: 13px;
+    color: var(--text-primary);
+}
+
+.score-explain-text {
+    font-size: 11px;
+    color: var(--text-muted);
 }
 
 .drawer-score-bars {
     display: flex;
     flex-direction: column;
     gap: 6px;
-    background-color: var(--bg-surface-secondary);
-    border: 1px solid var(--border-subtle);
-    border-radius: var(--radius-md);
-    padding: 10px 12px;
 }
 
 .score-factor-row {
@@ -1666,7 +1772,7 @@ input:checked + .slider-switch:before {
     font-size: 11.5px;
 }
 
-/* Drawer Specs Table Grid */
+/* Specs Table */
 .drawer-specs-table {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
@@ -1678,7 +1784,7 @@ input:checked + .slider-switch:before {
     align-items: center;
     justify-content: space-between;
     padding: 7px 10px;
-    background-color: var(--bg-surface-secondary);
+    background-color: #ffffff;
     border: 1px solid var(--border-subtle);
     border-radius: var(--radius-md);
 }
@@ -1698,13 +1804,9 @@ input:checked + .slider-switch:before {
     font-size: 12.5px;
     color: var(--text-secondary);
     line-height: 1.55;
-    background-color: var(--bg-surface-secondary);
-    border: 1px solid var(--border-subtle);
-    border-radius: var(--radius-md);
-    padding: 10px 12px;
 }
 
-/* Rating Picker in Drawer */
+/* Rating Picker */
 .drawer-rating-row {
     display: flex;
     align-items: center;
@@ -1729,13 +1831,12 @@ input:checked + .slider-switch:before {
     transform: scale(1.1);
 }
 
-/* Notes in Drawer */
 .drawer-notes-textarea {
     width: 100%;
     padding: 8px 10px;
     font-size: 12.5px;
     font-family: inherit;
-    background-color: var(--bg-surface-secondary);
+    background-color: #ffffff;
     border: 1px solid var(--border-medium);
     border-radius: var(--radius-md);
     color: var(--text-primary);
@@ -1743,22 +1844,12 @@ input:checked + .slider-switch:before {
 }
 
 .drawer-notes-textarea:focus {
-    background-color: #ffffff;
     border-color: var(--brand-primary);
     box-shadow: 0 0 0 2px var(--brand-primary-light);
+    outline: none;
 }
 
-/* Mortgage Breakdown Bar */
-.mortgage-breakdown-card {
-    background-color: var(--bg-surface-secondary);
-    border: 1px solid var(--border-subtle);
-    border-radius: var(--radius-lg);
-    padding: 12px;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-}
-
+/* Mortgage Breakdown in Drawer */
 .mortgage-total-row {
     display: flex;
     align-items: baseline;
@@ -1779,10 +1870,7 @@ input:checked + .slider-switch:before {
     background-color: var(--border-subtle);
 }
 
-.d-seg {
-    height: 100%;
-}
-
+.d-seg { height: 100%; }
 .d-seg-pi { background-color: var(--brand-primary); }
 .d-seg-tax { background-color: #f59e0b; }
 .d-seg-ins { background-color: #3b82f6; }
@@ -1825,7 +1913,7 @@ input:checked + .slider-switch:before {
     display: flex;
     gap: 10px;
     padding: 8px;
-    background-color: var(--bg-surface-secondary);
+    background-color: #ffffff;
     border: 1px solid var(--border-subtle);
     border-radius: var(--radius-md);
     cursor: pointer;
@@ -1833,8 +1921,8 @@ input:checked + .slider-switch:before {
 }
 
 .similar-home-item:hover {
-    background-color: var(--bg-surface-tertiary);
     border-color: var(--border-medium);
+    box-shadow: var(--shadow-sm);
 }
 
 .sim-thumb {
@@ -1864,7 +1952,7 @@ input:checked + .slider-switch:before {
 }
 
 /* ==========================================================================
-   Modals & Dialogs (Realtor Workstation)
+   Modals & Dialogs
    ========================================================================== */
 .modal-backdrop {
     position: fixed;
@@ -1876,7 +1964,7 @@ input:checked + .slider-switch:before {
     display: flex;
     align-items: center;
     justify-content: center;
-    z-index: 500;
+    z-index: 2000;
     padding: 20px;
 }
 
@@ -2184,7 +2272,7 @@ input:checked + .slider-switch:before {
     position: absolute;
     bottom: 12px;
     padding: 4px 12px;
-    background-color: rgba(0, 0, 0, 0.7);
+    background-color: rgba(0, 0, 0, 0.75);
     color: #ffffff;
     font-size: 12px;
     font-weight: 700;
@@ -2192,7 +2280,7 @@ input:checked + .slider-switch:before {
 }
 
 .stage-nav-btn {
-    background-color: rgba(255, 255, 255, 0.9);
+    background-color: rgba(255, 255, 255, 0.92);
     border: none;
     border-radius: 50%;
     width: 44px;
@@ -2228,73 +2316,55 @@ input:checked + .slider-switch:before {
 }
 
 /* Analytics View */
-.analytics-container {
-    padding: 20px;
-    display: flex;
-    flex-direction: column;
-    gap: 20px;
+.analytics-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 16px;
     max-width: 1100px;
     margin: 0 auto;
 }
 
-.an-kpi-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-    gap: 12px;
-}
-
-.an-kpi-card {
-    background-color: var(--bg-surface);
-    border: 1px solid var(--border-subtle);
-    border-radius: var(--radius-lg);
-    padding: 14px;
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    box-shadow: var(--shadow-sm);
-}
-
-.an-kpi-label {
-    font-size: 11px;
-    font-weight: 600;
-    color: var(--text-muted);
-    text-transform: uppercase;
-}
-
-.an-kpi-val {
-    font-size: 20px;
-    font-weight: 800;
-    color: var(--text-primary);
-}
-
-.an-charts-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
-    gap: 16px;
-}
-
-.an-chart-card {
+.analytics-card {
     background-color: var(--bg-surface);
     border: 1px solid var(--border-subtle);
     border-radius: var(--radius-lg);
     padding: 16px;
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 10px;
     box-shadow: var(--shadow-sm);
 }
+
+.analytics-card h4 {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text-primary);
+    border-bottom: 1px solid var(--border-subtle);
+    padding-bottom: 6px;
+}
+
+.metric-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 12px;
+}
+
+.m-label { color: var(--text-muted); }
+.m-val { font-weight: 700; color: var(--text-primary); }
+.m-val.highlight { color: var(--brand-primary); }
 
 .dist-bar-item {
     display: flex;
     flex-direction: column;
     gap: 4px;
-    margin-bottom: 8px;
+    margin-bottom: 6px;
 }
 
 .dist-bar-label {
     display: flex;
     justify-content: space-between;
-    font-size: 11.5px;
+    font-size: 11px;
 }
 
 .dist-track {
@@ -2335,7 +2405,7 @@ input:checked + .slider-switch:before {
     display: flex;
     flex-direction: column;
     gap: 8px;
-    z-index: 600;
+    z-index: 3000;
 }
 
 .toast-msg {
@@ -2374,23 +2444,4 @@ body.density-compact .card-body {
 
 body.density-compact .card-price {
     font-size: 17px;
-}
-
-/* Responsive Breakpoints */
-@media (max-width: 1024px) {
-    .app-body {
-        flex-direction: column;
-    }
-    .app-sidebar {
-        width: 100%;
-        max-height: 240px;
-        border-right: none;
-        border-bottom: 1px solid var(--border-subtle);
-    }
-    .workspace-viewport.view-split .workspace-cards-pane {
-        width: 100%;
-    }
-    .workspace-viewport.view-split .workspace-map-pane {
-        display: none;
-    }
 }

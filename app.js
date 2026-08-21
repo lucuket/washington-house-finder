@@ -306,6 +306,15 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         map.fitBounds(WA_BOUNDS, { padding: [15, 15] });
+
+        // Ensure map renders properly after DOM paint
+        setTimeout(() => {
+            if (map) map.invalidateSize();
+        }, 150);
+
+        window.addEventListener('resize', () => {
+            if (map) map.invalidateSize();
+        });
     }
 
     function updateMapMarkers(propertiesToDisplay) {
@@ -2406,6 +2415,14 @@ document.addEventListener('DOMContentLoaded', () => {
             applyFilters();
         });
 
+        let sliderDebounceTimer = null;
+        function triggerFilterDebounced(delay = 40) {
+            clearTimeout(sliderDebounceTimer);
+            sliderDebounceTimer = setTimeout(() => {
+                applyFilters();
+            }, delay);
+        }
+
         // Price Dual Sliders
         priceMinSlider.addEventListener('input', () => {
             let min = parseInt(priceMinSlider.value, 10);
@@ -2416,8 +2433,9 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             filterState.minPrice = min;
             priceRangeDisplay.textContent = `$${Math.round(min/1000)}k – $${Math.round(max/1000)}k`;
-            applyFilters();
+            triggerFilterDebounced(40);
         });
+        priceMinSlider.addEventListener('change', applyFilters);
 
         priceMaxSlider.addEventListener('input', () => {
             let min = parseInt(priceMinSlider.value, 10);
@@ -2428,8 +2446,9 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             filterState.maxPrice = max;
             priceRangeDisplay.textContent = `$${Math.round(min/1000)}k – $${Math.round(max/1000)}k`;
-            applyFilters();
+            triggerFilterDebounced(40);
         });
+        priceMaxSlider.addEventListener('change', applyFilters);
 
         // SqFt Dual Sliders
         sqftMinSlider.addEventListener('input', () => {
@@ -2441,8 +2460,9 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             filterState.minSqft = min;
             sqftRangeDisplay.textContent = `${min.toLocaleString()} – ${max.toLocaleString()} sqft`;
-            applyFilters();
+            triggerFilterDebounced(40);
         });
+        sqftMinSlider.addEventListener('change', applyFilters);
 
         sqftMaxSlider.addEventListener('input', () => {
             let min = parseInt(sqftMinSlider.value, 10);
@@ -2453,8 +2473,9 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             filterState.maxSqft = max;
             sqftRangeDisplay.textContent = `${min.toLocaleString()} – ${max.toLocaleString()} sqft`;
-            applyFilters();
+            triggerFilterDebounced(40);
         });
+        sqftMaxSlider.addEventListener('change', applyFilters);
 
         // Bedrooms Pills
         bedsPillGroup.querySelectorAll('.pill-btn').forEach(btn => {
@@ -2491,8 +2512,9 @@ document.addEventListener('DOMContentLoaded', () => {
             const val = parseInt(hoaSlider.value, 10);
             filterState.maxHoa = val;
             hoaDisplay.textContent = val === 0 ? '$0/mo (No HOA)' : `≤ $${val}/mo`;
-            applyFilters();
+            triggerFilterDebounced(40);
         });
+        hoaSlider.addEventListener('change', applyFilters);
 
         // Advanced Accordion Toggle
         btnToggleAdvanced.addEventListener('click', () => {
@@ -2506,8 +2528,9 @@ document.addEventListener('DOMContentLoaded', () => {
             const val = parseInt(lotSlider.value, 10);
             filterState.minLot = val;
             lotDisplay.textContent = `${val.toLocaleString()}+ sqft`;
-            applyFilters();
+            triggerFilterDebounced(40);
         });
+        lotSlider.addEventListener('change', applyFilters);
 
         // Advanced: Year Select
         yearSelect.addEventListener('change', (e) => {
@@ -2520,8 +2543,9 @@ document.addEventListener('DOMContentLoaded', () => {
             const val = parseInt(maxPpsqftSlider.value, 10);
             filterState.maxPpsqft = val;
             maxPpsqftDisplay.textContent = val >= 500 ? 'No Limit' : `≤ $${val}/sqft`;
-            applyFilters();
+            triggerFilterDebounced(40);
         });
+        maxPpsqftSlider.addEventListener('change', applyFilters);
 
         // Advanced: Star Rating Filter
         ratingFilter.addEventListener('change', (e) => {
