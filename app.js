@@ -321,9 +321,12 @@ document.addEventListener('DOMContentLoaded', () => {
             maxZoom: 18,
             maxBounds: WA_BOUNDS,
             maxBoundsViscosity: 1.0, // Strictly keeps map inside Washington State
-            zoomControl: true,
+            zoomControl: false,
             attributionControl: false
         });
+
+        // Add clean zoom controls at bottom-right (Realtor standard, avoids header overlap)
+        L.control.zoom({ position: 'bottomright' }).addTo(map);
 
         // Clean, bright Realtor Voyager tiles with complete Washington geography
         L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
@@ -331,19 +334,6 @@ document.addEventListener('DOMContentLoaded', () => {
             subdomains: 'abcd',
             bounds: WA_BOUNDS
         }).addTo(map);
-
-        // Official High-Precision Washington State Border Outline (clean crisp boundary)
-        if (window.WASHINGTON_GEOJSON) {
-            L.geoJSON(window.WASHINGTON_GEOJSON, {
-                style: {
-                    color: '#c82026',
-                    weight: 2.5,
-                    opacity: 0.85,
-                    fill: false
-                },
-                interactive: false
-            }).addTo(map);
-        }
 
         // Marker Cluster Layer with clean Redfin/Zillow count pins
         if (typeof L.markerClusterGroup === 'function') {
