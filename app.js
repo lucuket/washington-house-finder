@@ -3219,36 +3219,38 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         // Comparison Dock & Matrix
-        btnOpenComparisonMatrix.addEventListener('click', openComparisonMatrix);
-        btnCloseComparison.addEventListener('click', () => comparisonModal.classList.add('hidden'));
-        btnCompareClear.addEventListener('click', () => {
-            comparisonSet.clear();
-            updateCompareDock();
-            renderGalleryCards();
-        });
+        if (btnOpenComparisonMatrix) btnOpenComparisonMatrix.addEventListener('click', openComparisonMatrix);
+        if (btnCloseComparison) btnCloseComparison.addEventListener('click', () => comparisonModal && comparisonModal.classList.add('hidden'));
+        if (btnCompareClear) {
+            btnCompareClear.addEventListener('click', () => {
+                comparisonSet.clear();
+                updateCompareDock();
+                renderGalleryCards();
+            });
+        }
 
         // Mortgage Modal
-        btnCloseMortgage.addEventListener('click', () => mortgageModal.classList.add('hidden'));
-        [calcHomePrice, calcDownPct, calcLoanTerm, calcInterestRate, calcTaxRate, calcInsurance, calcHoaFee].forEach(input => {
+        if (btnCloseMortgage) btnCloseMortgage.addEventListener('click', () => mortgageModal && mortgageModal.classList.add('hidden'));
+        [calcHomePrice, calcDownPct, calcLoanTerm, calcInterestRate, calcTaxRate, calcInsurance, calcHoaFee].filter(Boolean).forEach(input => {
             input.addEventListener('input', recalculateMortgageModal);
         });
 
         // Lightbox Modal
-        btnCloseLightbox.addEventListener('click', () => photoLightboxModal.classList.add('hidden'));
-        btnLightboxPrev.addEventListener('click', () => stepLightbox(-1));
-        btnLightboxNext.addEventListener('click', () => stepLightbox(1));
+        if (btnCloseLightbox) btnCloseLightbox.addEventListener('click', () => photoLightboxModal && photoLightboxModal.classList.add('hidden'));
+        if (btnLightboxPrev) btnLightboxPrev.addEventListener('click', () => stepLightbox(-1));
+        if (btnLightboxNext) btnLightboxNext.addEventListener('click', () => stepLightbox(1));
 
-        // Scraper Modal
-        btnOpenScraper.addEventListener('click', openScraperModal);
-        btnCloseScraper.addEventListener('click', () => scraperModal.classList.add('hidden'));
-        btnCancelScraper.addEventListener('click', () => scraperModal.classList.add('hidden'));
-        btnStartLiveScrape.addEventListener('click', startLiveScrapingJob);
+        // Scraper Modal (Guarded)
+        if (btnOpenScraper) btnOpenScraper.addEventListener('click', openScraperModal);
+        if (btnCloseScraper) btnCloseScraper.addEventListener('click', () => scraperModal && scraperModal.classList.add('hidden'));
+        if (btnCancelScraper) btnCancelScraper.addEventListener('click', () => scraperModal && scraperModal.classList.add('hidden'));
+        if (btnStartLiveScrape) btnStartLiveScrape.addEventListener('click', startLiveScrapingJob);
 
         // CSV Export
-        btnExportCsv.addEventListener('click', exportCsv);
+        if (btnExportCsv) btnExportCsv.addEventListener('click', exportCsv);
 
         // Global Modal Backdrop Click to Close
-        [comparisonModal, mortgageModal, photoLightboxModal, scraperModal, scoringModal, cmdPaletteModal].forEach(modal => {
+        [comparisonModal, mortgageModal, photoLightboxModal, scraperModal, scoringModal, cmdPaletteModal].filter(Boolean).forEach(modal => {
             modal.addEventListener('click', (e) => {
                 if (e.target === modal) modal.classList.add('hidden');
             });
