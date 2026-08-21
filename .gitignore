@@ -12,3 +12,5 @@ audit_*.py
 verify_*.py
 clean_all_sold.py
 mingit.zip
+*.csv
+*.zip

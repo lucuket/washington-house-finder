@@ -207,6 +207,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const dMortgageBar = document.getElementById('d-mortgage-bar');
     const dValPi = document.getElementById('d-val-pi');
     const dValTax = document.getElementById('d-val-tax');
+    const dValIns = document.getElementById('d-val-ins');
+    const dValHoa = document.getElementById('d-val-hoa');
     const drawerSimilarHomes = document.getElementById('drawer-similar-homes');
     const drawerExternalLink = document.getElementById('drawer-external-link');
 
@@ -1153,6 +1155,7 @@ document.addEventListener('DOMContentLoaded', () => {
             });
 
             const acres = (p.lot_sqft / 43560).toFixed(2);
+            const bbSummary = getCardBroadbandSummary(p);
 
             card.innerHTML = `
                 <div class="card-media">
@@ -1213,8 +1216,22 @@ document.addEventListener('DOMContentLoaded', () => {
                         <span class="chip mono">${acres} Ac Lot</span>
                         <span class="chip">Built ${p.year_built}</span>
                         <span class="chip">${p.hoa > 0 ? `$${p.hoa}/mo HOA` : 'No HOA'}</span>
-                        <span class="chip chip-broadband" title="FCC Broadband: ${p.broadband ? p.broadband.cable_fiber_pct + '% City Cable/Fiber, ' + p.broadband.gigabit_pct + '% Gigabit' : 'Cable / Fiber Ready'}">🌐 ${p.broadband ? p.broadband.gigabit_pct + '% Gigabit' : 'Cable/Fiber'}</span>
+                        <span class="chip chip-broadband ${bbSummary.isCableOnly ? 'chip-cable-only' : ''}" title="${bbSummary.badgeTitle}">🌐 ${bbSummary.chipLabel}</span>
                         ${signalsHtml}
+                    </div>
+
+                    <!-- Verified Broadband Speeds & Providers (FCC) -->
+                    <div class="card-broadband-block ${bbSummary.isCableOnly ? 'cable-only-block' : 'fiber-ready-block'}">
+                        <div class="bb-card-top-row">
+                            <span class="bb-type-pill ${bbSummary.badgeClass}" title="${bbSummary.badgeTitle}">
+                                ${bbSummary.badgeText}
+                            </span>
+                            <span class="bb-speed-tag mono" title="Verified Wireline Speeds: ${bbSummary.speedText}">${bbSummary.speedText}</span>
+                        </div>
+                        <div class="bb-card-providers-row">
+                            <span class="bb-prov-prefix">ISP:</span>
+                            <span class="bb-prov-names" title="${bbSummary.providersText}">${bbSummary.providersText}</span>
+                        </div>
                     </div>
 
                     <div class="card-user-meta">
@@ -1544,14 +1561,18 @@ document.addEventListener('DOMContentLoaded', () => {
         } else if (city.includes('vancouver') || city.includes('camas') || city.includes('ridgefield') || city.includes('battle ground')) {
             fiberProviders = 'Quantum Fiber / CenturyLink, Ziply Fiber';
             cableProviders = 'Xfinity / Comcast (Gigabit Cable)';
-        } else if (city.includes('seattle') || city.includes('bellevue') || city.includes('tacoma') || city.includes('olympia') || city.includes('renton') || city.includes('kent') || city.includes('auburn')) {
+        } else if (city.includes('hat island')) {
+            fiberProviders = 'None Reported';
+            cableProviders = 'Xfinity (Comcast), Astound Broadband';
+        } else if (city.includes('olympia')) {
+            fiberProviders = 'CenturyLink / Quantum Fiber (Limited FTTH)';
+            cableProviders = 'Xfinity (Comcast), Astound Broadband';
+        } else if (city.includes('seattle') || city.includes('bellevue') || city.includes('tacoma') || city.includes('renton') || city.includes('kent') || city.includes('auburn')) {
             fiberProviders = 'CenturyLink / Quantum Fiber (Gigabit FTTH), Ziply Fiber';
             cableProviders = 'Xfinity (Comcast), Astound Broadband';
         }
 
         const fullAddress = `${prop.address}, ${prop.city}, WA ${prop.zip || ''}`.trim();
-        const lat = prop.latitude || 47.5;
-        const lon = prop.longitude || -120.5;
         // Official FCC National Broadband Map entry URL
         const fccMapUrl = (prop.broadband && prop.broadband.fcc_url)
             ? prop.broadband.fcc_url
@@ -1565,6 +1586,48 @@ document.addEventListener('DOMContentLoaded', () => {
             fccMapUrl,
             fullAddress
         };
+    }
+
+    function getCardBroadbandSummary(prop) {
+        const bb = prop.broadband || {};
+        const regional = getRegionalBroadbandDetails(prop);
+        const fiberPct = typeof bb.fiber_pct === 'number' ? bb.fiber_pct : 0;
+        const cablePct = typeof bb.cable_pct === 'number' ? bb.cable_pct : 85;
+        const gigabitPct = typeof bb.gigabit_pct === 'number' ? bb.gigabit_pct : 90;
+
+        // Is Cable Only if fiber coverage is strictly under 10%
+        const isCableOnly = (fiberPct < 10.0);
+
+        if (isCableOnly) {
+            const cableProviders = bb.primary_cable || regional.cableProviders || 'Xfinity / Comcast (DOCSIS 3.1)';
+            const cableSpeed = regional.cableSpeeds || 'Up to 1,200 Mbps Down';
+            return {
+                isCableOnly: true,
+                badgeClass: 'badge-cable-only',
+                badgeText: '⚡ Cable Only',
+                badgeTitle: `FTTH Fiber not widely available (${fiberPct}% city coverage). High-speed DOCSIS 3.1 Gigabit Cable is active.`,
+                speedText: `${cableSpeed} (DOCSIS 3.1)`,
+                speedShort: 'Up to 1.2 Gbps',
+                providersText: cableProviders,
+                chipLabel: '⚡ Cable Only',
+                chipTitle: `Cable Only: ${cableSpeed} via ${cableProviders}`
+            };
+        } else {
+            const fiberProviders = bb.primary_fiber || regional.fiberProviders || 'Quantum / Ziply Fiber';
+            const cableProviders = bb.primary_cable || regional.cableProviders || 'Xfinity (Comcast)';
+            const fiberSpeed = regional.fiberSpeeds || 'Up to 1,000 – 5,000 Mbps';
+            return {
+                isCableOnly: false,
+                badgeClass: 'badge-fiber-ready',
+                badgeText: '🌐 Fiber + Cable',
+                badgeTitle: `Symmetrical FTTH Fiber (${fiberPct}%) + Gigabit Cable (${cablePct}%)`,
+                speedText: `Fiber: 1–5 Gbps • Cable: 1.2 Gbps`,
+                speedShort: '1–5 Gbps FTTH',
+                providersText: `${fiberProviders} • ${cableProviders}`,
+                chipLabel: `${gigabitPct}% Gigabit`,
+                chipTitle: `Fiber & Cable: Up to 5 Gbps via ${fiberProviders}`
+            };
+        }
     }
 
     // -------------------------------------------------------------------------
@@ -1581,25 +1644,34 @@ document.addEventListener('DOMContentLoaded', () => {
         recordRecentlyViewed(propId);
 
         // Header
-        drawerAddress.textContent = prop.address;
-        drawerCityZip.textContent = `${prop.city}, WA ${prop.zip || ''}`;
-        btnDrawerFavorite.classList.toggle('favorited', !!prop.favorite);
-        btnDrawerFavorite.innerHTML = `
-            <svg viewBox="0 0 24 24" width="18" height="18" fill="${prop.favorite ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2">
-                <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
-            </svg>
-        `;
+        if (drawerAddress) drawerAddress.textContent = prop.address;
+        if (drawerCityZip) drawerCityZip.textContent = `${prop.city}, WA ${prop.zip || ''}`;
+        if (btnDrawerFavorite) {
+            btnDrawerFavorite.classList.toggle('favorited', !!prop.favorite);
+            btnDrawerFavorite.innerHTML = `
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="${prop.favorite ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2">
+                    <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+                </svg>
+            `;
+        }
 
         // Broadband & High-Speed Internet (FCC National Broadband Map)
         const broadbandInfo = getRegionalBroadbandDetails(prop);
+        const isCableOnly = prop.broadband ? (prop.broadband.fiber_pct < 10) : false;
+
         if (btnDrawerFccHeader) btnDrawerFccHeader.href = broadbandInfo.fccMapUrl;
         if (drawerFccBtnBottom) drawerFccBtnBottom.href = broadbandInfo.fccMapUrl;
         if (drawerFccBroadbandLink) drawerFccBroadbandLink.href = broadbandInfo.fccMapUrl;
         if (drawerFccCableFiberPct) drawerFccCableFiberPct.textContent = (prop.broadband ? prop.broadband.cable_fiber_pct : '99.8') + '%';
         if (drawerFccGigabitPct) drawerFccGigabitPct.textContent = (prop.broadband ? prop.broadband.gigabit_pct : '99.4') + '%';
         if (drawerFccFiberPct) drawerFccFiberPct.textContent = (prop.broadband ? prop.broadband.fiber_pct : '86.1') + '%';
-        if (drawerFiberSpeed) drawerFiberSpeed.textContent = broadbandInfo.fiberSpeeds;
-        if (drawerFiberProviders) drawerFiberProviders.textContent = (prop.broadband ? prop.broadband.primary_fiber : broadbandInfo.fiberProviders);
+        
+        if (drawerFiberSpeed) {
+            drawerFiberSpeed.textContent = isCableOnly ? 'Not Available in Zone' : broadbandInfo.fiberSpeeds;
+        }
+        if (drawerFiberProviders) {
+            drawerFiberProviders.textContent = isCableOnly ? 'None reported (FTTH < 10%)' : (prop.broadband ? prop.broadband.primary_fiber : broadbandInfo.fiberProviders);
+        }
         if (drawerCableSpeed) drawerCableSpeed.textContent = broadbandInfo.cableSpeeds;
         if (drawerCableProviders) drawerCableProviders.textContent = (prop.broadband ? prop.broadband.primary_cable : broadbandInfo.cableProviders);
 
@@ -1744,13 +1816,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function updateDrawerMortgageBreakdown(prop) {
         const est = calculateEstimatedMonthly(prop.price, prop.hoa);
-        dMortgageTotal.innerHTML = `$${est.total.toLocaleString()}<span class="per-mo">/mo</span>`;
-        dValPi.textContent = `$${est.pi.toLocaleString()}/mo`;
-        dValTax.textContent = `$${est.tax.toLocaleString()}/mo`;
-        dValIns.textContent = `$${est.ins.toLocaleString()}/mo`;
-        dValHoa.textContent = `$${est.hoa.toLocaleString()}/mo`;
+        if (dMortgageTotal) dMortgageTotal.innerHTML = `$${est.total.toLocaleString()}<span class="per-mo">/mo</span>`;
+        if (dValPi) dValPi.textContent = `$${est.pi.toLocaleString()}/mo`;
+        if (dValTax) dValTax.textContent = `$${est.tax.toLocaleString()}/mo`;
+        if (dValIns) dValIns.textContent = `$${est.ins.toLocaleString()}/mo`;
+        if (dValHoa) dValHoa.textContent = `$${est.hoa.toLocaleString()}/mo`;
 
-        if (est.total > 0) {
+        if (dMortgageBar && est.total > 0) {
             const piPct = (est.pi / est.total) * 100;
             const taxPct = (est.tax / est.total) * 100;
             const insPct = (est.ins / est.total) * 100;
@@ -1986,13 +2058,14 @@ document.addEventListener('DOMContentLoaded', () => {
                         ${props.map(p => `<td><em style="color: var(--text-secondary); font-size: 11.5px;">${p.user_notes || 'No notes added'}</em></td>`).join('')}
                     </tr>
                     <tr>
-                        <th>Internet (Cable/Fiber)</th>
+                        <th>Internet &amp; Speeds</th>
                         ${props.map(p => {
-                            const bb = getRegionalBroadbandDetails(p);
+                            const bbSummary = getCardBroadbandSummary(p);
                             return `<td>
-                                <strong style="color: #0369a1; font-size: 11.5px;">Cable / Fiber</strong><br>
-                                <span style="font-size: 11px; color: var(--text-secondary);">${bb.fiberProviders}</span><br>
-                                <a href="${bb.fccMapUrl}" target="_blank" rel="noopener noreferrer" style="font-size: 11px; color: var(--brand-primary); font-weight: 700; text-decoration: underline;">
+                                <strong style="color: ${bbSummary.isCableOnly ? '#b45309' : '#0369a1'}; font-size: 11.5px;">${bbSummary.badgeText}</strong><br>
+                                <span style="font-size: 10.5px; font-weight: 700; color: var(--text-primary);" class="mono">${bbSummary.speedText}</span><br>
+                                <span style="font-size: 10.5px; color: var(--text-secondary);">${bbSummary.providersText}</span><br>
+                                <a href="${bbSummary.fccUrl}" target="_blank" rel="noopener noreferrer" style="font-size: 10.5px; color: var(--brand-primary); font-weight: 700; text-decoration: underline;">
                                     FCC Map ↗
                                 </a>
                             </td>`;
@@ -3346,21 +3419,31 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // Drawer Photo Navigation
+        function stepDrawerPhoto(direction) {
+            if (!selectedPropId) return;
+            const prop = allProperties.find(p => p.id === selectedPropId);
+            if (!prop || !prop.photos || prop.photos.length <= 1) return;
+            let photoIdx = activePhotoIndices[prop.id] || 0;
+            photoIdx = (photoIdx + direction + prop.photos.length) % prop.photos.length;
+            activePhotoIndices[prop.id] = photoIdx;
+            if (drawerActiveImg) drawerActiveImg.src = prop.photos[photoIdx];
+            if (drawerImgCur) drawerImgCur.textContent = photoIdx + 1;
+            if (drawerThumbnailsStrip) {
+                drawerThumbnailsStrip.querySelectorAll('.drawer-thumb').forEach((t, i) => {
+                    t.classList.toggle('active', i === photoIdx);
+                });
+            }
+            const cardImg = document.getElementById(`img-${prop.id}`);
+            const cardCounter = document.getElementById(`counter-${prop.id}`);
+            if (cardImg) cardImg.src = prop.photos[photoIdx];
+            if (cardCounter) cardCounter.innerHTML = `<span>${photoIdx + 1}/${prop.photos.length}</span>`;
+        }
+
         if (btnDrawerImgPrev) {
-            btnDrawerImgPrev.addEventListener('click', () => {
-                if (!selectedPropId) return;
-                cycleCardPhoto(selectedPropId, -1);
-                const prop = allProperties.find(p => p.id === selectedPropId);
-                if (prop) openPropertyDrawer(prop.id);
-            });
+            btnDrawerImgPrev.addEventListener('click', () => stepDrawerPhoto(-1));
         }
         if (btnDrawerImgNext) {
-            btnDrawerImgNext.addEventListener('click', () => {
-                if (!selectedPropId) return;
-                cycleCardPhoto(selectedPropId, 1);
-                const prop = allProperties.find(p => p.id === selectedPropId);
-                if (prop) openPropertyDrawer(prop.id);
-            });
+            btnDrawerImgNext.addEventListener('click', () => stepDrawerPhoto(1));
         }
         if (btnDrawerFullscreen) {
             btnDrawerFullscreen.addEventListener('click', () => {
@@ -3466,11 +3549,32 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
-            // Drawer Navigation (J/K or Up/Down)
+            // Drawer Navigation (J/K or Up/Down for properties, Left/Right for photos)
             if (propertyDetailDrawer && !propertyDetailDrawer.classList.contains('hidden')) {
-                if (e.key === 'j' || e.key === 'ArrowDown') stepDrawerProperty(1);
-                if (e.key === 'k' || e.key === 'ArrowUp') stepDrawerProperty(-1);
-                if (e.key === 'f' && selectedPropId) toggleFavorite(selectedPropId);
+                if (e.key === 'ArrowLeft') {
+                    e.preventDefault();
+                    stepDrawerPhoto(-1);
+                    return;
+                }
+                if (e.key === 'ArrowRight') {
+                    e.preventDefault();
+                    stepDrawerPhoto(1);
+                    return;
+                }
+                if (e.key === 'j' || e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    stepDrawerProperty(1);
+                    return;
+                }
+                if (e.key === 'k' || e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    stepDrawerProperty(-1);
+                    return;
+                }
+                if (e.key === 'f' && selectedPropId) {
+                    toggleFavorite(selectedPropId);
+                    return;
+                }
                 return;
             }
 

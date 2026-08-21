@@ -1292,6 +1292,109 @@ html, body {
     font-weight: 600;
 }
 
+.chip-broadband.chip-cable-only {
+    background-color: #fffbeb;
+    color: #b45309;
+    border-color: #fde68a;
+}
+
+/* Card Broadband Summary Block (Wireline Speeds & Providers) */
+.card-broadband-block {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 7px 9px;
+    border-radius: var(--radius-sm);
+    font-size: 11px;
+    background-color: var(--bg-surface-secondary);
+    border: 1px solid var(--border-subtle);
+    transition: all 0.15s ease;
+}
+
+.card-broadband-block.fiber-ready-block {
+    background-color: #f0f9ff;
+    border-color: #bae6fd;
+}
+
+.card-broadband-block.cable-only-block {
+    background-color: #fffbeb;
+    border-color: #fde68a;
+}
+
+.bb-card-top-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+}
+
+.bb-type-pill {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    white-space: nowrap;
+}
+
+.bb-type-pill.badge-fiber-ready {
+    background-color: #0284c7;
+    color: #ffffff;
+}
+
+.bb-type-pill.badge-cable-only {
+    background-color: #d97706;
+    color: #ffffff;
+}
+
+.bb-speed-tag {
+    font-size: 10.5px;
+    font-weight: 700;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.card-broadband-block.fiber-ready-block .bb-speed-tag {
+    color: #0369a1;
+}
+
+.card-broadband-block.cable-only-block .bb-speed-tag {
+    color: #92400e;
+}
+
+.bb-card-providers-row {
+    display: flex;
+    align-items: baseline;
+    gap: 5px;
+    font-size: 10.5px;
+    line-height: 1.3;
+    overflow: hidden;
+}
+
+.bb-prov-prefix {
+    font-weight: 700;
+    font-size: 9.5px;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    flex-shrink: 0;
+}
+
+.bb-prov-names {
+    color: var(--text-secondary);
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.card-broadband-block.cable-only-block .bb-prov-names {
+    color: #78350f;
+}
+
 /* Star Rating & Notes */
 .card-user-meta {
     display: flex;
