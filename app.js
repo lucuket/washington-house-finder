@@ -282,9 +282,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const REGION_BOUNDS = {
         'all': { center: [47.35, -120.4], zoom: 7 },
+        'everett': { center: [47.97, -122.20], zoom: 11 },
+        'puget-sound': { center: [47.25, -122.44], zoom: 10 },
         'spokane': { center: [47.66, -117.42], zoom: 11 },
         'tri-cities': { center: [46.23, -119.14], zoom: 11 },
-        'puget-sound': { center: [47.25, -122.44], zoom: 10 },
         'yakima': { center: [46.60, -120.50], zoom: 11 },
         'vancouver': { center: [45.64, -122.66], zoom: 11 }
     };
