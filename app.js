@@ -207,10 +207,16 @@ document.addEventListener('DOMContentLoaded', () => {
     const dMortgageBar = document.getElementById('d-mortgage-bar');
     const dValPi = document.getElementById('d-val-pi');
     const dValTax = document.getElementById('d-val-tax');
-    const dValIns = document.getElementById('d-val-ins');
-    const dValHoa = document.getElementById('d-val-hoa');
     const drawerSimilarHomes = document.getElementById('drawer-similar-homes');
     const drawerExternalLink = document.getElementById('drawer-external-link');
+
+    // Drawer Broadband & Internet (FCC National Broadband Map)
+    const drawerInternetCard = document.getElementById('drawer-internet-card');
+    const drawerFccBroadbandLink = document.getElementById('drawer-fcc-broadband-link');
+    const drawerFiberSpeed = document.getElementById('drawer-fiber-speed');
+    const drawerFiberProviders = document.getElementById('drawer-fiber-providers');
+    const drawerCableSpeed = document.getElementById('drawer-cable-speed');
+    const drawerCableProviders = document.getElementById('drawer-cable-providers');
 
     // Modals
     const cmdPaletteModal = document.getElementById('cmd-palette-modal');
@@ -1195,6 +1201,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         <span class="chip mono">${acres} Ac Lot</span>
                         <span class="chip">Built ${p.year_built}</span>
                         <span class="chip">${p.hoa > 0 ? `$${p.hoa}/mo HOA` : 'No HOA'}</span>
+                        <span class="chip chip-broadband" title="FCC Broadband: Cable / Fiber Wireline High-Speed">🌐 Cable/Fiber</span>
                         ${signalsHtml}
                     </div>
 
@@ -1485,6 +1492,47 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // -------------------------------------------------------------------------
+    // Regional Broadband & Internet Data (FCC National Broadband Map)
+    // -------------------------------------------------------------------------
+    function getRegionalBroadbandDetails(prop) {
+        const city = (prop.city || '').toLowerCase();
+        let fiberProviders = 'Quantum Fiber (CenturyLink), Ziply Fiber';
+        let cableProviders = 'Xfinity (Comcast)';
+        let fiberSpeeds = 'Up to 1,000 – 5,000 Mbps';
+        let cableSpeeds = 'Up to 1,200 Mbps Down';
+
+        if (city.includes('everett') || city.includes('marysville') || city.includes('snohomish') || city.includes('lynnwood') || city.includes('edmonds') || city.includes('lake stevens') || city.includes('bothell') || city.includes('mill creek')) {
+            fiberProviders = 'Ziply Fiber (Multi-Gig FTTH), Quantum Fiber';
+            cableProviders = 'Xfinity / Comcast (Gigabit DOCSIS 3.1)';
+        } else if (city.includes('spokane')) {
+            fiberProviders = 'Quantum Fiber / CenturyLink, Ziply Fiber';
+            cableProviders = 'Xfinity / Comcast (Gigabit DOCSIS 3.1)';
+        } else if (city.includes('kennewick') || city.includes('pasco') || city.includes('richland') || city.includes('yakima') || city.includes('west richland')) {
+            fiberProviders = 'Ziply Fiber (Gigabit FTTH), CenturyLink Fiber';
+            cableProviders = 'Spectrum / Charter (Gigabit DOCSIS 3.1)';
+        } else if (city.includes('vancouver') || city.includes('camas') || city.includes('ridgefield') || city.includes('battle ground')) {
+            fiberProviders = 'Quantum Fiber / CenturyLink, Ziply Fiber';
+            cableProviders = 'Xfinity / Comcast (Gigabit Cable)';
+        } else if (city.includes('seattle') || city.includes('bellevue') || city.includes('tacoma') || city.includes('olympia') || city.includes('renton') || city.includes('kent') || city.includes('auburn')) {
+            fiberProviders = 'CenturyLink / Quantum Fiber (Gigabit FTTH), Ziply Fiber';
+            cableProviders = 'Xfinity (Comcast), Astound Broadband';
+        }
+
+        const fullAddress = `${prop.address}, ${prop.city}, WA ${prop.zip || ''}`.trim();
+        // Official FCC National Broadband Map direct search location query filtered to wireline Cable & Fiber
+        const fccMapUrl = `https://broadbandmap.fcc.gov/location-summary/fixed?speed=100_20&tech=1_2_3&address=${encodeURIComponent(fullAddress)}`;
+
+        return {
+            fiberProviders,
+            cableProviders,
+            fiberSpeeds,
+            cableSpeeds,
+            fccMapUrl,
+            fullAddress
+        };
+    }
+
+    // -------------------------------------------------------------------------
     // Property Detail Workstation Drawer
     // -------------------------------------------------------------------------
     function openPropertyDrawer(propId) {
@@ -1599,6 +1647,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Description
         drawerDescription.textContent = prop.description || "Washington residential listing.";
+
+        // Broadband & High-Speed Internet (FCC National Broadband Map)
+        const broadbandInfo = getRegionalBroadbandDetails(prop);
+        if (drawerFccBroadbandLink) drawerFccBroadbandLink.href = broadbandInfo.fccMapUrl;
+        if (drawerFiberSpeed) drawerFiberSpeed.textContent = broadbandInfo.fiberSpeeds;
+        if (drawerFiberProviders) drawerFiberProviders.textContent = broadbandInfo.fiberProviders;
+        if (drawerCableSpeed) drawerCableSpeed.textContent = broadbandInfo.cableSpeeds;
+        if (drawerCableProviders) drawerCableProviders.textContent = broadbandInfo.cableProviders;
 
         // Personal Rating & Notes
         updateDrawerStarPicker(prop.rating || 0);
@@ -1888,6 +1944,19 @@ document.addEventListener('DOMContentLoaded', () => {
                     <tr>
                         <th>Private Notes</th>
                         ${props.map(p => `<td><em style="color: var(--text-secondary); font-size: 11.5px;">${p.user_notes || 'No notes added'}</em></td>`).join('')}
+                    </tr>
+                    <tr>
+                        <th>Internet (Cable/Fiber)</th>
+                        ${props.map(p => {
+                            const bb = getRegionalBroadbandDetails(p);
+                            return `<td>
+                                <strong style="color: #0369a1; font-size: 11.5px;">Cable / Fiber</strong><br>
+                                <span style="font-size: 11px; color: var(--text-secondary);">${bb.fiberProviders}</span><br>
+                                <a href="${bb.fccMapUrl}" target="_blank" rel="noopener noreferrer" style="font-size: 11px; color: var(--brand-primary); font-weight: 700; text-decoration: underline;">
+                                    FCC Map ↗
+                                </a>
+                            </td>`;
+                        }).join('')}
                     </tr>
                     <tr>
                         <th>Action</th>

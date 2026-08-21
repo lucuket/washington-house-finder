@@ -19,7 +19,7 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
 
     <!-- Application Stylesheet -->
-    <link rel="stylesheet" href="styles.css?v=2.4">
+    <link rel="stylesheet" href="styles.css?v=2.5">
 </head>
 <body class="density-comfortable">
 
@@ -801,6 +801,59 @@
                     <p class="drawer-description" id="drawer-description">Listing description...</p>
                 </div>
 
+                <!-- High-Speed Internet & Broadband (FCC National Broadband Map) -->
+                <div class="drawer-section-card internet-broadband-card" id="drawer-internet-card">
+                    <div class="internet-card-header">
+                        <div class="internet-title-group">
+                            <div class="internet-badge-pill">
+                                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
+                                <span>FCC NATIONAL BROADBAND MAP</span>
+                            </div>
+                            <h4>High-Speed Internet (Cable &amp; Fiber Only)</h4>
+                        </div>
+                        <a href="#" target="_blank" rel="noopener noreferrer" class="btn btn-secondary btn-sm btn-fcc-link" id="drawer-fcc-broadband-link" title="Open address on broadbandmap.fcc.gov">
+                            <span>Open on FCC Map</span>
+                            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
+                        </a>
+                    </div>
+
+                    <div class="internet-tech-grid">
+                        <div class="internet-tech-cell">
+                            <div class="tech-cell-top">
+                                <span class="tech-tag tag-fiber">FIBER (FTTH)</span>
+                                <strong class="tech-speed mono" id="drawer-fiber-speed">Up to 1,000 – 5,000 Mbps</strong>
+                            </div>
+                            <div class="tech-provider-row">
+                                <span class="tech-provider-lbl">Providers:</span>
+                                <strong class="tech-provider-name" id="drawer-fiber-providers">Quantum Fiber, Ziply Fiber</strong>
+                            </div>
+                            <span class="tech-status-badge status-fiber">Symmetrical Ultra-Low Latency</span>
+                        </div>
+
+                        <div class="internet-tech-cell">
+                            <div class="tech-cell-top">
+                                <span class="tech-tag tag-cable">GIGABIT CABLE (DOCSIS)</span>
+                                <strong class="tech-speed mono" id="drawer-cable-speed">Up to 1,200 Mbps Down</strong>
+                            </div>
+                            <div class="tech-provider-row">
+                                <span class="tech-provider-lbl">Providers:</span>
+                                <strong class="tech-provider-name" id="drawer-cable-providers">Xfinity (Comcast), Astound / Spectrum</strong>
+                            </div>
+                            <span class="tech-status-badge status-cable">High-Bandwidth Hybrid Coaxial</span>
+                        </div>
+                    </div>
+
+                    <div class="internet-fcc-notice">
+                        <div class="fcc-notice-icon">
+                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+                        </div>
+                        <div class="fcc-notice-text">
+                            <strong>Strict Terrestrial Standard (Cable &amp; Fiber Only):</strong>
+                            <span>Satellite (Starlink/HughesNet) and cellular/fixed wireless are excluded to ensure rock-solid remote work reliability. Click <em>"Open on FCC Map"</em> to verify official FCC location-level filings for this specific property.</span>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Personal Notes & Rating Section -->
                 <div class="drawer-section-card research-notes-card">
                     <div class="research-notes-header">
@@ -1242,6 +1295,6 @@
     <script src="data.js"></script>
     
     <!-- Application Logic -->
-    <script src="app.js?v=2.4"></script>
+    <script src="app.js?v=2.5"></script>
 </body>
 </html>

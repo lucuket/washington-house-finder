@@ -1285,6 +1285,13 @@ html, body {
     font-weight: 600;
 }
 
+.chip-broadband {
+    background-color: #f0f9ff;
+    color: #0369a1;
+    border-color: #bae6fd;
+    font-weight: 600;
+}
+
 /* Star Rating & Notes */
 .card-user-meta {
     display: flex;
@@ -2083,6 +2090,179 @@ html, body {
 .dot-tax { background-color: #f59e0b; }
 .dot-ins { background-color: #3b82f6; }
 .dot-hoa { background-color: #8b5cf6; }
+
+/* Broadband & High-Speed Internet (FCC National Broadband Map) */
+.internet-broadband-card {
+    background-color: #ffffff;
+    border: 1px solid var(--border-medium);
+    border-radius: var(--radius-lg);
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.internet-card-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.internet-title-group {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.internet-badge-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    color: #0369a1;
+    background-color: #e0f2fe;
+    padding: 2px 7px;
+    border-radius: var(--radius-sm);
+    width: fit-content;
+}
+
+.internet-title-group h4 {
+    font-size: 13.5px;
+    font-weight: 800;
+    color: var(--text-primary);
+    margin: 0;
+}
+
+.btn-fcc-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11.5px;
+    font-weight: 700;
+    padding: 6px 12px;
+    text-decoration: none;
+    border-radius: var(--radius-md);
+    background-color: var(--brand-primary-subtle);
+    color: var(--brand-primary);
+    border: 1px solid #fca5a5;
+    transition: all 0.15s ease;
+}
+
+.btn-fcc-link:hover {
+    background-color: var(--brand-primary);
+    color: #ffffff;
+    border-color: var(--brand-primary);
+    text-decoration: none;
+}
+
+.internet-tech-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 10px;
+}
+
+.internet-tech-cell {
+    background-color: #f8fafc;
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+    padding: 10px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.tech-cell-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+}
+
+.tech-tag {
+    font-size: 9.5px;
+    font-weight: 800;
+    padding: 2px 6px;
+    border-radius: var(--radius-sm);
+    letter-spacing: 0.03em;
+}
+
+.tech-tag.tag-fiber {
+    background-color: #dcfce7;
+    color: #15803d;
+}
+
+.tech-tag.tag-cable {
+    background-color: #e0e7ff;
+    color: #4338ca;
+}
+
+.tech-speed {
+    font-size: 11.5px;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.tech-provider-row {
+    font-size: 11px;
+    display: flex;
+    gap: 4px;
+    color: var(--text-secondary);
+}
+
+.tech-provider-lbl {
+    color: var(--text-muted);
+}
+
+.tech-provider-name {
+    color: var(--text-primary);
+    font-weight: 600;
+}
+
+.tech-status-badge {
+    font-size: 10px;
+    font-weight: 600;
+    display: inline-flex;
+    align-self: flex-start;
+    padding: 2px 6px;
+    border-radius: var(--radius-sm);
+}
+
+.tech-status-badge.status-fiber {
+    background-color: #f0fdf4;
+    color: #166534;
+    border: 1px solid #bbf7d0;
+}
+
+.tech-status-badge.status-cable {
+    background-color: #eef2ff;
+    color: #3730a3;
+    border: 1px solid #c7d2fe;
+}
+
+.internet-fcc-notice {
+    display: flex;
+    gap: 8px;
+    background-color: #f1f5f9;
+    border-radius: var(--radius-md);
+    padding: 8px 10px;
+    font-size: 11px;
+    color: var(--text-secondary);
+    line-height: 1.4;
+}
+
+.fcc-notice-icon {
+    flex-shrink: 0;
+    color: #64748b;
+    margin-top: 1px;
+}
+
+.fcc-notice-text strong {
+    color: var(--text-primary);
+}
 
 /* Similar Homes */
 .similar-homes-list {
