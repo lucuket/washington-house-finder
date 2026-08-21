@@ -447,6 +447,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 const marker = L.marker([p.latitude, p.longitude], { icon: customIcon });
 
+                const bbSummary = getCardBroadbandSummary(p);
+
                 const popupContent = `
                     <div class="map-popup-card" onclick="window.HouseFinderApp.openDrawerById('${p.id}')" style="cursor: pointer;">
                         <img src="${p.photos[0] || ''}" alt="${p.address}" class="popup-img" loading="lazy" onerror="this.src='https://images.unsplash.com/photo-1570129477492-45c003edd2be?auto=format&fit=crop&w=600&q=80'">
@@ -455,7 +457,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             <strong class="popup-address">${p.address}</strong>
                             <span class="popup-specs">${p.beds} Beds • ${p.baths} Baths • ${p.sqft.toLocaleString()} sqft</span>
                             <div style="margin-top: 5px; display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--border-subtle); padding-top: 4px;">
-                                <span style="font-size: 9.5px; color: #0284c7; font-weight: 700;">🌐 Cable/Fiber</span>
+                                <span style="font-size: 9.5px; color: ${bbSummary.isCableOnly ? '#b45309' : '#0284c7'}; font-weight: 700;">${bbSummary.badgeText}</span>
                                 <a href="${p.broadband ? p.broadband.fcc_url : 'https://broadbandmap.fcc.gov'}" target="_blank" rel="noopener noreferrer" style="font-size: 10px; color: var(--brand-primary); font-weight: 700; text-decoration: underline;" onclick="event.stopPropagation();">FCC Map ↗</a>
                             </div>
                         </div>
@@ -486,13 +488,14 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!mobileMapPreviewCard || !mobilePreviewContent) return;
         const estMonthly = calculateEstimatedMonthly(p.price, p.hoa);
         const photo = (p.photos && p.photos.length) ? p.photos[0] : 'https://images.unsplash.com/photo-1570129477492-45c003edd2be?auto=format&fit=crop&w=600&q=80';
+        const bbSummary = getCardBroadbandSummary(p);
         
         mobilePreviewContent.innerHTML = `
             <img src="${photo}" alt="${p.address}" class="mob-prev-img" loading="lazy" onerror="this.src='https://images.unsplash.com/photo-1568605117036-5fe5e7bab0b7?auto=format&fit=crop&w=300&q=75'">
             <div class="mob-prev-details">
                 <div class="mob-prev-price mono">$${p.price.toLocaleString()} <span class="mob-prev-mo">~$${estMonthly.total.toLocaleString()}/mo</span></div>
                 <strong class="mob-prev-addr" title="${p.address}">${p.address}</strong>
-                <span class="mob-prev-city">${p.city}, WA</span>
+                <span class="mob-prev-city">${p.city}, WA • <strong style="color: ${bbSummary.isCableOnly ? '#b45309' : '#0284c7'}; font-size: 10px;">${bbSummary.badgeText}</strong></span>
                 <div class="mob-prev-specs mono">${p.beds}b • ${p.baths}ba • ${p.sqft.toLocaleString()} sf</div>
                 <div style="display: flex; gap: 6px; margin-top: 6px;">
                     <button class="btn btn-primary btn-sm mob-prev-open-btn" data-id="${p.id}" style="flex: 1;">Details &rarr;</button>
