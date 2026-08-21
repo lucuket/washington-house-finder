@@ -19,7 +19,7 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
 
     <!-- Application Stylesheet -->
-    <link rel="stylesheet" href="styles.css?v=2.8">
+    <link rel="stylesheet" href="styles.css?v=2.9">
 </head>
 <body class="density-comfortable">
 
@@ -809,11 +809,8 @@
                 <div class="drawer-section-card internet-broadband-card" id="drawer-internet-card">
                     <div class="internet-card-header">
                         <div class="internet-title-group">
-                            <div class="internet-badge-pill">
-                                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
-                                <span>OFFICIAL FCC NATIONAL BROADBAND MAP</span>
-                            </div>
-                            <h4>High-Speed Internet (Cable &amp; Fiber Only)</h4>
+                            <span class="drawer-bb-status-pill" id="drawer-bb-main-status">🌐 Fiber &amp; Cable Available</span>
+                            <h4>Wireline Internet Availability</h4>
                         </div>
                         <a href="#" target="_blank" rel="noopener noreferrer" class="btn btn-secondary btn-sm btn-fcc-link" id="drawer-fcc-broadband-link" title="Open address on broadbandmap.fcc.gov">
                             <span>Open in FCC Map ↗</span>
@@ -821,58 +818,44 @@
                         </a>
                     </div>
 
-                    <!-- Official FCC Stats Row -->
-                    <div class="fcc-stats-metrics-grid">
-                        <div class="fcc-stat-tile">
-                            <span class="fcc-stat-lbl">Cable/Fiber Coverage</span>
-                            <strong class="fcc-stat-val mono" id="drawer-fcc-cable-fiber-pct">99.8%</strong>
-                            <span class="fcc-stat-sub">City Residential Units</span>
-                        </div>
-                        <div class="fcc-stat-tile highlight">
-                            <span class="fcc-stat-lbl">Gigabit Availability</span>
-                            <strong class="fcc-stat-val mono" id="drawer-fcc-gigabit-pct">99.4%</strong>
-                            <span class="fcc-stat-sub">≥ 1,000 Mbps Down</span>
-                        </div>
-                        <div class="fcc-stat-tile">
-                            <span class="fcc-stat-lbl">Fiber-to-the-Home</span>
-                            <strong class="fcc-stat-val mono" id="drawer-fcc-fiber-pct">86.1%</strong>
-                            <span class="fcc-stat-sub">Symmetrical FTTH</span>
-                        </div>
-                    </div>
-
                     <div class="internet-tech-grid">
-                        <div class="internet-tech-cell">
+                        <div class="internet-tech-cell" id="drawer-fiber-cell">
                             <div class="tech-cell-top">
-                                <span class="tech-tag tag-fiber">FIBER (FTTH)</span>
-                                <strong class="tech-speed mono" id="drawer-fiber-speed">Up to 1,000 – 5,000 Mbps</strong>
+                                <span class="tech-tag tag-fiber">FIBER (FTTP / FTTH)</span>
+                                <span class="tech-avail-badge avail-yes" id="drawer-fiber-avail">Available</span>
+                            </div>
+                            <div class="tech-speed-specs">
+                                <div class="speed-row"><span class="speed-lbl">Max Down:</span> <strong class="speed-val mono" id="drawer-fiber-down">6,000 Mbps</strong></div>
+                                <div class="speed-row"><span class="speed-lbl">Max Up:</span> <strong class="speed-val mono" id="drawer-fiber-up">6,000 Mbps</strong></div>
                             </div>
                             <div class="tech-provider-row">
                                 <span class="tech-provider-lbl">Providers:</span>
-                                <strong class="tech-provider-name" id="drawer-fiber-providers">Quantum Fiber, Ziply Fiber</strong>
+                                <strong class="tech-provider-name" id="drawer-fiber-providers">Ziply Fiber, Quantum Fiber</strong>
                             </div>
-                            <span class="tech-status-badge status-fiber">Symmetrical Ultra-Low Latency</span>
                         </div>
 
-                        <div class="internet-tech-cell">
+                        <div class="internet-tech-cell" id="drawer-cable-cell">
                             <div class="tech-cell-top">
-                                <span class="tech-tag tag-cable">GIGABIT CABLE (DOCSIS)</span>
-                                <strong class="tech-speed mono" id="drawer-cable-speed">Up to 1,200 Mbps Down</strong>
+                                <span class="tech-tag tag-cable">CABLE (DOCSIS 3.1)</span>
+                                <span class="tech-avail-badge avail-yes" id="drawer-cable-avail">Available</span>
+                            </div>
+                            <div class="tech-speed-specs">
+                                <div class="speed-row"><span class="speed-lbl">Max Down:</span> <strong class="speed-val mono" id="drawer-cable-down">1,200 Mbps</strong></div>
+                                <div class="speed-row"><span class="speed-lbl">Max Up:</span> <strong class="speed-val mono" id="drawer-cable-up">35 Mbps</strong></div>
                             </div>
                             <div class="tech-provider-row">
                                 <span class="tech-provider-lbl">Providers:</span>
-                                <strong class="tech-provider-name" id="drawer-cable-providers">Xfinity (Comcast), Astound / Spectrum</strong>
+                                <strong class="tech-provider-name" id="drawer-cable-providers">Xfinity (Comcast)</strong>
                             </div>
-                            <span class="tech-status-badge status-cable">High-Bandwidth Hybrid Coaxial</span>
                         </div>
                     </div>
 
                     <div class="internet-fcc-notice">
                         <div class="fcc-notice-icon">
-                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+                            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
                         </div>
                         <div class="fcc-notice-text">
-                            <strong>Strict Wireline Standard (Cable &amp; Fiber Only):</strong>
-                            <span>Satellite (Starlink/HughesNet) and cellular wireless are excluded to ensure remote work reliability. Data source: <em>Official FCC National Broadband Map (Dec 2025 / Aug 2026 Filing)</em>.</span>
+                            <span>Strict Wireline Standard (Cable &amp; Fiber Only; wireless/satellite excluded). Verified via <em>Official FCC National Broadband Map</em>.</span>
                         </div>
                     </div>
                 </div>
@@ -1319,9 +1302,9 @@
     <script src="wa-boundary.js"></script>
     
     <!-- Embedded Properties Data (100% Offline & Local Loading) -->
-    <script src="data.js?v=2.8"></script>
+    <script src="data.js?v=2.9"></script>
     
     <!-- Application Logic -->
-    <script src="app.js?v=2.8"></script>
+    <script src="app.js?v=2.9"></script>
 </body>
 </html>

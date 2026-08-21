@@ -2203,11 +2203,13 @@ html, body {
     display: flex;
     flex-direction: column;
     gap: 12px;
+    border-color: #bae6fd;
+    background: linear-gradient(to bottom, #ffffff, #f8fafc);
 }
 
 .internet-card-header {
     display: flex;
-    align-items: flex-start;
+    align-items: center;
     justify-content: space-between;
     gap: 10px;
     flex-wrap: wrap;
@@ -2216,26 +2218,40 @@ html, body {
 .internet-title-group {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 3px;
 }
 
-.internet-badge-pill {
+.drawer-bb-status-pill {
     display: inline-flex;
     align-items: center;
-    gap: 5px;
-    font-size: 10px;
-    font-weight: 800;
-    letter-spacing: 0.04em;
-    color: #0369a1;
-    background-color: #e0f2fe;
-    padding: 2px 7px;
+    padding: 2.5px 8px;
     border-radius: var(--radius-sm);
+    font-size: 11px;
+    font-weight: 700;
     width: fit-content;
 }
 
-.internet-title-group h4 {
-    font-size: 13.5px;
-    font-weight: 800;
+.drawer-bb-status-pill.status-both {
+    background-color: #e0f2fe;
+    color: #0369a1;
+    border: 1px solid #bae6fd;
+}
+
+.drawer-bb-status-pill.status-cable-only {
+    background-color: #fef3c7;
+    color: #92400e;
+    border: 1px solid #fde68a;
+}
+
+.drawer-bb-status-pill.status-fiber-only {
+    background-color: #dcfce7;
+    color: #166534;
+    border: 1px solid #bbf7d0;
+}
+
+.internet-card-header h4 {
+    font-size: 14.5px;
+    font-weight: 700;
     color: var(--text-primary);
     margin: 0;
 }
@@ -2244,21 +2260,21 @@ html, body {
     display: inline-flex;
     align-items: center;
     gap: 5px;
-    font-size: 11.5px;
+    font-size: 11px;
     font-weight: 700;
-    padding: 6px 12px;
+    padding: 5px 10px;
     text-decoration: none;
     border-radius: var(--radius-md);
-    background-color: var(--brand-primary-subtle);
-    color: var(--brand-primary);
-    border: 1px solid #fca5a5;
+    background-color: #f0f9ff;
+    color: #0284c7;
+    border: 1px solid #bae6fd;
     transition: all 0.15s ease;
 }
 
 .btn-fcc-link:hover {
-    background-color: var(--brand-primary);
+    background-color: #0284c7;
     color: #ffffff;
-    border-color: var(--brand-primary);
+    border-color: #0284c7;
     text-decoration: none;
 }
 
@@ -2269,13 +2285,19 @@ html, body {
 }
 
 .internet-tech-cell {
-    background-color: #f8fafc;
+    background-color: #ffffff;
     border: 1px solid var(--border-subtle);
     border-radius: var(--radius-md);
     padding: 10px 12px;
     display: flex;
     flex-direction: column;
     gap: 6px;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+}
+
+.internet-tech-cell.cell-unavailable {
+    opacity: 0.6;
+    background-color: #f8fafc;
 }
 
 .tech-cell-top {
@@ -2303,10 +2325,44 @@ html, body {
     color: #4338ca;
 }
 
-.tech-speed {
-    font-size: 11.5px;
+.tech-avail-badge {
+    font-size: 10px;
     font-weight: 700;
+    padding: 1.5px 6px;
+    border-radius: 4px;
+}
+
+.tech-avail-badge.avail-yes {
+    background-color: #dcfce7;
+    color: #166534;
+}
+
+.tech-avail-badge.avail-no {
+    background-color: #f1f5f9;
+    color: #64748b;
+}
+
+.tech-speed-specs {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 4px 0;
+}
+
+.tech-speed-specs .speed-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+}
+
+.tech-speed-specs .speed-lbl {
+    color: var(--text-muted);
+    font-size: 10.5px;
+}
+
+.tech-speed-specs .speed-val {
     color: var(--text-primary);
+    font-weight: 700;
 }
 
 .tech-provider-row {
@@ -2314,10 +2370,13 @@ html, body {
     display: flex;
     gap: 4px;
     color: var(--text-secondary);
+    border-top: 1px dashed var(--border-subtle);
+    padding-top: 5px;
 }
 
 .tech-provider-lbl {
     color: var(--text-muted);
+    font-size: 10.5px;
 }
 
 .tech-provider-name {
@@ -2348,13 +2407,14 @@ html, body {
 
 .internet-fcc-notice {
     display: flex;
+    align-items: center;
     gap: 8px;
     background-color: #f1f5f9;
-    border-radius: var(--radius-md);
-    padding: 8px 10px;
-    font-size: 11px;
+    border-radius: var(--radius-sm);
+    padding: 6px 10px;
+    font-size: 10.5px;
     color: var(--text-secondary);
-    line-height: 1.4;
+    line-height: 1.3;
 }
 
 .fcc-notice-icon {
