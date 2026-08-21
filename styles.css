@@ -2264,6 +2264,103 @@ html, body {
     color: var(--text-primary);
 }
 
+/* Official FCC Statistics Tiles Grid */
+.fcc-stats-metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+}
+
+.fcc-stat-tile {
+    background-color: #f8fafc;
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+    padding: 8px 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.fcc-stat-tile.highlight {
+    background-color: #f0f9ff;
+    border-color: #bae6fd;
+}
+
+.fcc-stat-lbl {
+    font-size: 10.5px;
+    font-weight: 600;
+    color: var(--text-muted);
+}
+
+.fcc-stat-val {
+    font-size: 16px;
+    font-weight: 800;
+    color: #0369a1;
+}
+
+.fcc-stat-sub {
+    font-size: 9.5px;
+    color: var(--text-muted);
+}
+
+/* Header FCC Button */
+.btn-drawer-fcc-header {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 5px 10px;
+    border-radius: var(--radius-sm);
+    background-color: #e0f2fe;
+    color: #0369a1;
+    border: 1px solid #bae6fd;
+    text-decoration: none;
+    transition: all 0.15s ease;
+}
+
+.btn-drawer-fcc-header:hover {
+    background-color: #0284c7;
+    color: #ffffff;
+    border-color: #0284c7;
+    text-decoration: none;
+}
+
+/* Card FCC Action Button */
+.card-fcc-action-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 3px 8px;
+    border-radius: var(--radius-sm);
+    background-color: #f0f9ff;
+    color: #0369a1;
+    border: 1px solid #bae6fd;
+    text-decoration: none;
+    transition: all 0.12s ease;
+}
+
+.card-fcc-action-btn:hover {
+    background-color: #0284c7;
+    color: #ffffff;
+    border-color: #0284c7;
+    text-decoration: none;
+}
+
+.drawer-external-actions {
+    display: grid;
+    grid-template-columns: 1fr 1.2fr;
+    gap: 10px;
+}
+
+@media (max-width: 600px) {
+    .drawer-external-actions {
+        grid-template-columns: 1fr;
+    }
+}
+
 /* Similar Homes */
 .similar-homes-list {
     display: flex;

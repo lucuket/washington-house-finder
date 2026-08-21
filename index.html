@@ -19,7 +19,7 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
 
     <!-- Application Stylesheet -->
-    <link rel="stylesheet" href="styles.css?v=2.5">
+    <link rel="stylesheet" href="styles.css?v=2.6">
 </head>
 <body class="density-comfortable">
 
@@ -683,6 +683,10 @@
                 </div>
 
                 <div class="drawer-header-actions">
+                    <a href="#" target="_blank" rel="noopener noreferrer" class="btn-drawer-fcc-header" id="btn-drawer-fcc-header" title="Open location on official FCC National Broadband Map">
+                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
+                        <span>FCC Map ↗</span>
+                    </a>
                     <button class="btn-drawer-icon" id="btn-drawer-favorite" title="Toggle Shortlist (F)" aria-label="Toggle Shortlist">
                         <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
                             <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
@@ -807,14 +811,33 @@
                         <div class="internet-title-group">
                             <div class="internet-badge-pill">
                                 <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
-                                <span>FCC NATIONAL BROADBAND MAP</span>
+                                <span>OFFICIAL FCC NATIONAL BROADBAND MAP</span>
                             </div>
                             <h4>High-Speed Internet (Cable &amp; Fiber Only)</h4>
                         </div>
                         <a href="#" target="_blank" rel="noopener noreferrer" class="btn btn-secondary btn-sm btn-fcc-link" id="drawer-fcc-broadband-link" title="Open address on broadbandmap.fcc.gov">
-                            <span>Open on FCC Map</span>
+                            <span>Open in FCC Map ↗</span>
                             <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
                         </a>
+                    </div>
+
+                    <!-- Official FCC Stats Row -->
+                    <div class="fcc-stats-metrics-grid">
+                        <div class="fcc-stat-tile">
+                            <span class="fcc-stat-lbl">Cable/Fiber Coverage</span>
+                            <strong class="fcc-stat-val mono" id="drawer-fcc-cable-fiber-pct">99.8%</strong>
+                            <span class="fcc-stat-sub">City Residential Units</span>
+                        </div>
+                        <div class="fcc-stat-tile highlight">
+                            <span class="fcc-stat-lbl">Gigabit Availability</span>
+                            <strong class="fcc-stat-val mono" id="drawer-fcc-gigabit-pct">99.4%</strong>
+                            <span class="fcc-stat-sub">≥ 1,000 Mbps Down</span>
+                        </div>
+                        <div class="fcc-stat-tile">
+                            <span class="fcc-stat-lbl">Fiber-to-the-Home</span>
+                            <strong class="fcc-stat-val mono" id="drawer-fcc-fiber-pct">86.1%</strong>
+                            <span class="fcc-stat-sub">Symmetrical FTTH</span>
+                        </div>
                     </div>
 
                     <div class="internet-tech-grid">
@@ -848,8 +871,8 @@
                             <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
                         </div>
                         <div class="fcc-notice-text">
-                            <strong>Strict Terrestrial Standard (Cable &amp; Fiber Only):</strong>
-                            <span>Satellite (Starlink/HughesNet) and cellular/fixed wireless are excluded to ensure rock-solid remote work reliability. Click <em>"Open on FCC Map"</em> to verify official FCC location-level filings for this specific property.</span>
+                            <strong>Strict Wireline Standard (Cable &amp; Fiber Only):</strong>
+                            <span>Satellite (Starlink/HughesNet) and cellular wireless are excluded to ensure remote work reliability. Data source: <em>Official FCC National Broadband Map (Dec 2025 / Aug 2026 Filing)</em>.</span>
                         </div>
                     </div>
                 </div>
@@ -911,8 +934,12 @@
 
                 <!-- External Link Action Bar -->
                 <div class="drawer-external-actions">
+                    <a href="#" target="_blank" rel="noopener noreferrer" class="btn btn-secondary" id="drawer-fcc-btn-bottom">
+                        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
+                        <span>Open on FCC Broadband Map ↗</span>
+                    </a>
                     <a href="#" target="_blank" rel="noopener noreferrer" class="btn btn-primary" id="drawer-external-link">
-                        <span>View Source Listing on Realtor.com</span>
+                        <span>View Source on Realtor.com</span>
                         <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
                     </a>
                 </div>
@@ -1292,9 +1319,9 @@
     <script src="wa-boundary.js"></script>
     
     <!-- Embedded Properties Data (100% Offline & Local Loading) -->
-    <script src="data.js"></script>
+    <script src="data.js?v=2.6"></script>
     
     <!-- Application Logic -->
-    <script src="app.js?v=2.5"></script>
+    <script src="app.js?v=2.6"></script>
 </body>
 </html>

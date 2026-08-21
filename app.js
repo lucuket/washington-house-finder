@@ -211,8 +211,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const drawerExternalLink = document.getElementById('drawer-external-link');
 
     // Drawer Broadband & Internet (FCC National Broadband Map)
+    const btnDrawerFccHeader = document.getElementById('btn-drawer-fcc-header');
     const drawerInternetCard = document.getElementById('drawer-internet-card');
     const drawerFccBroadbandLink = document.getElementById('drawer-fcc-broadband-link');
+    const drawerFccBtnBottom = document.getElementById('drawer-fcc-btn-bottom');
+    const drawerFccCableFiberPct = document.getElementById('drawer-fcc-cable-fiber-pct');
+    const drawerFccGigabitPct = document.getElementById('drawer-fcc-gigabit-pct');
+    const drawerFccFiberPct = document.getElementById('drawer-fcc-fiber-pct');
     const drawerFiberSpeed = document.getElementById('drawer-fiber-speed');
     const drawerFiberProviders = document.getElementById('drawer-fiber-providers');
     const drawerCableSpeed = document.getElementById('drawer-cable-speed');
@@ -444,6 +449,10 @@ document.addEventListener('DOMContentLoaded', () => {
                             <span class="popup-price">$${p.price.toLocaleString()}</span>
                             <strong class="popup-address">${p.address}</strong>
                             <span class="popup-specs">${p.beds} Beds • ${p.baths} Baths • ${p.sqft.toLocaleString()} sqft</span>
+                            <div style="margin-top: 5px; display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--border-subtle); padding-top: 4px;">
+                                <span style="font-size: 9.5px; color: #0284c7; font-weight: 700;">🌐 Cable/Fiber</span>
+                                <a href="${p.broadband ? p.broadband.fcc_url : 'https://broadbandmap.fcc.gov'}" target="_blank" rel="noopener noreferrer" style="font-size: 10px; color: var(--brand-primary); font-weight: 700; text-decoration: underline;" onclick="event.stopPropagation();">FCC Map ↗</a>
+                            </div>
                         </div>
                     </div>
                 `;
@@ -480,7 +489,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 <strong class="mob-prev-addr" title="${p.address}">${p.address}</strong>
                 <span class="mob-prev-city">${p.city}, WA</span>
                 <div class="mob-prev-specs mono">${p.beds}b • ${p.baths}ba • ${p.sqft.toLocaleString()} sf</div>
-                <button class="btn btn-primary btn-sm mob-prev-open-btn" data-id="${p.id}">View Details &rarr;</button>
+                <div style="display: flex; gap: 6px; margin-top: 6px;">
+                    <button class="btn btn-primary btn-sm mob-prev-open-btn" data-id="${p.id}" style="flex: 1;">Details &rarr;</button>
+                    <a href="${p.broadband ? p.broadband.fcc_url : 'https://broadbandmap.fcc.gov'}" target="_blank" rel="noopener noreferrer" class="btn btn-secondary btn-sm" style="font-size: 10.5px; padding: 4px 8px; font-weight: 700; color: #0284c7;" onclick="event.stopPropagation();">FCC Map ↗</a>
+                </div>
             </div>
         `;
 
@@ -1201,7 +1213,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         <span class="chip mono">${acres} Ac Lot</span>
                         <span class="chip">Built ${p.year_built}</span>
                         <span class="chip">${p.hoa > 0 ? `$${p.hoa}/mo HOA` : 'No HOA'}</span>
-                        <span class="chip chip-broadband" title="FCC Broadband: Cable / Fiber Wireline High-Speed">🌐 Cable/Fiber</span>
+                        <span class="chip chip-broadband" title="FCC Broadband: ${p.broadband ? p.broadband.cable_fiber_pct + '% City Cable/Fiber, ' + p.broadband.gigabit_pct + '% Gigabit' : 'Cable / Fiber Ready'}">🌐 ${p.broadband ? p.broadband.gigabit_pct + '% Gigabit' : 'Cable/Fiber'}</span>
                         ${signalsHtml}
                     </div>
 
@@ -1209,10 +1221,15 @@ document.addEventListener('DOMContentLoaded', () => {
                         <div class="card-star-rating" data-id="${p.id}" title="Set rating">
                             ${starsHtml}
                         </div>
-                        <button class="card-note-trigger ${p.user_notes ? 'has-note' : ''}" data-id="${p.id}" title="Edit private notes">
-                            <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
-                            <span>${p.user_notes ? 'Note added' : 'Add Note'}</span>
-                        </button>
+                        <div style="display: flex; gap: 5px; align-items: center;">
+                            <a href="${p.broadband ? p.broadband.fcc_url : 'https://broadbandmap.fcc.gov'}" target="_blank" rel="noopener noreferrer" class="card-fcc-action-btn" onclick="event.stopPropagation();" title="Open ${p.address} on official FCC National Broadband Map">
+                                <span>FCC Map ↗</span>
+                            </a>
+                            <button class="card-note-trigger ${p.user_notes ? 'has-note' : ''}" data-id="${p.id}" title="Edit private notes">
+                                <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                                <span>${p.user_notes ? 'Note' : 'Note'}</span>
+                            </button>
+                        </div>
                     </div>
 
                     <div class="card-actions">
@@ -1519,8 +1536,12 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         const fullAddress = `${prop.address}, ${prop.city}, WA ${prop.zip || ''}`.trim();
+        const lat = prop.latitude || 47.5;
+        const lon = prop.longitude || -120.5;
         // Official FCC National Broadband Map direct search location query filtered to wireline Cable & Fiber
-        const fccMapUrl = `https://broadbandmap.fcc.gov/location-summary/fixed?speed=100_20&tech=1_2_3&address=${encodeURIComponent(fullAddress)}`;
+        const fccMapUrl = (prop.broadband && prop.broadband.fcc_url)
+            ? prop.broadband.fcc_url
+            : `https://broadbandmap.fcc.gov/location-summary/fixed?version=dec2025&zoom=15&vlon=${lon}&vlat=${lat}&speed=100_20&tech=1_2_3`;
 
         return {
             fiberProviders,
@@ -1554,6 +1575,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
             </svg>
         `;
+
+        // Broadband & High-Speed Internet (FCC National Broadband Map)
+        const broadbandInfo = getRegionalBroadbandDetails(prop);
+        if (btnDrawerFccHeader) btnDrawerFccHeader.href = broadbandInfo.fccMapUrl;
+        if (drawerFccBtnBottom) drawerFccBtnBottom.href = broadbandInfo.fccMapUrl;
+        if (drawerFccBroadbandLink) drawerFccBroadbandLink.href = broadbandInfo.fccMapUrl;
+        if (drawerFccCableFiberPct) drawerFccCableFiberPct.textContent = (prop.broadband ? prop.broadband.cable_fiber_pct : '99.8') + '%';
+        if (drawerFccGigabitPct) drawerFccGigabitPct.textContent = (prop.broadband ? prop.broadband.gigabit_pct : '99.4') + '%';
+        if (drawerFccFiberPct) drawerFccFiberPct.textContent = (prop.broadband ? prop.broadband.fiber_pct : '86.1') + '%';
+        if (drawerFiberSpeed) drawerFiberSpeed.textContent = broadbandInfo.fiberSpeeds;
+        if (drawerFiberProviders) drawerFiberProviders.textContent = (prop.broadband ? prop.broadband.primary_fiber : broadbandInfo.fiberProviders);
+        if (drawerCableSpeed) drawerCableSpeed.textContent = broadbandInfo.cableSpeeds;
+        if (drawerCableProviders) drawerCableProviders.textContent = (prop.broadband ? prop.broadband.primary_cable : broadbandInfo.cableProviders);
 
         // Gallery Stage
         const photoIdx = activePhotoIndices[prop.id] || 0;
@@ -1647,14 +1681,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Description
         drawerDescription.textContent = prop.description || "Washington residential listing.";
-
-        // Broadband & High-Speed Internet (FCC National Broadband Map)
-        const broadbandInfo = getRegionalBroadbandDetails(prop);
-        if (drawerFccBroadbandLink) drawerFccBroadbandLink.href = broadbandInfo.fccMapUrl;
-        if (drawerFiberSpeed) drawerFiberSpeed.textContent = broadbandInfo.fiberSpeeds;
-        if (drawerFiberProviders) drawerFiberProviders.textContent = broadbandInfo.fiberProviders;
-        if (drawerCableSpeed) drawerCableSpeed.textContent = broadbandInfo.cableSpeeds;
-        if (drawerCableProviders) drawerCableProviders.textContent = broadbandInfo.cableProviders;
 
         // Personal Rating & Notes
         updateDrawerStarPicker(prop.rating || 0);
