@@ -1,7 +1,7 @@
 @echo off
-title Washington Elite House Finder - Online Server
+title Washington Home Search - Online Server
 echo ========================================================
-echo   Starting Washington Elite House Finder Online Server
+echo   Starting Washington Home Search Online Server
 echo ========================================================
 echo.
 

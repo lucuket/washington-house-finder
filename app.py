@@ -7,7 +7,7 @@ import os
 import sys
 import threading
 from typing import Any, Dict, List, Optional
-import pandas as pd
+import statistics
 
 # Windows Proactor event loop policy
 if sys.platform == "win32":
@@ -31,16 +31,16 @@ from scraper_service import get_approx_coordinates, run_live_scraper
 
 # Setup logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("washington-home-search")
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 PROPERTIES_FILE = os.path.join(BASE_DIR, "properties.json")
 INDEX_FILE = os.path.join(BASE_DIR, "index.html")
 
 app = FastAPI(
-    title="Washington Elite HouseFinder API",
-    description="Modern REST API for Washington real estate discovery, mapping, comparison, and analysis.",
-    version="2.0.0",
+    title="Washington Home Search API",
+    description="REST API for Washington real estate discovery, mapping, comparison, and analysis.",
+    version="2.1.0",
 )
 
 app.add_middleware(
@@ -86,7 +86,7 @@ def normalize_property(item: Dict[str, Any]) -> Dict[str, Any]:
             photos = json.loads(photos.replace("'", '"'))
         except Exception:
             photos = [p.strip() for p in photos.split(",") if p.strip()]
-    
+
     clean_photos = []
     seen = set()
     for p in photos:
@@ -114,7 +114,7 @@ def normalize_property(item: Dict[str, Any]) -> Dict[str, Any]:
         "lot_sqft": int(item.get("lot_sqft", 0)),
         "year_built": int(item.get("year_built", 0)),
         "hoa": int(item.get("hoa", 0)),
-        "garage": max(2, int(item.get("garage", 2))),
+        "garage": max(0, int(item.get("garage", 2))),
         "description": str(item.get("description", "Washington real estate listing")),
         "url": str(item.get("url", "https://www.realtor.com")),
         "photos": clean_photos,
@@ -135,10 +135,7 @@ def load_properties_from_disk():
                 with open(PROPERTIES_FILE, "r", encoding="utf-8") as f:
                     raw_data = json.load(f)
                 properties_db = [normalize_property(p) for p in raw_data if isinstance(p, dict)]
-                logger.info(f"Loaded and normalized {len(properties_db)} properties from disk.")
-                
-                # Write back normalized structure to disk
-                save_properties_to_disk_unlocked()
+                logger.info(f"Loaded {len(properties_db)} properties from {PROPERTIES_FILE}")
             except Exception as e:
                 logger.error(f"Failed to load properties.json: {e}")
                 properties_db = []
@@ -151,7 +148,7 @@ def save_properties_to_disk_unlocked():
     """Writes in-memory properties to properties.json (must be called within db_lock)."""
     try:
         with open(PROPERTIES_FILE, "w", encoding="utf-8") as f:
-            json.dump(properties_db, f, indent=4)
+            json.dump(properties_db, f, indent=2)
         logger.info(f"Persisted {len(properties_db)} properties to {PROPERTIES_FILE}")
     except Exception as e:
         logger.error(f"Error saving to {PROPERTIES_FILE}: {e}")
@@ -175,7 +172,7 @@ async def serve_root():
     if os.path.exists(INDEX_FILE):
         with open(INDEX_FILE, "r", encoding="utf-8") as f:
             return HTMLResponse(content=f.read())
-    return HTMLResponse(content="<h1>HouseFinder index.html not found!</h1>", status_code=404)
+    return HTMLResponse(content="<h1>Washington Home Search index.html not found!</h1>", status_code=404)
 
 
 @app.get("/styles.css")
@@ -283,6 +280,7 @@ async def get_properties(
             or q in p["city"].lower()
             or q in p["zip"].lower()
             or q in p["description"].lower()
+            or q in p.get("user_notes", "").lower()
         ]
 
     # Sorting
@@ -351,14 +349,43 @@ async def toggle_property_favorite(property_id: str, toggle_data: Optional[Favor
 
 
 # -----------------------------------------------------------------------------
-# Analytics & Stats Endpoint
+# Analytics & Stats Endpoint (Supports live filtered queries)
 # -----------------------------------------------------------------------------
 
 @app.get("/api/stats")
-async def get_properties_stats():
-    """Provides aggregated market analytics across all Washington listings."""
-    with db_lock:
-        listings = list(properties_db)
+async def get_properties_stats(
+    city: Optional[str] = None,
+    min_price: Optional[int] = None,
+    max_price: Optional[int] = None,
+    min_beds: Optional[int] = None,
+    min_baths: Optional[float] = None,
+    min_sqft: Optional[int] = None,
+    max_sqft: Optional[int] = None,
+    min_lot: Optional[int] = None,
+    min_garage: Optional[int] = None,
+    min_year: Optional[int] = None,
+    max_hoa: Optional[int] = None,
+    min_rating: Optional[int] = None,
+    favorites_only: bool = False,
+    search: Optional[str] = None,
+):
+    """Provides aggregated market analytics across all or filtered Washington listings."""
+    listings = await get_properties(
+        city=city,
+        min_price=min_price,
+        max_price=max_price,
+        min_beds=min_beds,
+        min_baths=min_baths,
+        min_sqft=min_sqft,
+        max_sqft=max_sqft,
+        min_lot=min_lot,
+        min_garage=min_garage,
+        min_year=min_year,
+        max_hoa=max_hoa,
+        min_rating=min_rating,
+        favorites_only=favorites_only,
+        search=search,
+    )
 
     total = len(listings)
     if total == 0:
@@ -371,48 +398,65 @@ async def get_properties_stats():
             "min_price": 0,
             "max_price": 0,
             "avg_sqft": 0,
+            "median_sqft": 0,
             "avg_price_per_sqft": 0,
+            "median_price_per_sqft": 0,
+            "avg_lot_sqft": 0,
+            "median_lot_sqft": 0,
             "city_counts": {},
             "price_ranges": {},
             "garage_distribution": {},
+            "year_built_distribution": {},
         }
 
-    prices = [p["price"] for p in listings]
-    sqfts = [p["sqft"] for p in listings if p["sqft"] > 0]
-    prices_per_sqft = [p["price"] / p["sqft"] for p in listings if p["sqft"] > 0]
+    prices = [p.price for p in listings]
+    sqfts = [p.sqft for p in listings if p.sqft > 0]
+    lots = [p.lot_sqft for p in listings if p.lot_sqft > 0]
+    prices_per_sqft = [p.price / p.sqft for p in listings if p.sqft > 0]
 
-    import statistics
     avg_price = int(statistics.mean(prices))
     median_price = int(statistics.median(prices))
     min_price = min(prices)
     max_price = max(prices)
     avg_sqft = int(statistics.mean(sqfts)) if sqfts else 0
+    median_sqft = int(statistics.median(sqfts)) if sqfts else 0
+    avg_lot_sqft = int(statistics.mean(lots)) if lots else 0
+    median_lot_sqft = int(statistics.median(lots)) if lots else 0
     avg_ppsqft = int(statistics.mean(prices_per_sqft)) if prices_per_sqft else 0
+    median_ppsqft = int(statistics.median(prices_per_sqft)) if prices_per_sqft else 0
 
-    favorites_count = sum(1 for p in listings if p.get("favorite", False))
-    rated_count = sum(1 for p in listings if p.get("rating", 0) > 0)
+    favorites_count = sum(1 for p in listings if p.favorite)
+    rated_count = sum(1 for p in listings if p.rating > 0)
 
     # City counts
     city_counts: Dict[str, int] = {}
     for p in listings:
-        c = p.get("city", "Other")
+        c = p.city or "Other"
         city_counts[c] = city_counts.get(c, 0) + 1
 
     # Price bracket distribution
     price_ranges = {
-        "$350k - $375k": sum(1 for p in prices if 350000 <= p < 375000),
+        "< $375k": sum(1 for p in prices if p < 375000),
         "$375k - $400k": sum(1 for p in prices if 375000 <= p < 400000),
         "$400k - $425k": sum(1 for p in prices if 400000 <= p < 425000),
         "$425k - $450k": sum(1 for p in prices if 425000 <= p < 450000),
         "$450k - $475k": sum(1 for p in prices if 450000 <= p < 475000),
-        "$475k - $500k": sum(1 for p in prices if 475000 <= p <= 500000),
+        "$475k+": sum(1 for p in prices if p >= 475000),
     }
 
     # Garage distribution
     garage_dist: Dict[str, int] = {}
     for p in listings:
-        g = f"{p.get('garage', 2)} Car"
+        g = f"{p.garage} Car" if p.garage > 0 else "No Garage"
         garage_dist[g] = garage_dist.get(g, 0) + 1
+
+    # Year built distribution
+    year_dist = {
+        "Pre-1980": sum(1 for p in listings if p.year_built < 1980 and p.year_built > 0),
+        "1980 - 1999": sum(1 for p in listings if 1980 <= p.year_built < 2000),
+        "2000 - 2015": sum(1 for p in listings if 2000 <= p.year_built < 2016),
+        "2016+": sum(1 for p in listings if p.year_built >= 2016),
+    }
 
     return {
         "total_listings": total,
@@ -423,10 +467,15 @@ async def get_properties_stats():
         "min_price": min_price,
         "max_price": max_price,
         "avg_sqft": avg_sqft,
+        "median_sqft": median_sqft,
+        "avg_lot_sqft": avg_lot_sqft,
+        "median_lot_sqft": median_lot_sqft,
         "avg_price_per_sqft": avg_ppsqft,
+        "median_price_per_sqft": median_ppsqft,
         "city_counts": dict(sorted(city_counts.items(), key=lambda item: item[1], reverse=True)),
         "price_ranges": price_ranges,
         "garage_distribution": garage_dist,
+        "year_built_distribution": year_dist,
     }
 
 
@@ -439,21 +488,39 @@ async def export_properties_csv(
     city: Optional[str] = None,
     min_price: Optional[int] = None,
     max_price: Optional[int] = None,
+    min_beds: Optional[int] = None,
+    min_baths: Optional[float] = None,
+    min_sqft: Optional[int] = None,
+    max_sqft: Optional[int] = None,
+    min_lot: Optional[int] = None,
+    min_garage: Optional[int] = None,
+    min_year: Optional[int] = None,
+    max_hoa: Optional[int] = None,
+    min_rating: Optional[int] = None,
     favorites_only: bool = False,
+    search: Optional[str] = None,
 ):
     """Exports matched listings to an Excel/Google Sheets compatible CSV file."""
-    # Filter properties
     filtered_listings = await get_properties(
         city=city,
         min_price=min_price,
         max_price=max_price,
+        min_beds=min_beds,
+        min_baths=min_baths,
+        min_sqft=min_sqft,
+        max_sqft=max_sqft,
+        min_lot=min_lot,
+        min_garage=min_garage,
+        min_year=min_year,
+        max_hoa=max_hoa,
+        min_rating=min_rating,
         favorites_only=favorites_only,
+        search=search,
     )
 
     output = io.StringIO()
     writer = csv.writer(output, quoting=csv.QUOTE_MINIMAL)
 
-    # Header row
     writer.writerow([
         "Property ID",
         "Address",
@@ -463,13 +530,14 @@ async def export_properties_csv(
         "Price ($)",
         "Bedrooms",
         "Bathrooms",
-        "Sq Footage",
+        "Living SqFt",
         "Lot Size (sqft)",
+        "Lot Size (acres)",
         "Price/SqFt ($)",
         "Year Built",
         "HOA Monthly ($)",
         "Garage Spaces",
-        "Rating (0-5)",
+        "User Rating (0-5)",
         "Favorite",
         "User Notes",
         "Latitude",
@@ -478,38 +546,37 @@ async def export_properties_csv(
     ])
 
     for p in filtered_listings:
-        # p is dict
-        price = p.get("price", 0)
-        sqft = p.get("sqft", 1)
-        ppsqft = round(price / max(1, sqft), 2)
+        ppsqft = round(p.price / max(1, p.sqft), 2)
+        lot_acres = round(p.lot_sqft / 43560, 3)
         writer.writerow([
-            p.get("id"),
-            p.get("address"),
-            p.get("city"),
-            p.get("state"),
-            p.get("zip"),
-            price,
-            p.get("beds"),
-            p.get("baths"),
-            sqft,
-            p.get("lot_sqft"),
+            p.id,
+            p.address,
+            p.city,
+            p.state,
+            p.zip,
+            p.price,
+            p.beds,
+            p.baths,
+            p.sqft,
+            p.lot_sqft,
+            lot_acres,
             ppsqft,
-            p.get("year_built"),
-            p.get("hoa"),
-            p.get("garage"),
-            p.get("rating"),
-            "Yes" if p.get("favorite") else "No",
-            str(p.get("user_notes", "")).replace("\n", " "),
-            p.get("latitude"),
-            p.get("longitude"),
-            p.get("url"),
+            p.year_built,
+            p.hoa,
+            p.garage,
+            p.rating,
+            "Yes" if p.favorite else "No",
+            str(p.user_notes).replace("\n", " ").replace("\r", ""),
+            p.latitude,
+            p.longitude,
+            p.url,
         ])
 
     output.seek(0)
     return StreamingResponse(
         iter([output.getvalue()]),
         media_type="text/csv",
-        headers={"Content-Disposition": 'attachment; filename="washington_houses_export.csv"'},
+        headers={"Content-Disposition": 'attachment; filename="washington_properties_export.csv"'},
     )
 
 
@@ -555,13 +622,11 @@ async def run_scraper_background(criteria_dict: Dict[str, Any]):
             scraper_state.matched_count = len(new_matched)
 
         if new_matched:
-            # Merge into properties_db while preserving user notes, ratings, and favorites
             with db_lock:
                 existing_map = {p["url"]: p for p in properties_db}
                 for n in new_matched:
                     normalized = normalize_property(n)
                     if normalized["url"] in existing_map:
-                        # Preserve existing notes, ratings, and favorites
                         old = existing_map[normalized["url"]]
                         normalized["rating"] = old.get("rating", 0)
                         normalized["user_notes"] = old.get("user_notes", "")
@@ -577,13 +642,13 @@ async def run_scraper_background(criteria_dict: Dict[str, Any]):
 
         with scraper_lock:
             scraper_state.progress = 100
-            scraper_state.message = f"Search completed! {len(new_matched)} listings found."
+            scraper_state.message = f"Scan complete! {len(new_matched)} properties processed."
     except Exception as e:
-        logger.error(f"Live scraper failed: {e}")
+        logger.error(f"Live scraper error: {e}")
         append_scraper_log(f"Error occurred during scraping: {e}")
         with scraper_lock:
             scraper_state.progress = 100
-            scraper_state.message = f"Scraper encountered an error: {e}"
+            scraper_state.message = f"Scraper error: {e}"
     finally:
         with scraper_lock:
             scraper_state.is_active = False
@@ -623,6 +688,5 @@ if __name__ == "__main__":
     import uvicorn
     port = int(os.environ.get("PORT", 8000))
     host = os.environ.get("HOST", "0.0.0.0")
-    logger.info(f"Starting Washington HouseFinder server on {host}:{port}")
+    logger.info(f"Starting Washington Home Search server on {host}:{port}")
     uvicorn.run("app:app", host=host, port=port, reload=False)
-

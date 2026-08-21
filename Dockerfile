@@ -1,4 +1,4 @@
-# Production Dockerfile for Washington Elite House Finder
+# Production Dockerfile for Washington Home Search
 FROM python:3.12-slim
 
 # Set environment variables
