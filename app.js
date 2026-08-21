@@ -326,14 +326,14 @@ document.addEventListener('DOMContentLoaded', () => {
         const mapElement = document.getElementById('leaflet-map');
         if (!mapElement) return;
 
-        // Centered strictly over Washington State with hard boundaries
+        // Centered over Washington State with smooth, unclipped view
         map = L.map('leaflet-map', {
             center: [47.35, -120.4],
-            zoom: 7.2,
-            minZoom: 6.5,
+            zoom: 7,
+            minZoom: 5.5,
             maxZoom: 18,
-            maxBounds: WA_BOUNDS,
-            maxBoundsViscosity: 1.0, // Strictly keeps map inside Washington State
+            maxBounds: L.latLngBounds([43.5, -128.5], [51.0, -113.0]),
+            maxBoundsViscosity: 0.2,
             zoomControl: false,
             attributionControl: false
         });
@@ -341,11 +341,10 @@ document.addEventListener('DOMContentLoaded', () => {
         // Add clean zoom controls at bottom-right (Realtor standard, avoids header overlap)
         L.control.zoom({ position: 'bottomright' }).addTo(map);
 
-        // Clean, bright Realtor Voyager tiles with complete Washington geography
+        // Clean, bright Realtor Voyager tiles with complete seamless geography
         L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
             maxZoom: 19,
-            subdomains: 'abcd',
-            bounds: WA_BOUNDS
+            subdomains: 'abcd'
         }).addTo(map);
 
         // Marker Cluster Layer with clean Redfin/Zillow count pins
@@ -380,7 +379,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
-        map.fitBounds(WA_BOUNDS, { padding: [15, 15] });
+        map.fitBounds(WA_BOUNDS, { padding: [20, 20] });
 
         // Ensure map renders properly after DOM paint
         setTimeout(() => {
@@ -498,9 +497,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function fitMapToResults() {
         if (!map || !markersLayer) return;
-        const bounds = markersLayer.getBounds();
+        const bounds = (markersLayer.getBounds && typeof markersLayer.getBounds === 'function') ? markersLayer.getBounds() : null;
         if (bounds && bounds.isValid && bounds.isValid()) {
-            map.fitBounds(bounds, { padding: [30, 30], maxZoom: 13 });
+            map.fitBounds(bounds, { padding: [35, 35], maxZoom: 13 });
         } else {
             resetWashingtonView();
         }
@@ -508,7 +507,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function resetWashingtonView() {
         if (!map) return;
-        map.fitBounds(WA_BOUNDS, { padding: [15, 15] });
+        document.querySelectorAll('.map-region-pill').forEach(b => {
+            b.classList.toggle('active', b.getAttribute('data-region') === 'all');
+        });
+        const bounds = (markersLayer && markersLayer.getBounds && markersLayer.getBounds().isValid && markersLayer.getBounds().isValid()) 
+            ? markersLayer.getBounds() 
+            : WA_BOUNDS;
+        map.fitBounds(bounds, { padding: [25, 25], maxZoom: 12 });
+        setTimeout(() => { if (map) map.invalidateSize(); }, 100);
     }
 
     function highlightCard(propId) {

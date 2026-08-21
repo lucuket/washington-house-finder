@@ -1392,7 +1392,7 @@ html, body {
     position: relative;
     height: 100%;
     width: 100%;
-    background-color: #f1f5f9;
+    background-color: #f4f1ea;
 }
 
 #leaflet-map {
@@ -1404,6 +1404,7 @@ html, body {
     right: 0;
     bottom: 0;
     z-index: 1;
+    background-color: #f4f1ea;
 }
 
 /* Map Top Overlay Controls */

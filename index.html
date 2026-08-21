@@ -19,7 +19,7 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
 
     <!-- Application Stylesheet -->
-    <link rel="stylesheet" href="styles.css?v=2.2">
+    <link rel="stylesheet" href="styles.css?v=2.3">
 </head>
 <body class="density-comfortable">
 
@@ -481,13 +481,9 @@
                                     <input type="checkbox" id="map-bounds-filter-toggle">
                                     <span>Search map area</span>
                                 </label>
-                                <button class="btn-map-action" id="btn-map-fit-results" title="Fit map to matching listings">
+                                <button class="btn-map-action" id="btn-map-reset-view" title="Reset view to all Washington listings">
                                     <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 3 21 3 21 9"></polyline><polyline points="9 21 3 21 3 15"></polyline><line x1="21" y1="3" x2="14" y2="10"></line><line x1="3" y1="21" x2="10" y2="14"></line></svg>
-                                    <span>Fit</span>
-                                </button>
-                                <button class="btn-map-action" id="btn-map-reset-view" title="Reset view to Washington state">
-                                    <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"></polygon></svg>
-                                    <span>WA State</span>
+                                    <span>Reset View</span>
                                 </button>
                             </div>
                         </div>
@@ -1246,6 +1242,6 @@
     <script src="data.js"></script>
     
     <!-- Application Logic -->
-    <script src="app.js?v=2.2"></script>
+    <script src="app.js?v=2.3"></script>
 </body>
 </html>
