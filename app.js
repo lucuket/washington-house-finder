@@ -283,6 +283,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const mobNavMap = document.getElementById('mob-nav-map');
     const mobNavDeals = document.getElementById('mob-nav-deals');
     const mobNavFilters = document.getElementById('mob-nav-filters');
+    const mobileMapPreviewCard = document.getElementById('mobile-map-preview-card');
+    const mobilePreviewContent = document.getElementById('mobile-preview-content');
+    const btnCloseMobilePreview = document.getElementById('btn-close-mobile-preview');
 
     // -------------------------------------------------------------------------
     // -------------------------------------------------------------------------
@@ -445,6 +448,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 marker.on('click', () => {
                     highlightCard(p.id);
+                    if (window.innerWidth <= 768) {
+                        showMobileMapPreview(p);
+                    }
                 });
 
                 markersLayer.addLayer(marker);
@@ -456,6 +462,38 @@ document.addEventListener('DOMContentLoaded', () => {
         if (mapMarkerCount) {
             mapMarkerCount.textContent = `${validCoords.length} WA homes`;
         }
+    }
+
+    function showMobileMapPreview(p) {
+        if (!mobileMapPreviewCard || !mobilePreviewContent) return;
+        const estMonthly = calculateEstimatedMonthly(p.price, p.hoa);
+        const photo = (p.photos && p.photos.length) ? p.photos[0] : 'https://images.unsplash.com/photo-1570129477492-45c003edd2be?auto=format&fit=crop&w=600&q=80';
+        
+        mobilePreviewContent.innerHTML = `
+            <img src="${photo}" alt="${p.address}" class="mob-prev-img" loading="lazy" onerror="this.src='https://images.unsplash.com/photo-1568605117036-5fe5e7bab0b7?auto=format&fit=crop&w=300&q=75'">
+            <div class="mob-prev-details">
+                <div class="mob-prev-price mono">$${p.price.toLocaleString()} <span class="mob-prev-mo">~$${estMonthly.total.toLocaleString()}/mo</span></div>
+                <strong class="mob-prev-addr" title="${p.address}">${p.address}</strong>
+                <span class="mob-prev-city">${p.city}, WA</span>
+                <div class="mob-prev-specs mono">${p.beds}b • ${p.baths}ba • ${p.sqft.toLocaleString()} sf</div>
+                <button class="btn btn-primary btn-sm mob-prev-open-btn" data-id="${p.id}">View Details &rarr;</button>
+            </div>
+        `;
+
+        const openBtn = mobilePreviewContent.querySelector('.mob-prev-open-btn');
+        if (openBtn) {
+            openBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                openPropertyDrawer(p.id);
+            });
+        }
+        mobilePreviewContent.onclick = () => openPropertyDrawer(p.id);
+
+        mobileMapPreviewCard.classList.remove('hidden');
+    }
+
+    function hideMobileMapPreview() {
+        if (mobileMapPreviewCard) mobileMapPreviewCard.classList.add('hidden');
     }
 
     function fitMapToResults() {
@@ -999,7 +1037,7 @@ document.addEventListener('DOMContentLoaded', () => {
         sortFilteredProperties();
 
         // Render UI
-        renderGalleryCards();
+        renderGalleryCards(true);
         updateMapMarkers(filteredProperties);
         renderActiveFilterTags();
         updateHeaderAndMarketStats();
@@ -1030,7 +1068,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 break;
             case 'year_desc':
                 filteredProperties.sort((a, b) => b.year_built - a.year_built);
-                break;
             case 'rating_desc':
                 filteredProperties.sort((a, b) => (b.rating || 0) - (a.rating || 0));
                 break;
@@ -1040,9 +1077,12 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // -------------------------------------------------------------------------
-    // Render Gallery Cards (Optimized High-Density List)
+    // Render Gallery Cards (Optimized High-Performance Batch List)
     // -------------------------------------------------------------------------
-    function renderGalleryCards() {
+    let currentCardLimit = 28;
+
+    function renderGalleryCards(resetLimit = false) {
+        if (resetLimit) currentCardLimit = 28;
         cardsGrid.innerHTML = '';
 
         if (filteredProperties.length === 0) {
@@ -1055,8 +1095,9 @@ document.addEventListener('DOMContentLoaded', () => {
         cardsGrid.classList.remove('hidden');
 
         const fragment = document.createDocumentFragment();
+        const displayBatch = filteredProperties.slice(0, currentCardLimit);
 
-        filteredProperties.forEach(p => {
+        displayBatch.forEach(p => {
             const card = document.createElement('article');
             card.className = 'property-card';
             card.id = `card-${p.id}`;
@@ -1158,16 +1199,15 @@ document.addEventListener('DOMContentLoaded', () => {
                         </div>
                         <button class="card-note-trigger ${p.user_notes ? 'has-note' : ''}" data-id="${p.id}" title="Edit private notes">
                             <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
-                            <span>${p.user_notes ? 'Notes Added' : 'Add Note'}</span>
+                            <span>${p.user_notes ? 'Note added' : 'Add Note'}</span>
                         </button>
                     </div>
 
-                    <div class="card-footer-actions">
+                    <div class="card-actions">
                         <label class="compare-checkbox-label">
                             <input type="checkbox" class="compare-check" data-id="${p.id}" ${isCompared ? 'checked' : ''}>
                             <span>Compare</span>
                         </label>
-                        
                         <button class="btn btn-primary btn-sm card-view-drawer-btn" data-id="${p.id}">
                             View Details
                         </button>
@@ -1196,6 +1236,25 @@ document.addEventListener('DOMContentLoaded', () => {
 
             fragment.appendChild(card);
         });
+
+        // Add Load More button if more cards exist
+        if (filteredProperties.length > currentCardLimit) {
+            const loadMoreWrapper = document.createElement('div');
+            loadMoreWrapper.className = 'load-more-container';
+            loadMoreWrapper.style.gridColumn = '1 / -1';
+            loadMoreWrapper.style.textAlign = 'center';
+            loadMoreWrapper.style.padding = '20px 0';
+            loadMoreWrapper.innerHTML = `
+                <button class="btn btn-secondary" id="btn-load-more-cards" style="padding: 10px 24px; font-weight: 700; font-size: 13px;">
+                    Load More Listings (Showing ${displayBatch.length} of ${filteredProperties.length})
+                </button>
+            `;
+            loadMoreWrapper.querySelector('#btn-load-more-cards').addEventListener('click', () => {
+                currentCardLimit += 28;
+                renderGalleryCards(false);
+            });
+            fragment.appendChild(loadMoreWrapper);
+        }
 
         cardsGrid.appendChild(fragment);
         attachCardDelegatedEvents();
@@ -3251,6 +3310,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (btnMobileSidebarClose) btnMobileSidebarClose.addEventListener('click', closeMobileSidebar);
         if (sidebarBackdrop) sidebarBackdrop.addEventListener('click', closeMobileSidebar);
         if (mobNavFilters) mobNavFilters.addEventListener('click', openMobileSidebar);
+        if (btnCloseMobilePreview) btnCloseMobilePreview.addEventListener('click', hideMobileMapPreview);
 
         if (mobNavSplit) mobNavSplit.addEventListener('click', () => setViewMode('split'));
         if (mobNavGrid) mobNavGrid.addEventListener('click', () => setViewMode('grid'));
@@ -3284,5 +3344,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     initMap();
     setupEventListeners();
+    if (window.innerWidth <= 768) {
+        setViewMode('map');
+    }
     loadProperties();
 });

@@ -930,8 +930,10 @@ html, body {
     overflow: hidden;
 }
 
+/* View Mode: Split */
+.workspace-viewport.view-split .deals-view-wrapper,
 .workspace-viewport.view-split .analytics-view-wrapper {
-    display: none;
+    display: none !important;
 }
 
 /* View Mode: Listings Grid Only */
@@ -946,14 +948,16 @@ html, body {
 }
 
 .workspace-viewport.view-grid .map-container-wrapper,
+.workspace-viewport.view-grid .deals-view-wrapper,
 .workspace-viewport.view-grid .analytics-view-wrapper {
-    display: none;
+    display: none !important;
 }
 
 /* View Mode: Full Map Only */
 .workspace-viewport.view-map .cards-container-wrapper,
+.workspace-viewport.view-map .deals-view-wrapper,
 .workspace-viewport.view-map .analytics-view-wrapper {
-    display: none;
+    display: none !important;
 }
 
 .workspace-viewport.view-map .map-container-wrapper {
@@ -968,7 +972,7 @@ html, body {
 .workspace-viewport.view-analytics .cards-container-wrapper,
 .workspace-viewport.view-analytics .map-container-wrapper,
 .workspace-viewport.view-analytics .deals-view-wrapper {
-    display: none;
+    display: none !important;
 }
 
 .workspace-viewport.view-analytics .analytics-view-wrapper {
@@ -985,7 +989,7 @@ html, body {
 .workspace-viewport.view-deals .cards-container-wrapper,
 .workspace-viewport.view-deals .map-container-wrapper,
 .workspace-viewport.view-deals .analytics-view-wrapper {
-    display: none;
+    display: none !important;
 }
 
 .workspace-viewport.view-deals .deals-view-wrapper {
@@ -993,14 +997,10 @@ html, body {
     width: 100%;
     height: 100%;
     overflow-y: auto;
-    display: flex;
+    display: flex !important;
     flex-direction: column;
     padding: 24px;
     background-color: var(--bg-page);
-}
-
-.deals-view-wrapper.hidden {
-    display: none !important;
 }
 
 /* ==========================================================================
@@ -3494,5 +3494,115 @@ body.density-compact .card-price {
         width: 96vw;
         max-height: 90dvh;
         padding: 14px;
+    }
+
+    /* Mobile Floating Map Preview Card */
+    .mobile-map-preview-card {
+        position: absolute;
+        bottom: 12px;
+        left: 10px;
+        right: 10px;
+        background-color: #ffffff;
+        border-radius: var(--radius-lg);
+        box-shadow: 0 8px 30px rgba(0, 0, 0, 0.22);
+        border: 1px solid var(--border-medium);
+        padding: 10px;
+        z-index: 500;
+        pointer-events: auto;
+        animation: slideUpPreview 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .mobile-map-preview-card.hidden {
+        display: none !important;
+    }
+
+    @keyframes slideUpPreview {
+        from {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    .mobile-preview-close {
+        position: absolute;
+        top: 6px;
+        right: 6px;
+        width: 26px;
+        height: 26px;
+        border-radius: 50%;
+        background-color: rgba(15, 23, 42, 0.6);
+        color: #ffffff;
+        border: none;
+        font-size: 16px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        z-index: 10;
+    }
+
+    .mobile-preview-content {
+        display: flex;
+        gap: 12px;
+        cursor: pointer;
+    }
+
+    .mob-prev-img {
+        width: 100px;
+        height: 80px;
+        object-fit: cover;
+        border-radius: var(--radius-md);
+        flex-shrink: 0;
+    }
+
+    .mob-prev-details {
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        gap: 2px;
+        flex: 1;
+        min-width: 0;
+    }
+
+    .mob-prev-price {
+        font-size: 14px;
+        font-weight: 800;
+        color: var(--text-primary);
+    }
+
+    .mob-prev-mo {
+        font-size: 10.5px;
+        font-weight: 600;
+        color: var(--text-muted);
+    }
+
+    .mob-prev-addr {
+        font-size: 12px;
+        color: var(--text-primary);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .mob-prev-city {
+        font-size: 10.5px;
+        color: var(--text-secondary);
+    }
+
+    .mob-prev-specs {
+        font-size: 10.5px;
+        color: var(--text-muted);
+    }
+
+    .mob-prev-open-btn {
+        margin-top: 4px;
+        padding: 3px 8px;
+        font-size: 10.5px;
+        font-weight: 700;
+        align-self: flex-start;
     }
 }
