@@ -313,15 +313,31 @@ document.addEventListener('DOMContentLoaded', () => {
             bounds: WA_BOUNDS
         }).addTo(map);
 
-        // Highlight Washington State Border
-        L.polygon(WA_STATE_COORDS, {
-            color: '#c82026',
-            weight: 2,
-            opacity: 0.65,
-            fillColor: '#c82026',
-            fillOpacity: 0.02,
-            dashArray: '4, 4'
-        }).addTo(map);
+        // 1. Inverted Mask: Solidly covers Canada, Oregon, Idaho, Montana & surrounding world
+        // Leaving ONLY Washington State open and visible
+        if (window.WASHINGTON_MASK_RINGS) {
+            L.polygon(window.WASHINGTON_MASK_RINGS, {
+                fillColor: '#f1f5f9',
+                fillOpacity: 1.0,
+                stroke: true,
+                color: '#cbd5e1',
+                weight: 1,
+                interactive: false
+            }).addTo(map);
+        }
+
+        // 2. Official High-Precision US Census Bureau Washington State Border Outline
+        if (window.WASHINGTON_GEOJSON) {
+            L.geoJSON(window.WASHINGTON_GEOJSON, {
+                style: {
+                    color: '#c82026',
+                    weight: 2.5,
+                    opacity: 0.85,
+                    fill: false
+                },
+                interactive: false
+            }).addTo(map);
+        }
 
         // Marker Cluster Layer with clean Redfin/Zillow count pins
         if (typeof L.markerClusterGroup === 'function') {
