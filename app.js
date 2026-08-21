@@ -15,6 +15,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const STORAGE_RECENT_KEY = 'wa_home_search_recent_v1';
     const STORAGE_DENSITY_KEY = 'wa_home_search_density_v1';
     const STORAGE_USER_DATA_KEY = 'wa_home_search_userdata_v1';
+    const isLocalHost = ['localhost', '127.0.0.1'].includes(window.location.hostname);
+    const API_WRITES_ENABLED = window.location.protocol.startsWith('http')
+        && !window.location.hostname.endsWith('.github.io')
+        && (!isLocalHost || ['', '5000', '8000'].includes(window.location.port));
 
     let allProperties = [];
     let filteredProperties = [];
@@ -291,6 +295,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const toastContainer = document.getElementById('toast-container');
 
     // Mobile & iPhone Controls
+    const appSidebar = document.getElementById('app-sidebar');
     const btnMobileFilters = document.getElementById('btn-mobile-filters');
     const btnMobileSidebarClose = document.getElementById('btn-mobile-sidebar-close');
     const sidebarBackdrop = document.getElementById('sidebar-backdrop');
@@ -298,6 +303,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const mobNavGrid = document.getElementById('mob-nav-grid');
     const mobNavMap = document.getElementById('mob-nav-map');
     const mobNavDeals = document.getElementById('mob-nav-deals');
+    const mobNavAnalytics = document.getElementById('mob-nav-analytics');
     const mobNavFilters = document.getElementById('mob-nav-filters');
     const mobileMapPreviewCard = document.getElementById('mobile-map-preview-card');
     const mobilePreviewContent = document.getElementById('mobile-preview-content');
@@ -1509,6 +1515,36 @@ document.addEventListener('DOMContentLoaded', () => {
         activeFilterTags.appendChild(clearBtn);
     }
 
+    function computeMarketStats(properties) {
+        const prices = properties.map(p => p.price).filter(Number.isFinite);
+        const sqfts = properties.map(p => p.sqft).filter(v => Number.isFinite(v) && v > 0);
+        const lots = properties.map(p => p.lot_sqft).filter(v => Number.isFinite(v) && v > 0);
+        const ppsqfts = properties
+            .filter(p => Number.isFinite(p.price) && Number.isFinite(p.sqft) && p.sqft > 0)
+            .map(p => p.price / p.sqft);
+
+        const median = (values) => {
+            if (!values.length) return 0;
+            const sorted = [...values].sort((a, b) => a - b);
+            const mid = Math.floor(sorted.length / 2);
+            return sorted.length % 2 !== 0 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+        };
+
+        return {
+            medPrice: Math.round(median(prices)),
+            medPpsqft: Math.round(median(ppsqfts)),
+            medSqft: Math.round(median(sqfts)),
+            medLot: Math.round(median(lots)),
+            prices,
+            sqfts,
+            ppsqfts
+        };
+    }
+
+    function renderAnalytics() {
+        renderAnalyticsView(filteredProperties, computeMarketStats(filteredProperties));
+    }
+
     function updateHeaderAndMarketStats() {
         if (totalCountBadge) totalCountBadge.textContent = allProperties.length;
         if (matchedCountBadge) matchedCountBadge.textContent = filteredProperties.length;
@@ -1517,32 +1553,13 @@ document.addEventListener('DOMContentLoaded', () => {
         if (favoritesCountBadge) favoritesCountBadge.textContent = favCount;
         if (resultsCountLabel) resultsCountLabel.textContent = `${filteredProperties.length} homes matched`;
 
-        // Compute stats across filtered listings
-        if (filteredProperties.length > 0) {
-            const prices = filteredProperties.map(p => p.price);
-            const sqfts = filteredProperties.filter(p => p.sqft > 0).map(p => p.sqft);
-            const lots = filteredProperties.filter(p => p.lot_sqft > 0).map(p => p.lot_sqft);
-            const ppsqfts = filteredProperties.filter(p => p.sqft > 0).map(p => p.price / p.sqft);
+        const stats = computeMarketStats(filteredProperties);
+        if (marketAvgPrice) marketAvgPrice.textContent = `$${stats.medPrice.toLocaleString()}`;
+        if (marketAvgPpsqft) marketAvgPpsqft.textContent = `$${stats.medPpsqft}/sqft`;
+        if (marketAvgSqft) marketAvgSqft.textContent = `${stats.medSqft.toLocaleString()} sqft`;
+        if (marketAvgLot) marketAvgLot.textContent = `${stats.medLot.toLocaleString()} sqft`;
 
-            const median = (arr) => {
-                if (!arr.length) return 0;
-                const sorted = [...arr].sort((a, b) => a - b);
-                const mid = Math.floor(sorted.length / 2);
-                return sorted.length % 2 !== 0 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
-            };
-
-            const medPrice = Math.round(median(prices));
-            const medPpsqft = Math.round(median(ppsqfts));
-            const medSqft = Math.round(median(sqfts));
-            const medLot = Math.round(median(lots));
-
-            if (marketAvgPrice) marketAvgPrice.textContent = `$${medPrice.toLocaleString()}`;
-            if (marketAvgPpsqft) marketAvgPpsqft.textContent = `$${medPpsqft}/sqft`;
-            if (marketAvgSqft) marketAvgSqft.textContent = `${medSqft.toLocaleString()} sqft`;
-            if (marketAvgLot) marketAvgLot.textContent = `${medLot.toLocaleString()} sqft`;
-
-            renderAnalyticsView(filteredProperties, { medPrice, medPpsqft, medSqft, medLot, prices, sqfts, ppsqfts });
-        }
+        renderAnalyticsView(filteredProperties, stats);
     }
 
     // -------------------------------------------------------------------------
@@ -1948,7 +1965,7 @@ document.addEventListener('DOMContentLoaded', () => {
         persistUserData(propId, { favorite: prop.favorite });
 
         try {
-            fetch(`/api/properties/${propId}/favorite`, {
+            if (API_WRITES_ENABLED) fetch(`/api/properties/${propId}/favorite`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ favorite: prop.favorite })
@@ -1973,7 +1990,7 @@ document.addEventListener('DOMContentLoaded', () => {
         persistUserData(propId, { rating: rating });
 
         try {
-            fetch(`/api/properties/${propId}/note`, {
+            if (API_WRITES_ENABLED) fetch(`/api/properties/${propId}/note`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ rating: rating })
@@ -1998,16 +2015,18 @@ document.addEventListener('DOMContentLoaded', () => {
         const val = drawerNotesTextarea.value.trim();
         prop.user_notes = val;
         persistUserData(selectedPropId, { user_notes: val });
-        drawerNoteStatus.textContent = "Saving...";
+        drawerNoteStatus.textContent = API_WRITES_ENABLED ? "Saving..." : "Saved locally";
 
         clearTimeout(noteSaveDebounceTimer);
+        if (!API_WRITES_ENABLED) return;
         noteSaveDebounceTimer = setTimeout(async () => {
             try {
-                await fetch(`/api/properties/${prop.id}/note`, {
+                const response = await fetch(`/api/properties/${prop.id}/note`, {
                     method: 'PATCH',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ user_notes: val })
                 });
+                if (!response.ok) throw new Error(`API save failed (${response.status})`);
                 drawerNoteStatus.textContent = "Auto-saved to DB";
             } catch (e) {
                 drawerNoteStatus.textContent = "Saved locally";
@@ -2365,11 +2384,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 const c = p.city || 'Other';
                 cityCounts[c] = (cityCounts[c] || 0) + 1;
             });
-            for (const [city, count] of Object.entries(cityCounts).sort((a, b) => b[1] - a[1])) {
+            const sortedCities = Object.entries(cityCounts).sort((a, b) => b[1] - a[1]);
+            const visibleCities = sortedCities.slice(0, 12);
+            const otherCityCount = sortedCities.slice(12).reduce((sum, [, count]) => sum + count, 0);
+            if (otherCityCount > 0) visibleCities.push(['Other cities', otherCityCount]);
+
+            for (const [city, count] of visibleCities) {
                 const row = document.createElement('div');
                 row.className = 'city-dist-item';
                 row.innerHTML = `
-                    <span>${city}, WA</span>
+                    <span>${city === 'Other cities' ? city : `${city}, WA`}</span>
                     <span class="city-count-badge mono">${count}</span>
                 `;
                 cityDistributionList.appendChild(row);
@@ -2896,7 +2920,11 @@ document.addEventListener('DOMContentLoaded', () => {
     // -------------------------------------------------------------------------
     function setViewMode(mode) {
         activeView = mode;
-        [viewTabSplit, viewTabGrid, viewTabMap, viewTabDeals, viewTabAnalytics].filter(Boolean).forEach(btn => btn.classList.remove('active'));
+        [viewTabSplit, viewTabGrid, viewTabMap, viewTabDeals, viewTabAnalytics].filter(Boolean).forEach(btn => {
+            const isActive = btn.dataset.view === mode;
+            btn.classList.toggle('active', isActive);
+            btn.setAttribute('aria-selected', String(isActive));
+        });
         workspaceViewport.className = `workspace-viewport view-${mode}`;
 
         if (mode === 'split' && viewTabSplit) viewTabSplit.classList.add('active');
@@ -2916,7 +2944,8 @@ document.addEventListener('DOMContentLoaded', () => {
             { id: 'split', el: mobNavSplit },
             { id: 'grid', el: mobNavGrid },
             { id: 'map', el: mobNavMap },
-            { id: 'deals', el: mobNavDeals }
+            { id: 'deals', el: mobNavDeals },
+            { id: 'analytics', el: mobNavAnalytics }
         ];
         mobButtons.forEach(b => {
             if (b.el) b.el.classList.toggle('active', b.id === mode);
@@ -3048,10 +3077,34 @@ document.addEventListener('DOMContentLoaded', () => {
     // Live Scraper Progress
     // -------------------------------------------------------------------------
     function openScraperModal() {
+        if (!scraperModal) {
+            showToast("Live scraper controls are unavailable in this build.", "error");
+            return;
+        }
+
+        if (!API_WRITES_ENABLED) {
+            if (btnStartLiveScrape) btnStartLiveScrape.disabled = true;
+            if (scraperStatusText) scraperStatusText.textContent = "Python backend required for live scans";
+            if (scraperPctText) scraperPctText.textContent = "STATIC";
+            if (scraperTerminal) {
+                scraperTerminal.innerHTML = `
+                    <div class="term-line info">&gt; GitHub Pages is serving the cached Washington listing dataset.</div>
+                    <div class="term-line">&gt; Run the included Python backend to enable live HomeHarvest scans.</div>
+                `;
+            }
+        } else if (btnStartLiveScrape) {
+            btnStartLiveScrape.disabled = false;
+        }
+
         scraperModal.classList.remove('hidden');
     }
 
     async function startLiveScrapingJob() {
+        if (!API_WRITES_ENABLED) {
+            openScraperModal();
+            return;
+        }
+
         btnStartLiveScrape.disabled = true;
         scraperStatusText.textContent = "Connecting to scraper backend...";
 
@@ -3600,7 +3653,9 @@ document.addEventListener('DOMContentLoaded', () => {
             if (e.key === 'Escape') {
                 closePropertyDrawer();
                 closeCommandPalette();
-                [comparisonModal, mortgageModal, photoLightboxModal, scraperModal, scoringModal].forEach(m => m.classList.add('hidden'));
+                [comparisonModal, mortgageModal, photoLightboxModal, scraperModal, scoringModal]
+                    .filter(Boolean)
+                    .forEach(m => m.classList.add('hidden'));
                 return;
             }
 
@@ -3669,6 +3724,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (mobNavGrid) mobNavGrid.addEventListener('click', () => setViewMode('grid'));
         if (mobNavMap) mobNavMap.addEventListener('click', () => setViewMode('map'));
         if (mobNavDeals) mobNavDeals.addEventListener('click', () => setViewMode('deals'));
+        if (mobNavAnalytics) mobNavAnalytics.addEventListener('click', () => setViewMode('analytics'));
     }
 
     // -------------------------------------------------------------------------
@@ -3698,7 +3754,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initMap();
     setupEventListeners();
     if (window.innerWidth <= 768) {
-        setViewMode('map');
+        setViewMode('grid');
     }
     loadProperties();
 });

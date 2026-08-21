@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <title>Washington Home Search — Property Research Workstation</title>
@@ -19,7 +19,7 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
 
     <!-- Application Stylesheet -->
-    <link rel="stylesheet" href="styles.css?v=3.0">
+    <link rel="stylesheet" href="styles.css?v=3.1">
 </head>
 <body class="density-comfortable">
 
@@ -35,7 +35,10 @@
                         </svg>
                     </div>
                     <div class="brand-text">
-                        <h1 class="app-title">Washington Home Search</h1>
+                        <h1 class="app-title">
+                            <span class="brand-title-full">Washington Home Search</span>
+                            <span class="brand-title-mobile">WA Home Search</span>
+                        </h1>
                         <span class="brand-tagline">Property Research Workstation</span>
                     </div>
                 </div>
@@ -137,14 +140,13 @@
                     <span>Export CSV</span>
                 </button>
 
-                <!-- Scraper Button (Disabled for client-side GitHub Pages deployment)
+                <!-- Live Scraper Utility -->
                 <button class="btn btn-primary btn-sm" id="btn-open-scraper" title="Open live MLS scraper utility">
                     <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
                         <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"></path>
                     </svg>
                     <span>Live Scraper</span>
                 </button>
-                -->
             </div>
         </header>
 
@@ -196,11 +198,11 @@
                     <div class="filter-block">
                         <div class="filter-label-split">
                             <span class="filter-label">Price Range</span>
-                            <span class="filter-value-display mono" id="price-range-display">$300k – $600k</span>
+                            <span class="filter-value-display mono" id="price-range-display">$250k – $750k</span>
                         </div>
                         <div class="range-dual-container">
-                            <input type="range" id="price-min-slider" min="250000" max="750000" step="5000" value="300000" aria-label="Minimum Price">
-                            <input type="range" id="price-max-slider" min="250000" max="750000" step="5000" value="600000" aria-label="Maximum Price">
+                            <input type="range" id="price-min-slider" min="250000" max="750000" step="5000" value="250000" aria-label="Minimum Price">
+                            <input type="range" id="price-max-slider" min="250000" max="750000" step="5000" value="750000" aria-label="Maximum Price">
                         </div>
                         <div class="range-labels mono">
                             <span>$250k</span>
@@ -213,8 +215,8 @@
                     <div class="filter-block">
                         <span class="filter-label">Bedrooms (Min)</span>
                         <div class="pill-group" id="beds-pill-group" role="group" aria-label="Bedrooms filter">
-                            <button class="pill-btn" data-beds="0">Any</button>
-                            <button class="pill-btn active" data-beds="2">2+</button>
+                            <button class="pill-btn active" data-beds="0">Any</button>
+                            <button class="pill-btn" data-beds="2">2+</button>
                             <button class="pill-btn" data-beds="3">3+</button>
                             <button class="pill-btn" data-beds="4">4+</button>
                             <button class="pill-btn" data-beds="5">5+</button>
@@ -225,8 +227,8 @@
                     <div class="filter-block">
                         <span class="filter-label">Bathrooms (Min)</span>
                         <div class="pill-group" id="baths-pill-group" role="group" aria-label="Bathrooms filter">
-                            <button class="pill-btn" data-baths="0">Any</button>
-                            <button class="pill-btn active" data-baths="1.5">1.5+</button>
+                            <button class="pill-btn active" data-baths="0">Any</button>
+                            <button class="pill-btn" data-baths="1.5">1.5+</button>
                             <button class="pill-btn" data-baths="2">2+</button>
                             <button class="pill-btn" data-baths="3">3+</button>
                         </div>
@@ -236,8 +238,8 @@
                     <div class="filter-block">
                         <span class="filter-label">Garage Spaces</span>
                         <div class="pill-group" id="garage-pill-group" role="group" aria-label="Garage spaces filter">
-                            <button class="pill-btn" data-garage="0">Any</button>
-                            <button class="pill-btn active" data-garage="2">2+ Car</button>
+                            <button class="pill-btn active" data-garage="0">Any</button>
+                            <button class="pill-btn" data-garage="2">2+ Car</button>
                             <button class="pill-btn" data-garage="3">3+ Car</button>
                         </div>
                     </div>
@@ -246,11 +248,11 @@
                     <div class="filter-block">
                         <div class="filter-label-split">
                             <span class="filter-label">Living Area (SqFt)</span>
-                            <span class="filter-value-display mono" id="sqft-range-display">1,000 – 3,000 sqft</span>
+                            <span class="filter-value-display mono" id="sqft-range-display">800 – 4,000 sqft</span>
                         </div>
                         <div class="range-dual-container">
-                            <input type="range" id="sqft-min-slider" min="800" max="4000" step="50" value="1000" aria-label="Minimum Living Area">
-                            <input type="range" id="sqft-max-slider" min="800" max="4000" step="50" value="3000" aria-label="Maximum Living Area">
+                            <input type="range" id="sqft-min-slider" min="800" max="4000" step="50" value="800" aria-label="Minimum Living Area">
+                            <input type="range" id="sqft-max-slider" min="800" max="4000" step="50" value="4000" aria-label="Maximum Living Area">
                         </div>
                     </div>
 
@@ -258,9 +260,9 @@
                     <div class="filter-block">
                         <div class="filter-label-split">
                             <span class="filter-label">Max HOA Fee</span>
-                            <span class="filter-value-display mono" id="hoa-display">&le; $75/mo</span>
+                            <span class="filter-value-display mono" id="hoa-display">&le; $300/mo</span>
                         </div>
-                        <input type="range" id="hoa-slider" min="0" max="300" step="5" value="75" class="single-range" aria-label="Maximum Monthly HOA Fee">
+                        <input type="range" id="hoa-slider" min="0" max="300" step="5" value="300" class="single-range" aria-label="Maximum Monthly HOA Fee">
                     </div>
 
                     <!-- Collapsible Advanced Filters Section -->
@@ -277,9 +279,9 @@
                             <div class="filter-block sub-block">
                                 <div class="filter-label-split">
                                     <span class="filter-label">Min Lot Size</span>
-                                    <span class="filter-value-display mono" id="lot-display">5,000+ sqft</span>
+                                    <span class="filter-value-display mono" id="lot-display">2,000+ sqft</span>
                                 </div>
-                                <input type="range" id="lot-slider" min="2000" max="35000" step="500" value="5000" class="single-range" aria-label="Minimum Lot Size">
+                                <input type="range" id="lot-slider" min="2000" max="35000" step="500" value="2000" class="single-range" aria-label="Minimum Lot Size">
                             </div>
 
                             <!-- Min Year Built -->
@@ -550,7 +552,7 @@
                     </div>
 
                     <!-- Analytics Dashboard Tab (Hidden by default) -->
-                    <div class="analytics-view-wrapper hidden" id="analytics-view-wrapper">
+                    <section class="analytics-view-wrapper" id="analytics-view-wrapper" role="tabpanel" aria-labelledby="view-tab-analytics">
                         <div class="analytics-header-banner">
                             <div>
                                 <h3>Market Analytics</h3>
@@ -629,7 +631,7 @@
                                 </div>
                             </div>
                         </div>
-                    </div>
+                    </section>
                 </div>
             </main>
         </div>
@@ -650,7 +652,11 @@
             </button>
             <button class="mobile-nav-item" data-mobile-view="deals" id="mob-nav-deals">
                 <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polygon points="6 2 18 2 22 8 12 22 2 8 6 2"></polygon><line x1="2" y1="8" x2="22" y2="8"></line><line x1="12" y1="22" x2="12" y2="8"></line></svg>
-                <span>Top Deals</span>
+                <span>Deals</span>
+            </button>
+            <button class="mobile-nav-item" data-mobile-view="analytics" id="mob-nav-analytics">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
+                <span>Analytics</span>
             </button>
             <button class="mobile-nav-item" id="mob-nav-filters">
                 <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon></svg>
@@ -1248,15 +1254,14 @@
     </div>
 
     <!-- ================================================================= -->
-    <!-- LIVE SCRAPER MODAL (Disabled for Client-Side GitHub Pages Hosting) -->
+    <!-- LIVE SCRAPER MODAL -->
     <!-- ================================================================= -->
-    <!--
     <div class="modal-backdrop hidden" id="scraper-modal" role="dialog" aria-modal="true" aria-label="Live Scraper Utility">
         <div class="modal-box modal-md scraper-console-modal">
             <div class="modal-header">
-                <div class="modal-header-info">
-                    <h3>Live Washington MLS Scraper</h3>
-                    <p>Scrape active for-sale listings matching your custom constraints via HomeHarvest.</p>
+                    <div class="modal-header-info">
+                        <h3>Live Washington MLS Scraper</h3>
+                        <p>Scan active for-sale listings through the optional local Python backend.</p>
                 </div>
                 <button class="modal-close-icon" id="btn-close-scraper">&times;</button>
             </div>
@@ -1289,7 +1294,6 @@
             </div>
         </div>
     </div>
-    -->
 
     <!-- Toast Notification Container -->
     <div class="toast-container" id="toast-container" aria-live="polite"></div>
@@ -1302,9 +1306,9 @@
     <script src="wa-boundary.js"></script>
     
     <!-- Embedded Properties Data (100% Offline & Local Loading) -->
-    <script src="data.js?v=3.0"></script>
+    <script src="data.js?v=3.1"></script>
     
     <!-- Application Logic -->
-    <script src="app.js?v=3.0"></script>
+    <script src="app.js?v=3.1"></script>
 </body>
 </html>
