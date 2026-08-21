@@ -257,29 +257,40 @@ document.addEventListener('DOMContentLoaded', () => {
     const toastContainer = document.getElementById('toast-container');
 
     // -------------------------------------------------------------------------
-    // Leaflet GIS Mapping
+    // -------------------------------------------------------------------------
+    // Leaflet GIS Mapping (Strictly Locked to Washington State)
     // -------------------------------------------------------------------------
     let map = null;
     let markersLayer = null;
     let markerInstances = {}; // propId -> L.Marker
+
+    // Strict Washington State Boundary coordinates (South-West to North-East)
+    const WA_SOUTH_WEST = L.latLng(45.45, -125.0);
+    const WA_NORTH_EAST = L.latLng(49.10, -116.85);
+    const WA_BOUNDS = L.latLngBounds(WA_SOUTH_WEST, WA_NORTH_EAST);
 
     function initMap() {
         if (map) return;
         const mapElement = document.getElementById('leaflet-map');
         if (!mapElement) return;
 
-        // Centered over Washington State
+        // Centered strictly over Washington State with hard boundaries
         map = L.map('leaflet-map', {
-            center: [47.3, -120.5],
+            center: [47.45, -120.5],
             zoom: 7,
+            minZoom: 6,
+            maxZoom: 18,
+            maxBounds: WA_BOUNDS,
+            maxBoundsViscosity: 1.0, // Prevents user from scrolling/panning outside WA state
             zoomControl: true,
             attributionControl: false
         });
 
-        // Dark Matter tiles for clean GIS feel
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/dark_all/{z}/{x}/{y}{r}.png', {
+        // Clean, modern Realtor-style Voyager tiles
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
             maxZoom: 19,
             subdomains: 'abcd',
+            bounds: WA_BOUNDS
         }).addTo(map);
 
         markersLayer = L.featureGroup().addTo(map);
@@ -293,6 +304,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 }, 150);
             }
         });
+
+        map.fitBounds(WA_BOUNDS, { padding: [15, 15] });
     }
 
     function updateMapMarkers(propertiesToDisplay) {
@@ -309,10 +322,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 const customIcon = L.divIcon({
                     className: 'custom-map-icon-wrapper',
-                    html: `<div class="leaflet-price-pin ${p.favorite ? 'favorited-pin' : ''}" id="marker-pin-${p.id}">${isFavorited}${formattedPrice}</div>`,
-                    iconSize: [64, 24],
-                    iconAnchor: [32, 12],
-                    popupAnchor: [0, -12]
+                    html: `<div class="realtor-price-pin ${p.favorite ? 'favorited-pin' : ''}" id="marker-pin-${p.id}">${isFavorited}${formattedPrice}</div>`,
+                    iconSize: [68, 26],
+                    iconAnchor: [34, 13],
+                    popupAnchor: [0, -14]
                 });
 
                 const marker = L.marker([p.latitude, p.longitude], { icon: customIcon });
@@ -328,7 +341,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
                 `;
 
-                marker.bindPopup(popupContent, { maxWidth: 240, className: 'dark-map-popup' });
+                marker.bindPopup(popupContent, { maxWidth: 240, className: 'realtor-map-popup' });
 
                 marker.on('click', () => {
                     highlightCard(p.id);
@@ -357,7 +370,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function resetWashingtonView() {
         if (!map) return;
-        map.setView([47.3, -120.5], 7);
+        map.fitBounds(WA_BOUNDS, { padding: [15, 15] });
     }
 
     function highlightCard(propId) {
@@ -633,14 +646,20 @@ document.addEventListener('DOMContentLoaded', () => {
             
             let data = null;
 
-            // Try relative static JSON first for maximum speed & GitHub Pages compatibility
-            try {
-                const res = await fetch('properties.json');
-                if (res.ok) data = await res.json();
-            } catch (e) {
-                // Ignore and try API
+            // 1. Check embedded dataset (100% instant local & GitHub Pages offline support)
+            if (window.WASHINGTON_PROPERTIES && Array.isArray(window.WASHINGTON_PROPERTIES) && window.WASHINGTON_PROPERTIES.length > 0) {
+                data = JSON.parse(JSON.stringify(window.WASHINGTON_PROPERTIES));
             }
 
+            // 2. Try relative static JSON
+            if (!data) {
+                try {
+                    const res = await fetch('properties.json');
+                    if (res.ok) data = await res.json();
+                } catch (e) {}
+            }
+
+            // 3. Try API if backend is running
             if (!data) {
                 try {
                     const apiRes = await fetch('/api/properties');
