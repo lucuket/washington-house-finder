@@ -307,27 +307,14 @@ document.addEventListener('DOMContentLoaded', () => {
             attributionControl: false
         });
 
-        // Clean, bright Realtor Voyager tiles
+        // Clean, bright Realtor Voyager tiles with complete Washington geography
         L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
             maxZoom: 19,
             subdomains: 'abcd',
             bounds: WA_BOUNDS
         }).addTo(map);
 
-        // 1. Inverted Mask: Solidly covers Canada, Oregon, Idaho, Montana & surrounding world
-        // Leaving ONLY Washington State open and visible
-        if (window.WASHINGTON_MASK_RINGS) {
-            L.polygon(window.WASHINGTON_MASK_RINGS, {
-                fillColor: '#f1f5f9',
-                fillOpacity: 1.0,
-                stroke: true,
-                color: '#cbd5e1',
-                weight: 1,
-                interactive: false
-            }).addTo(map);
-        }
-
-        // 2. Official High-Precision US Census Bureau Washington State Border Outline
+        // Official High-Precision Washington State Border Outline (clean crisp boundary)
         if (window.WASHINGTON_GEOJSON) {
             L.geoJSON(window.WASHINGTON_GEOJSON, {
                 style: {
