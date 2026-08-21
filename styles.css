@@ -24,9 +24,9 @@
     --accent-rose: #e11d48;
 
     /* Surfaces & Neutrals (Light Clean Realtor Canvas) */
-    --bg-page: #f1f5f9;
+    --bg-page: #f8fafc;
     --bg-surface: #ffffff;
-    --bg-surface-secondary: #f8fafc;
+    --bg-surface-secondary: #f1f5f9;
     --bg-surface-tertiary: #e2e8f0;
     --bg-backdrop: rgba(15, 23, 42, 0.5);
 
@@ -44,10 +44,10 @@
 
     /* Shadows & Elevations */
     --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.04);
-    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.07), 0 1px 2px rgba(0, 0, 0, 0.04);
-    --shadow-md: 0 4px 12px -1px rgba(0, 0, 0, 0.08), 0 2px 4px -1px rgba(0, 0, 0, 0.04);
-    --shadow-lg: 0 10px 20px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-    --shadow-xl: 0 20px 30px -5px rgba(0, 0, 0, 0.14), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.04);
+    --shadow-md: 0 4px 14px -1px rgba(0, 0, 0, 0.09), 0 2px 4px -1px rgba(0, 0, 0, 0.04);
+    --shadow-lg: 0 10px 24px -3px rgba(0, 0, 0, 0.12), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    --shadow-xl: 0 20px 32px -5px rgba(0, 0, 0, 0.16), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
     --shadow-drawer: -8px 0 32px rgba(15, 23, 42, 0.18), -2px 0 8px rgba(15, 23, 42, 0.06);
 
     /* Radii */
@@ -64,7 +64,7 @@
     /* Layout Dimensions */
     --topbar-height: 56px;
     --toolbar-height: 48px;
-    --sidebar-width: 310px;
+    --sidebar-width: 320px;
     --drawer-width: 560px;
 }
 
@@ -125,7 +125,7 @@ html, body {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 0 16px;
+    padding: 0 18px;
     z-index: 100;
     box-shadow: var(--shadow-sm);
     flex-shrink: 0;
@@ -380,7 +380,7 @@ html, body {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 12px 14px;
+    padding: 14px 16px;
     border-bottom: 1px solid var(--border-subtle);
     background-color: var(--bg-surface);
     position: sticky;
@@ -392,11 +392,11 @@ html, body {
     display: flex;
     align-items: center;
     gap: 6px;
-    font-size: 11.5px;
-    font-weight: 700;
+    font-size: 12px;
+    font-weight: 800;
     text-transform: uppercase;
     letter-spacing: 0.05em;
-    color: var(--text-secondary);
+    color: var(--text-primary);
 }
 
 .btn-text-reset {
@@ -404,7 +404,7 @@ html, body {
     border: none;
     color: var(--brand-primary);
     font-size: 11.5px;
-    font-weight: 600;
+    font-weight: 700;
     cursor: pointer;
 }
 
@@ -413,7 +413,7 @@ html, body {
 }
 
 .sidebar-content {
-    padding: 14px;
+    padding: 16px;
     display: flex;
     flex-direction: column;
     gap: 16px;
@@ -427,7 +427,7 @@ html, body {
 
 .filter-label, .filter-label-split {
     font-size: 11.5px;
-    font-weight: 600;
+    font-weight: 700;
     color: var(--text-secondary);
 }
 
@@ -514,31 +514,59 @@ html, body {
     outline: none;
 }
 
-/* Range Sliders */
+/* Custom Range Sliders */
 .range-dual-container {
     position: relative;
-    height: 20px;
+    height: 24px;
     display: flex;
     align-items: center;
 }
 
-.range-dual-container input[type="range"],
+.range-dual-container input[type="range"] {
+    position: absolute;
+    width: 100%;
+    -webkit-appearance: none;
+    appearance: none;
+    background: transparent;
+    pointer-events: none;
+    margin: 0;
+}
+
+.range-dual-container input[type="range"]::-webkit-slider-runnable-track {
+    height: 6px;
+    background: #e2e8f0;
+    border-radius: 3px;
+}
+
+.range-dual-container input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background-color: var(--brand-primary);
+    border: 2px solid #ffffff;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+    cursor: pointer;
+    pointer-events: auto;
+    margin-top: -5px;
+    transition: transform 0.1s ease;
+}
+
+.range-dual-container input[type="range"]::-webkit-slider-thumb:hover {
+    transform: scale(1.15);
+}
+
 .single-range {
     width: 100%;
     accent-color: var(--brand-primary);
     cursor: pointer;
 }
 
-.range-dual-container input[type="range"] {
-    position: absolute;
-    width: 100%;
-    pointer-events: auto;
-}
-
 .range-labels {
     display: flex;
     justify-content: space-between;
-    font-size: 10px;
+    font-size: 10.5px;
     color: var(--text-muted);
     margin-top: 2px;
 }
@@ -546,7 +574,7 @@ html, body {
 /* Pill Button Groups */
 .pill-group {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(36px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(40px, 1fr));
     gap: 4px;
     background-color: var(--bg-surface-secondary);
     padding: 3px;
@@ -637,7 +665,7 @@ html, body {
     background-color: var(--bg-surface-secondary);
     border: 1px solid var(--border-subtle);
     border-radius: var(--radius-lg);
-    padding: 10px 12px;
+    padding: 12px;
     display: flex;
     flex-direction: column;
     gap: 6px;
@@ -647,7 +675,7 @@ html, body {
     display: flex;
     align-items: center;
     gap: 6px;
-    font-size: 10px;
+    font-size: 10.5px;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.05em;
@@ -691,7 +719,7 @@ html, body {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 0 16px;
+    padding: 0 18px;
     flex-shrink: 0;
     box-shadow: 0 1px 2px rgba(0,0,0,0.02);
     z-index: 10;
@@ -710,7 +738,7 @@ html, body {
 }
 
 .workspace-heading {
-    font-size: 14.5px;
+    font-size: 15px;
     font-weight: 800;
     color: var(--text-primary);
 }
@@ -733,7 +761,7 @@ html, body {
     display: inline-flex;
     align-items: center;
     gap: 4px;
-    padding: 2px 7px;
+    padding: 2px 8px;
     background-color: var(--bg-surface-secondary);
     border: 1px solid var(--border-medium);
     border-radius: var(--radius-full);
@@ -746,7 +774,7 @@ html, body {
     background: none;
     border: none;
     color: var(--text-muted);
-    font-size: 11px;
+    font-size: 12px;
     cursor: pointer;
     line-height: 1;
 }
@@ -800,7 +828,7 @@ html, body {
     display: inline-flex;
     align-items: center;
     gap: 5px;
-    padding: 4px 9px;
+    padding: 4px 10px;
     font-size: 11.5px;
     font-weight: 600;
     color: var(--text-secondary);
@@ -836,19 +864,19 @@ html, body {
 /* View Mode: Split */
 .workspace-viewport.view-split .cards-container-wrapper {
     flex: 1 1 50%;
-    min-width: 340px;
+    min-width: 360px;
     max-width: 55%;
     height: 100%;
     overflow-y: auto;
     background-color: var(--bg-page);
-    padding: 14px;
+    padding: 16px;
     border-right: 1px solid var(--border-subtle);
     display: block;
 }
 
 .workspace-viewport.view-split .map-container-wrapper {
     flex: 1 1 50%;
-    min-width: 320px;
+    min-width: 340px;
     height: 100%;
     position: relative;
     display: block;
@@ -866,7 +894,7 @@ html, body {
     height: 100%;
     overflow-y: auto;
     background-color: var(--bg-page);
-    padding: 18px;
+    padding: 20px;
     display: block;
 }
 
@@ -910,8 +938,8 @@ html, body {
    ========================================================================== */
 .cards-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-    gap: 14px;
+    grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+    gap: 16px;
 }
 
 .property-card {
@@ -959,40 +987,46 @@ html, body {
     transform: scale(1.04);
 }
 
-/* Tags on Image */
-.card-city-tag {
+/* Clean Photo Badges */
+.card-media-tags-top {
     position: absolute;
-    top: 8px;
-    left: 8px;
+    top: 10px;
+    left: 10px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    z-index: 5;
+}
+
+.card-city-badge {
     padding: 3px 8px;
-    background: rgba(15, 23, 42, 0.8);
+    background: rgba(15, 23, 42, 0.82);
     color: #ffffff;
-    font-size: 10.5px;
+    font-size: 11px;
     font-weight: 700;
     border-radius: var(--radius-sm);
     letter-spacing: 0.02em;
     backdrop-filter: blur(4px);
 }
 
-.card-score-tag {
+.card-score-badge {
     position: absolute;
-    top: 8px;
-    left: calc(8px + 82px);
-    padding: 3px 7px;
+    bottom: 10px;
+    left: 10px;
+    padding: 3px 8px;
     background: #ffffff;
     color: var(--text-primary);
     font-size: 11px;
     font-weight: 800;
-    font-family: var(--font-mono);
     border-radius: var(--radius-sm);
-    box-shadow: var(--shadow-sm);
-    border: 1px solid rgba(0,0,0,0.06);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.16);
+    border: 1px solid rgba(0, 0, 0, 0.08);
 }
 
 .card-favorite-btn {
     position: absolute;
-    top: 8px;
-    right: 8px;
+    top: 10px;
+    right: 10px;
     width: 32px;
     height: 32px;
     border-radius: 50%;
@@ -1005,6 +1039,7 @@ html, body {
     cursor: pointer;
     box-shadow: 0 2px 6px rgba(0,0,0,0.16);
     transition: transform 0.15s ease, color 0.15s ease;
+    z-index: 5;
 }
 
 .card-favorite-btn:hover {
@@ -1037,6 +1072,7 @@ html, body {
     opacity: 0;
     transition: opacity 0.15s ease, background-color 0.15s ease;
     box-shadow: 0 2px 6px rgba(0,0,0,0.25);
+    z-index: 5;
 }
 
 .property-card:hover .card-nav-arrow {
@@ -1049,8 +1085,8 @@ html, body {
 
 .card-photo-counter {
     position: absolute;
-    bottom: 8px;
-    right: 8px;
+    bottom: 10px;
+    right: 10px;
     padding: 2px 7px;
     background-color: rgba(15, 23, 42, 0.75);
     color: #ffffff;
@@ -1058,14 +1094,15 @@ html, body {
     font-weight: 700;
     font-family: var(--font-mono);
     border-radius: var(--radius-full);
+    z-index: 5;
 }
 
 /* Card Body Content */
 .card-body {
-    padding: 13px 14px;
+    padding: 14px 16px;
     display: flex;
     flex-direction: column;
-    gap: 9px;
+    gap: 10px;
 }
 
 .card-price-row {
@@ -1075,7 +1112,7 @@ html, body {
 }
 
 .card-price {
-    font-size: 20px;
+    font-size: 21px;
     font-weight: 800;
     color: var(--text-primary);
     letter-spacing: -0.02em;
@@ -1087,7 +1124,7 @@ html, body {
     color: var(--accent-emerald);
     background-color: var(--accent-emerald-light);
     border: 1px solid var(--accent-emerald-border);
-    padding: 2px 7px;
+    padding: 3px 8px;
     border-radius: var(--radius-sm);
     cursor: pointer;
     transition: background-color 0.1s ease;
@@ -1103,7 +1140,7 @@ html, body {
 }
 
 .card-street {
-    font-size: 13px;
+    font-size: 13.5px;
     font-weight: 700;
     color: var(--text-primary);
     white-space: nowrap;
@@ -1121,7 +1158,7 @@ html, body {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
     gap: 4px;
-    padding: 7px 0;
+    padding: 8px 0;
     border-top: 1px solid var(--border-subtle);
     border-bottom: 1px solid var(--border-subtle);
 }
@@ -1134,8 +1171,8 @@ html, body {
 }
 
 .spec-val {
-    font-size: 12px;
-    font-weight: 700;
+    font-size: 12.5px;
+    font-weight: 800;
     color: var(--text-primary);
 }
 
@@ -1247,8 +1284,8 @@ html, body {
 }
 
 .card-view-drawer-btn {
-    padding: 4px 9px;
-    font-size: 11px;
+    padding: 5px 12px;
+    font-size: 11.5px;
 }
 
 /* Empty State */
@@ -1279,13 +1316,13 @@ html, body {
 }
 
 /* ==========================================================================
-   Leaflet Map Pane & Price Pins (Redfin / Zillow Style)
+   Leaflet Map Pane & Marker Cluster Styles
    ========================================================================== */
 .map-container-wrapper {
     position: relative;
     height: 100%;
     width: 100%;
-    background-color: #e2e8f0;
+    background-color: #f1f5f9;
 }
 
 #leaflet-map {
@@ -1308,6 +1345,7 @@ html, body {
     display: flex;
     align-items: center;
     justify-content: space-between;
+    gap: 8px;
     pointer-events: none;
     z-index: 400;
 }
@@ -1332,6 +1370,42 @@ html, body {
     height: 6px;
     border-radius: 50%;
     background-color: var(--accent-emerald);
+}
+
+/* Quick Jump WA Region Pills */
+.map-region-pills {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    background-color: rgba(255, 255, 255, 0.95);
+    border: 1px solid var(--border-medium);
+    padding: 3px;
+    border-radius: var(--radius-full);
+    box-shadow: var(--shadow-md);
+    pointer-events: auto;
+}
+
+.map-region-pill {
+    padding: 3px 9px;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--text-secondary);
+    background: transparent;
+    border: none;
+    border-radius: var(--radius-full);
+    cursor: pointer;
+    transition: all 0.12s ease;
+}
+
+.map-region-pill:hover {
+    color: var(--text-primary);
+    background-color: rgba(0, 0, 0, 0.05);
+}
+
+.map-region-pill.active {
+    background-color: var(--brand-primary);
+    color: #ffffff;
+    box-shadow: 0 1px 3px rgba(200, 32, 38, 0.3);
 }
 
 .map-quick-actions {
@@ -1382,8 +1456,9 @@ html, body {
     border-color: var(--brand-primary);
 }
 
-/* Redfin Style Price Markers */
-.custom-map-icon-wrapper {
+/* Redfin Style Price Markers & Marker Clustering */
+.custom-map-icon-wrapper,
+.custom-cluster-wrapper {
     background: transparent;
     border: none;
 }
@@ -1417,6 +1492,29 @@ html, body {
     border-color: var(--accent-rose);
     background-color: #fff1f2;
     color: var(--accent-rose);
+}
+
+.realtor-cluster-pin {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #d92228 0%, #b91c1c 100%);
+    color: #ffffff;
+    font-weight: 800;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2.5px solid #ffffff;
+    box-shadow: 0 3px 10px rgba(200, 32, 38, 0.45);
+    transition: transform 0.15s ease;
+    cursor: pointer;
+}
+
+.realtor-cluster-pin:hover {
+    transform: scale(1.15);
+    box-shadow: 0 4px 14px rgba(200, 32, 38, 0.6);
 }
 
 /* Leaflet Map Popups */
@@ -2433,15 +2531,15 @@ html, body {
 
 /* Density Modifiers */
 body.density-compact .cards-grid {
-    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
     gap: 10px;
 }
 
 body.density-compact .card-body {
-    padding: 8px 10px;
+    padding: 10px 12px;
     gap: 6px;
 }
 
 body.density-compact .card-price {
-    font-size: 17px;
+    font-size: 18px;
 }

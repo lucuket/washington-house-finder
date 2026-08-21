@@ -269,6 +269,26 @@ document.addEventListener('DOMContentLoaded', () => {
     const WA_NORTH_EAST = L.latLng(49.10, -116.85);
     const WA_BOUNDS = L.latLngBounds(WA_SOUTH_WEST, WA_NORTH_EAST);
 
+    // Detailed Washington State Border Outline Polygon
+    const WA_STATE_COORDS = [
+        [49.00, -123.00], [49.00, -117.03], [46.00, -117.03], [46.00, -118.98],
+        [45.92, -119.34], [45.83, -119.70], [45.72, -120.20], [45.69, -120.80],
+        [45.60, -121.20], [45.64, -121.90], [45.55, -122.40], [45.60, -122.75],
+        [46.15, -123.18], [46.25, -124.05], [46.30, -124.08], [46.90, -124.18],
+        [47.30, -124.35], [47.90, -124.65], [48.38, -124.72], [48.30, -124.00],
+        [48.15, -123.40], [48.15, -122.75], [48.70, -122.50], [49.00, -122.75],
+        [49.00, -123.00]
+    ];
+
+    const REGION_BOUNDS = {
+        'all': { center: [47.35, -120.4], zoom: 7 },
+        'spokane': { center: [47.66, -117.42], zoom: 11 },
+        'tri-cities': { center: [46.23, -119.14], zoom: 11 },
+        'puget-sound': { center: [47.25, -122.44], zoom: 10 },
+        'yakima': { center: [46.60, -120.50], zoom: 11 },
+        'vancouver': { center: [45.64, -122.66], zoom: 11 }
+    };
+
     function initMap() {
         if (map) return;
         const mapElement = document.getElementById('leaflet-map');
@@ -276,24 +296,54 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Centered strictly over Washington State with hard boundaries
         map = L.map('leaflet-map', {
-            center: [47.45, -120.5],
-            zoom: 7,
-            minZoom: 6,
+            center: [47.35, -120.4],
+            zoom: 7.2,
+            minZoom: 6.5,
             maxZoom: 18,
             maxBounds: WA_BOUNDS,
-            maxBoundsViscosity: 1.0, // Prevents user from scrolling/panning outside WA state
+            maxBoundsViscosity: 1.0, // Strictly keeps map inside Washington State
             zoomControl: true,
             attributionControl: false
         });
 
-        // Clean, modern Realtor-style Voyager tiles
+        // Clean, bright Realtor Voyager tiles
         L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
             maxZoom: 19,
             subdomains: 'abcd',
             bounds: WA_BOUNDS
         }).addTo(map);
 
-        markersLayer = L.featureGroup().addTo(map);
+        // Highlight Washington State Border
+        L.polygon(WA_STATE_COORDS, {
+            color: '#c82026',
+            weight: 2,
+            opacity: 0.65,
+            fillColor: '#c82026',
+            fillOpacity: 0.02,
+            dashArray: '4, 4'
+        }).addTo(map);
+
+        // Marker Cluster Layer with clean Redfin/Zillow count pins
+        if (typeof L.markerClusterGroup === 'function') {
+            markersLayer = L.markerClusterGroup({
+                showCoverageOnHover: false,
+                maxClusterRadius: 40,
+                spiderfyOnMaxZoom: true,
+                iconCreateFunction: function (cluster) {
+                    const count = cluster.getChildCount();
+                    return L.divIcon({
+                        html: `<div class="realtor-cluster-pin"><span>${count}</span></div>`,
+                        className: 'custom-cluster-wrapper',
+                        iconSize: [36, 36],
+                        iconAnchor: [18, 18]
+                    });
+                }
+            });
+        } else {
+            markersLayer = L.featureGroup();
+        }
+
+        map.addLayer(markersLayer);
 
         // Map movement trigger for bounds search
         map.on('moveend', () => {
@@ -314,6 +364,25 @@ document.addEventListener('DOMContentLoaded', () => {
 
         window.addEventListener('resize', () => {
             if (map) map.invalidateSize();
+        });
+
+        // Setup Region Quick Jump Pills
+        const regionPills = document.querySelectorAll('.map-region-pill');
+        regionPills.forEach(pill => {
+            pill.addEventListener('click', (e) => {
+                e.stopPropagation();
+                regionPills.forEach(p => p.classList.remove('active'));
+                pill.classList.add('active');
+                const reg = pill.getAttribute('data-region');
+                if (reg && REGION_BOUNDS[reg]) {
+                    const { center, zoom } = REGION_BOUNDS[reg];
+                    if (reg === 'all') {
+                        map.fitBounds(WA_BOUNDS, { padding: [15, 15] });
+                    } else {
+                        map.setView(center, zoom, { animate: true });
+                    }
+                }
+            });
         });
     }
 
@@ -363,14 +432,14 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         if (mapMarkerCount) {
-            mapMarkerCount.textContent = `${validCoords.length} pins on map`;
+            mapMarkerCount.textContent = `${validCoords.length} WA homes`;
         }
     }
 
     function fitMapToResults() {
         if (!map || !markersLayer) return;
         const bounds = markersLayer.getBounds();
-        if (bounds.isValid()) {
+        if (bounds && bounds.isValid && bounds.isValid()) {
             map.fitBounds(bounds, { padding: [30, 30], maxZoom: 13 });
         } else {
             resetWashingtonView();
@@ -479,34 +548,34 @@ document.addEventListener('DOMContentLoaded', () => {
         // $/sqft vs city median
         if (cityMed.ppsqft > 0) {
             const deltaPct = Math.round(((ppsqft - cityMed.ppsqft) / cityMed.ppsqft) * 100);
-            if (deltaPct <= -10) {
-                signals.push({ label: `${Math.abs(deltaPct)}% below ${p.city} median $/sqft`, type: 'good' });
+            if (deltaPct <= -8) {
+                signals.push({ label: `↓ ${Math.abs(deltaPct)}% below median $/sqft`, type: 'good' });
             } else if (deltaPct >= 15) {
-                signals.push({ label: `${deltaPct}% above city median $/sqft`, type: 'amber' });
+                signals.push({ label: `↑ ${deltaPct}% above median $/sqft`, type: 'amber' });
             }
         }
 
         // Lot Size signal
         if (p.lot_sqft >= 10000) {
             const acres = (p.lot_sqft / 43560).toFixed(2);
-            signals.push({ label: `Large Lot (${acres} acres / ${p.lot_sqft.toLocaleString()} sqft)`, type: 'good' });
+            signals.push({ label: `★ ${acres} Ac Lot`, type: 'good' });
         }
 
         // Garage capacity
         if (p.garage >= 3) {
-            signals.push({ label: `${p.garage}-Car Garage Workshop`, type: 'good' });
+            signals.push({ label: `★ ${p.garage}-Car Garage`, type: 'good' });
         }
 
         // Low / No HOA
         if (p.hoa === 0) {
-            signals.push({ label: 'No HOA Fee ($0)', type: 'good' });
+            signals.push({ label: '★ No HOA ($0)', type: 'good' });
         } else if (p.hoa <= 35) {
-            signals.push({ label: `Low HOA ($${p.hoa}/mo)`, type: 'good' });
+            signals.push({ label: `★ Low HOA ($${p.hoa}/mo)`, type: 'good' });
         }
 
         // Newer construction
         if (p.year_built >= 2018) {
-            signals.push({ label: `Modern Build (${p.year_built})`, type: 'good' });
+            signals.push({ label: `★ Built ${p.year_built}`, type: 'good' });
         }
 
         return signals;
@@ -888,14 +957,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 signalsHtml += `<span class="chip chip-signal-${s.type}">${s.label}</span>`;
             });
 
+            const acres = (p.lot_sqft / 43560).toFixed(2);
+
             card.innerHTML = `
                 <div class="card-media">
                     <img src="${currentPhoto}" alt="${p.address}" class="card-img" id="img-${p.id}" loading="lazy" onerror="this.src='https://images.unsplash.com/photo-1570129477492-45c003edd2be?auto=format&fit=crop&w=800&q=80'">
-                    <span class="card-city-tag">${p.city}, WA</span>
-                    <span class="card-score-tag" title="Smart Shortlist Score: ${scoreVal}/100">${scoreVal}</span>
+                    <div class="card-media-tags-top">
+                        <span class="card-city-badge">${p.city}, WA</span>
+                    </div>
+                    <span class="card-score-badge mono" title="Smart Shortlist Score: ${scoreVal}/100">Score ${scoreVal}</span>
                     
                     <button class="card-favorite-btn ${p.favorite ? 'favorited' : ''}" data-id="${p.id}" title="${p.favorite ? 'Remove from shortlist' : 'Save to shortlist'}" aria-label="Toggle favorite">
-                        <svg viewBox="0 0 24 24" width="15" height="15" fill="${p.favorite ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2">
+                        <svg viewBox="0 0 24 24" width="16" height="16" fill="${p.favorite ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2">
                             <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
                         </svg>
                     </button>
@@ -912,7 +985,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div class="card-body">
                     <div class="card-price-row">
                         <span class="card-price mono">$${p.price.toLocaleString()}</span>
-                        <span class="card-mortgage-badge mono" data-id="${p.id}" title="Click to view Mortgage Breakdown">~$${estMonthly.total.toLocaleString()}/mo</span>
+                        <span class="card-mortgage-badge mono" data-id="${p.id}" title="Click to view Mortgage Breakdown">Est. $${estMonthly.total.toLocaleString()}/mo</span>
                     </div>
 
                     <div class="card-address-block">
@@ -941,7 +1014,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     <div class="card-extra-chips">
                         <span class="chip mono">$${ppsqft}/sqft</span>
-                        <span class="chip">Lot: ${p.lot_sqft.toLocaleString()} sqft</span>
+                        <span class="chip mono">${acres} Ac Lot</span>
                         <span class="chip">Built ${p.year_built}</span>
                         <span class="chip">${p.hoa > 0 ? `$${p.hoa}/mo HOA` : 'No HOA'}</span>
                         ${signalsHtml}
@@ -963,7 +1036,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             <span>Compare</span>
                         </label>
                         
-                        <button class="btn btn-secondary btn-sm card-view-drawer-btn" data-id="${p.id}">
+                        <button class="btn btn-primary btn-sm card-view-drawer-btn" data-id="${p.id}">
                             View Details
                         </button>
                     </div>

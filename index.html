@@ -13,6 +13,8 @@
 
     <!-- Leaflet.js CSS for Interactive GIS Mapping -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
 
     <!-- Application Stylesheet -->
     <link rel="stylesheet" href="styles.css">
@@ -441,7 +443,17 @@
                         <div class="map-overlay-bar">
                             <div class="map-overlay-badge">
                                 <span class="map-dot"></span>
-                                <span id="map-marker-count" class="mono">0 pins on map</span>
+                                <span id="map-marker-count" class="mono">0 WA homes</span>
+                            </div>
+
+                            <!-- Quick Jump WA Region Pills -->
+                            <div class="map-region-pills" id="map-region-pills" role="toolbar" aria-label="Washington Regions">
+                                <button class="map-region-pill active" data-region="all" title="View Full Washington State">All WA</button>
+                                <button class="map-region-pill" data-region="spokane" title="Zoom to Spokane Region">Spokane</button>
+                                <button class="map-region-pill" data-region="tri-cities" title="Zoom to Tri-Cities (Kennewick/Pasco/Richland)">Tri-Cities</button>
+                                <button class="map-region-pill" data-region="puget-sound" title="Zoom to Seattle/Tacoma/Olympia">Puget Sound</button>
+                                <button class="map-region-pill" data-region="yakima" title="Zoom to Yakima">Yakima</button>
+                                <button class="map-region-pill" data-region="vancouver" title="Zoom to Vancouver, WA">Vancouver</button>
                             </div>
 
                             <div class="map-quick-actions">
@@ -1098,8 +1110,9 @@
     <!-- Toast Notification Container -->
     <div class="toast-container" id="toast-container" aria-live="polite"></div>
 
-    <!-- Leaflet.js Script -->
+    <!-- Leaflet.js and MarkerCluster Scripts -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
     
     <!-- Embedded Properties Data (100% Offline & Local Loading) -->
     <script src="data.js"></script>
