@@ -1614,89 +1614,77 @@ document.addEventListener('DOMContentLoaded', () => {
     // -------------------------------------------------------------------------
     function getRegionalBroadbandDetails(prop) {
         const city = (prop.city || '').toLowerCase();
-        let hasFiber = false;
         let hasCable = true;
-        let fiberDown = '1,000 Mbps';
-        let fiberUp = '1,000 Mbps';
         let cableDown = '1,200 Mbps';
         let cableUp = '35 Mbps';
-        let fiberProviders = 'CenturyLink / Quantum Fiber (Address-Dependent)';
         let cableProviders = 'Xfinity (Comcast)';
+        let fiberProviders = 'CenturyLink / Quantum Fiber (Address-Dependent)';
+        let fiberDown = '1,000 – 6,000 Mbps (Where Deployed)';
+        let fiberUp = '1,000 – 6,000 Mbps (Where Deployed)';
 
         if (city.includes('everett') || city.includes('marysville') || city.includes('snohomish') || city.includes('lynnwood') || city.includes('edmonds') || city.includes('lake stevens') || city.includes('bothell') || city.includes('mill creek')) {
-            fiberProviders = 'Ziply Fiber (FTTP 1,000–6,000 Mbps in footprint), Quantum Fiber';
-            cableProviders = 'Xfinity (Comcast)';
-            fiberDown = '6,000 Mbps';
-            fiberUp = '6,000 Mbps';
-            cableDown = '1,200 Mbps';
-            cableUp = '35 Mbps';
-            if (prop.broadband && typeof prop.broadband.fiber_pct === 'number' && prop.broadband.fiber_pct >= 60) {
-                hasFiber = true;
-            }
+            fiberProviders = 'Ziply Fiber (FTTP up to 6,000 Mbps in footprint), Quantum Fiber';
+            cableProviders = 'Xfinity (Comcast 1,200/35 Mbps; Next-Gen Mid-Split 2,000/250 Mbps in select areas)';
+            fiberDown = 'Up to 6,000 Mbps (Where Deployed)';
+            fiberUp = 'Up to 6,000 Mbps (Where Deployed)';
+            cableDown = '1,200 – 2,000 Mbps';
+            cableUp = '35 – 250 Mbps';
         } else if (city.includes('tacoma')) {
             fiberProviders = 'CenturyLink / Quantum Fiber (Address-Dependent — Check FCC Map)';
             cableProviders = 'Xfinity (Comcast up to 1,200/35), Lightcurve (up to 1,000/12)';
-            fiberDown = '1,000 Mbps';
-            fiberUp = '1,000 Mbps';
+            fiberDown = 'Up to 1,000 Mbps (Where Deployed)';
+            fiberUp = 'Up to 1,000 Mbps (Where Deployed)';
             cableDown = '1,000 – 1,200 Mbps';
             cableUp = '12 – 35 Mbps';
-            hasFiber = false; // Tacoma citywide fiber is ~35% in select pockets; default to Cable and prompt FCC check
         } else if (city.includes('spokane')) {
             fiberProviders = 'Quantum Fiber, Ziply Fiber (Address-Dependent)';
-            cableProviders = 'Xfinity (Comcast)';
-            fiberDown = '1,000 – 6,000 Mbps';
-            fiberUp = '1,000 – 6,000 Mbps';
+            cableProviders = 'Xfinity (Comcast 1,200/35 Mbps)';
+            fiberDown = 'Up to 1,000 – 6,000 Mbps (Where Deployed)';
+            fiberUp = 'Up to 1,000 – 6,000 Mbps (Where Deployed)';
             cableDown = '1,200 Mbps';
             cableUp = '35 Mbps';
-            hasFiber = (prop.broadband && typeof prop.broadband.fiber_pct === 'number' && prop.broadband.fiber_pct >= 70);
         } else if (city.includes('kennewick') || city.includes('pasco') || city.includes('richland') || city.includes('west richland')) {
             fiberProviders = 'Ziply Fiber (FTTH in Kennewick/Richland), CenturyLink Fiber (Address-Dependent)';
-            cableProviders = 'Spectrum (Charter)';
-            fiberDown = '1,000 – 5,000 Mbps';
-            fiberUp = '1,000 – 5,000 Mbps';
+            cableProviders = 'Spectrum (Charter 1,000/35 Mbps)';
+            fiberDown = 'Up to 1,000 – 5,000 Mbps (Where Deployed)';
+            fiberUp = 'Up to 1,000 – 5,000 Mbps (Where Deployed)';
             cableDown = '1,000 Mbps';
             cableUp = '35 Mbps';
-            hasFiber = (prop.broadband && typeof prop.broadband.fiber_pct === 'number' && prop.broadband.fiber_pct >= 70);
         } else if (city.includes('yakima')) {
             fiberProviders = 'CenturyLink Fiber (Address-Dependent)';
-            cableProviders = 'Spectrum (Charter)';
-            fiberDown = '1,000 Mbps';
-            fiberUp = '1,000 Mbps';
+            cableProviders = 'Spectrum (Charter 1,000/35 Mbps)';
+            fiberDown = 'Up to 1,000 Mbps (Where Deployed)';
+            fiberUp = 'Up to 1,000 Mbps (Where Deployed)';
             cableDown = '1,000 Mbps';
             cableUp = '35 Mbps';
-            hasFiber = false;
         } else if (city.includes('vancouver') || city.includes('camas') || city.includes('ridgefield') || city.includes('battle ground')) {
             fiberProviders = 'CenturyLink / Quantum Fiber (Address-Dependent)';
-            cableProviders = 'Xfinity (Comcast)';
-            fiberDown = '1,000 – 5,000 Mbps';
-            fiberUp = '1,000 – 5,000 Mbps';
+            cableProviders = 'Xfinity (Comcast 1,200/35 Mbps)';
+            fiberDown = 'Up to 1,000 – 5,000 Mbps (Where Deployed)';
+            fiberUp = 'Up to 1,000 – 5,000 Mbps (Where Deployed)';
             cableDown = '1,200 Mbps';
             cableUp = '35 Mbps';
-            hasFiber = (prop.broadband && typeof prop.broadband.fiber_pct === 'number' && prop.broadband.fiber_pct >= 70);
         } else if (city.includes('olympia')) {
             fiberProviders = 'Quantum Fiber (Address-Dependent)';
-            cableProviders = 'Xfinity (Comcast), Astound Broadband';
+            cableProviders = 'Xfinity (Comcast 1,200/35), Astound Broadband';
+            fiberDown = 'Up to 1,000 Mbps (Where Deployed)';
+            fiberUp = 'Up to 1,000 Mbps (Where Deployed)';
             cableDown = '1,200 Mbps';
             cableUp = '35 Mbps';
-            hasFiber = false;
         } else if (city.includes('wenatchee')) {
             fiberProviders = 'Chelan County PUD Fiber (Address-Dependent)';
-            cableProviders = 'Spectrum (Charter)';
+            cableProviders = 'Spectrum (Charter 1,000/35 Mbps)';
+            fiberDown = 'Up to 1,000 Mbps (Where Deployed)';
+            fiberUp = 'Up to 1,000 Mbps (Where Deployed)';
             cableDown = '1,000 Mbps';
             cableUp = '35 Mbps';
-            hasFiber = false;
-        } else if (city.includes('bellingham')) {
-            fiberProviders = 'Quantum Fiber, Ziply Fiber (Address-Dependent)';
-            cableProviders = 'Xfinity (Comcast)';
-            cableDown = '1,200 Mbps';
-            cableUp = '35 Mbps';
-            hasFiber = false;
         } else {
             fiberProviders = 'CenturyLink / Quantum Fiber (Address-Dependent)';
-            cableProviders = 'Xfinity (Comcast)';
+            cableProviders = 'Xfinity (Comcast 1,200/35 Mbps)';
+            fiberDown = 'Up to 1,000 Mbps (Where Deployed)';
+            fiberUp = 'Up to 1,000 Mbps (Where Deployed)';
             cableDown = '1,200 Mbps';
             cableUp = '35 Mbps';
-            hasFiber = (prop.broadband && typeof prop.broadband.fiber_pct === 'number' && prop.broadband.fiber_pct >= 70);
         }
 
         const fullAddress = `${prop.address}, ${prop.city}, WA ${prop.zip || ''}`.trim();
@@ -1708,8 +1696,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         return {
-            hasFiber,
-            hasCable,
+            hasFiber: false, // Fiber is always address-dependent across WA parcels; check FCC map
+            hasCable: true,
             fiberDown,
             fiberUp,
             cableDown,
@@ -1724,40 +1712,16 @@ document.addEventListener('DOMContentLoaded', () => {
     function getCardBroadbandSummary(prop) {
         const regional = getRegionalBroadbandDetails(prop);
 
-        if (!regional.hasFiber && regional.hasCable) {
-            return {
-                isCableOnly: true,
-                badgeClass: 'badge-cable-only',
-                badgeText: '⚡ Cable Gigabit',
-                badgeTitle: `Cable DOCSIS Active (${regional.cableProviders}) • Verify FTTH Fiber on FCC Map`,
-                speedText: `Cable: ${regional.cableDown} • Up: ${regional.cableUp}`,
-                providersText: regional.cableProviders,
-                chipLabel: '⚡ Cable Gigabit',
-                chipTitle: `Cable: ${regional.cableDown} Down / ${regional.cableUp} Up via ${regional.cableProviders}`
-            };
-        } else if (regional.hasFiber && !regional.hasCable) {
-            return {
-                isCableOnly: false,
-                badgeClass: 'badge-fiber-ready',
-                badgeText: '🌐 Fiber Ready',
-                badgeTitle: `Fiber FTTH Active (${regional.fiberProviders})`,
-                speedText: `Fiber: ${regional.fiberDown} Symmetrical`,
-                providersText: regional.fiberProviders,
-                chipLabel: '🌐 Fiber Ready',
-                chipTitle: `Fiber: ${regional.fiberDown} Down/Up via ${regional.fiberProviders}`
-            };
-        } else {
-            return {
-                isCableOnly: false,
-                badgeClass: 'badge-fiber-ready',
-                badgeText: '🌐 Fiber & Cable',
-                badgeTitle: `Fiber FTTP (${regional.fiberDown}) + Cable DOCSIS (${regional.cableDown})`,
-                speedText: `Fiber: ${regional.fiberDown} • Cable: ${regional.cableDown}`,
-                providersText: `${regional.fiberProviders} • ${regional.cableProviders}`,
-                chipLabel: 'Fiber & Cable',
-                chipTitle: `Fiber: ${regional.fiberDown} • Cable: ${regional.cableDown}`
-            };
-        }
+        return {
+            isCableOnly: true,
+            badgeClass: 'badge-cable-only',
+            badgeText: '⚡ Cable Gigabit',
+            badgeTitle: `Cable DOCSIS Gigabit Active (${regional.cableProviders}) • Click FCC Map link to verify FTTH Fiber at this address`,
+            speedText: `Cable: ${regional.cableDown} • Up: ${regional.cableUp}`,
+            providersText: regional.cableProviders,
+            chipLabel: '⚡ Cable Gigabit',
+            chipTitle: `Cable: ${regional.cableDown} Down / ${regional.cableUp} Up via ${regional.cableProviders}`
+        };
     }
 
     // -------------------------------------------------------------------------
