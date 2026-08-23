@@ -1641,16 +1641,19 @@ document.addEventListener('DOMContentLoaded', () => {
     // -------------------------------------------------------------------------
     // Regional Broadband & Internet Data (FCC National Broadband Map)
     // -------------------------------------------------------------------------
+    // -------------------------------------------------------------------------
+    // Regional Broadband & Internet Data (FCC National Broadband Map)
+    // -------------------------------------------------------------------------
     function getRegionalBroadbandDetails(prop) {
         const city = (prop.city || '').toLowerCase();
-        let hasFiber = true;
+        let hasFiber = false;
         let hasCable = true;
         let cableDown = '1,200 Mbps';
         let cableUp = '35 Mbps';
         let cableProviders = 'Xfinity (Comcast)';
-        let fiberProviders = 'CenturyLink / Quantum Fiber';
-        let fiberDown = '1,000 Mbps';
-        let fiberUp = '1,000 Mbps';
+        let fiberProviders = 'None';
+        let fiberDown = 'N/A';
+        let fiberUp = 'N/A';
 
         if (city.includes('hat island')) {
             hasFiber = false;
@@ -1662,39 +1665,39 @@ document.addEventListener('DOMContentLoaded', () => {
             fiberDown = 'N/A';
             fiberUp = 'N/A';
         } else if (city.includes('everett') || city.includes('marysville') || city.includes('snohomish') || city.includes('lynnwood') || city.includes('edmonds') || city.includes('lake stevens') || city.includes('bothell') || city.includes('mill creek')) {
+            // Snohomish County: 60%–86% FTTH Fiber Footprint (Ziply Fiber / Quantum)
             hasFiber = true;
+            hasCable = true;
             fiberProviders = 'Ziply Fiber, Quantum Fiber';
             cableProviders = 'Xfinity (Comcast)';
             fiberDown = '6,000 Mbps';
             fiberUp = '6,000 Mbps';
             cableDown = '1,200 Mbps';
             cableUp = '35 Mbps';
-        } else if (city.includes('spokane')) {
+        } else if (city.includes('spokane') && !city.includes('spokane valley')) {
+            // Spokane: 58% FTTH Fiber Footprint (Quantum Fiber / Ziply)
             hasFiber = true;
+            hasCable = true;
             fiberProviders = 'Quantum Fiber, Ziply Fiber';
             cableProviders = 'Xfinity (Comcast)';
             fiberDown = '6,000 Mbps';
             fiberUp = '6,000 Mbps';
             cableDown = '1,200 Mbps';
             cableUp = '35 Mbps';
-        } else if (city.includes('vancouver') || city.includes('camas') || city.includes('ridgefield') || city.includes('battle ground')) {
+        } else if (city.includes('camas')) {
+            // Camas: 87% FTTH Fiber Footprint
             hasFiber = true;
+            hasCable = true;
             fiberProviders = 'CenturyLink / Quantum Fiber';
             cableProviders = 'Xfinity (Comcast)';
             fiberDown = '5,000 Mbps';
             fiberUp = '5,000 Mbps';
             cableDown = '1,200 Mbps';
             cableUp = '35 Mbps';
-        } else if (city.includes('tacoma')) {
+        } else if (city.includes('kennewick') || city.includes('richland') || city.includes('west richland')) {
+            // Tri-Cities (Kennewick/Richland): 45%–50% FTTH Fiber Footprint (Ziply Fiber)
             hasFiber = true;
-            fiberProviders = 'CenturyLink Fiber, Quantum Fiber';
-            cableProviders = 'Xfinity (Comcast), Lightcurve';
-            fiberDown = '1,000 Mbps';
-            fiberUp = '1,000 Mbps';
-            cableDown = '1,200 Mbps';
-            cableUp = '35 Mbps';
-        } else if (city.includes('kennewick') || city.includes('pasco') || city.includes('richland') || city.includes('west richland')) {
-            hasFiber = true;
+            hasCable = true;
             fiberProviders = 'Ziply Fiber, CenturyLink Fiber';
             cableProviders = 'Spectrum (Charter)';
             fiberDown = '5,000 Mbps';
@@ -1702,7 +1705,9 @@ document.addEventListener('DOMContentLoaded', () => {
             cableDown = '1,000 Mbps';
             cableUp = '35 Mbps';
         } else if (city.includes('wenatchee')) {
+            // Wenatchee: Chelan County PUD Fiber Network
             hasFiber = true;
+            hasCable = true;
             fiberProviders = 'Chelan County PUD Fiber';
             cableProviders = 'Spectrum (Charter)';
             fiberDown = '1,000 Mbps';
@@ -1710,27 +1715,72 @@ document.addEventListener('DOMContentLoaded', () => {
             cableDown = '1,000 Mbps';
             cableUp = '35 Mbps';
         } else if (city.includes('olympia')) {
-            hasFiber = true;
-            fiberProviders = 'Quantum Fiber';
-            cableProviders = 'Xfinity (Comcast), Astound Broadband';
-            fiberDown = '1,000 Mbps';
-            fiberUp = '1,000 Mbps';
+            // Olympia: 3.4% Fiber (Only 3 in 100 homes). Wireline is Xfinity Cable & CenturyLink DSL.
+            hasFiber = false;
+            hasCable = true;
+            fiberProviders = 'CenturyLink (Copper/DSL 10 Mbps) — Fiber not detected';
+            cableProviders = 'Xfinity (Comcast 1,200–2,000 Mbps), Astound';
+            fiberDown = '10 Mbps (DSL)';
+            fiberUp = '1 Mbps (DSL)';
+            cableDown = '1,200 – 2,000 Mbps';
+            cableUp = '35 – 250 Mbps';
+        } else if (city.includes('vancouver') || city.includes('ridgefield') || city.includes('battle ground')) {
+            // Vancouver / Clark County: 26.8% Fiber (Select subdivisions have Quantum, 73% is Cable only).
+            hasFiber = false;
+            hasCable = true;
+            fiberProviders = 'Quantum Fiber in select subdivisions — Check FCC / Quantum';
+            cableProviders = 'Xfinity (Comcast 1,200/35 Mbps)';
+            fiberDown = '1,000 – 5,000 Mbps (Where Deployed)';
+            fiberUp = '1,000 – 5,000 Mbps (Where Deployed)';
+            cableDown = '1,200 Mbps';
+            cableUp = '35 Mbps';
+        } else if (city.includes('spokane valley')) {
+            // Spokane Valley: 13.3% Fiber | 78.9% Cable (Xfinity)
+            hasFiber = false;
+            hasCable = true;
+            fiberProviders = 'Quantum Fiber in select pockets — Check FCC';
+            cableProviders = 'Xfinity (Comcast 1,200/35 Mbps)';
+            fiberDown = '1,000 Mbps (Where Deployed)';
+            fiberUp = '1,000 Mbps (Where Deployed)';
+            cableDown = '1,200 Mbps';
+            cableUp = '35 Mbps';
+        } else if (city.includes('pasco')) {
+            // Pasco: 22.1% Fiber | Spectrum Cable
+            hasFiber = false;
+            hasCable = true;
+            fiberProviders = 'Ziply Fiber in select pockets — Check FCC';
+            cableProviders = 'Spectrum (Charter 1,000/35 Mbps)';
+            fiberDown = '1,000 Mbps (Where Deployed)';
+            fiberUp = '1,000 Mbps (Where Deployed)';
+            cableDown = '1,000 Mbps';
+            cableUp = '35 Mbps';
+        } else if (city.includes('tacoma')) {
+            // Tacoma: 35.8% Fiber | 67.3% Cable
+            hasFiber = false;
+            hasCable = true;
+            fiberProviders = 'CenturyLink Fiber / Lightcurve in select pockets';
+            cableProviders = 'Xfinity (Comcast), Lightcurve';
+            fiberDown = '1,000 Mbps (Where Deployed)';
+            fiberUp = '1,000 Mbps (Where Deployed)';
             cableDown = '1,200 Mbps';
             cableUp = '35 Mbps';
         } else if (city.includes('yakima')) {
-            hasFiber = true;
-            fiberProviders = 'CenturyLink Fiber';
-            cableProviders = 'Spectrum (Charter)';
-            fiberDown = '1,000 Mbps';
-            fiberUp = '1,000 Mbps';
+            // Yakima: 32.9% Fiber | Spectrum Cable
+            hasFiber = false;
+            hasCable = true;
+            fiberProviders = 'CenturyLink Fiber in select pockets';
+            cableProviders = 'Spectrum (Charter 1,000/35 Mbps)';
+            fiberDown = '1,000 Mbps (Where Deployed)';
+            fiberUp = '1,000 Mbps (Where Deployed)';
             cableDown = '1,000 Mbps';
             cableUp = '35 Mbps';
         } else {
-            hasFiber = true;
-            fiberProviders = 'CenturyLink / Quantum Fiber';
-            cableProviders = 'Xfinity (Comcast)';
-            fiberDown = '1,000 Mbps';
-            fiberUp = '1,000 Mbps';
+            hasFiber = false;
+            hasCable = true;
+            fiberProviders = 'CenturyLink / Quantum (Select Pockets)';
+            cableProviders = 'Xfinity (Comcast 1,200 Mbps)';
+            fiberDown = '1,000 Mbps (Where Deployed)';
+            fiberUp = '1,000 Mbps (Where Deployed)';
             cableDown = '1,200 Mbps';
             cableUp = '35 Mbps';
         }
