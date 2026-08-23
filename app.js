@@ -46,6 +46,8 @@ document.addEventListener('DOMContentLoaded', () => {
         maxPpsqft: 500,
         minRating: 0,
         favoritesOnly: false,
+        fiberOnly: false,
+        broadbandType: 'all',
         sortBy: 'smart_score',
         mapBoundsOnly: false
     };
@@ -138,7 +140,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const maxPpsqftSlider = document.getElementById('max-ppsqft-slider');
     const maxPpsqftDisplay = document.getElementById('max-ppsqft-display');
     const ratingFilter = document.getElementById('rating-filter');
+    const broadbandFilter = document.getElementById('broadband-filter');
     const filterFavoritesToggle = document.getElementById('filter-favorites-toggle');
+    const filterFiberToggle = document.getElementById('filter-fiber-toggle');
     const btnResetFilters = document.getElementById('btn-reset-filters');
     const sortDropdown = document.getElementById('sort-dropdown');
 
@@ -1087,6 +1091,17 @@ document.addEventListener('DOMContentLoaded', () => {
             // Shortlist / Favorites
             if (filterState.favoritesOnly && !p.favorite) return false;
 
+            // Fiber & High-Speed Internet Filter
+            if (filterState.fiberOnly || filterState.broadbandType === 'fiber') {
+                const fiberPct = p.broadband && typeof p.broadband.fiber_pct === 'number' ? p.broadband.fiber_pct : 0;
+                const primaryFiber = p.broadband && p.broadband.primary_fiber ? p.broadband.primary_fiber.toLowerCase() : '';
+                const hasFiberFootprint = fiberPct >= 40 || (primaryFiber && !primaryFiber.includes('none'));
+                if (!hasFiberFootprint) return false;
+            } else if (filterState.broadbandType === 'gigabit') {
+                const gigabitPct = p.broadband && typeof p.broadband.gigabit_pct === 'number' ? p.broadband.gigabit_pct : 0;
+                if (gigabitPct < 80) return false;
+            }
+
             // Map Bounds Filter
             if (mapBounds && p.latitude && p.longitude) {
                 if (!mapBounds.contains([p.latitude, p.longitude])) return false;
@@ -1531,6 +1546,19 @@ document.addEventListener('DOMContentLoaded', () => {
         if (filterState.favoritesOnly) {
             tags.push({ label: 'Shortlist Only', key: 'favorites', reset: () => {
                 filterState.favoritesOnly = false; filterFavoritesToggle.checked = false;
+            }});
+        }
+        if (filterState.fiberOnly || filterState.broadbandType === 'fiber') {
+            tags.push({ label: '🌐 Fiber Ready Footprint', key: 'fiber', reset: () => {
+                filterState.fiberOnly = false;
+                filterState.broadbandType = 'all';
+                if (filterFiberToggle) filterFiberToggle.checked = false;
+                if (broadbandFilter) broadbandFilter.value = 'all';
+            }});
+        } else if (filterState.broadbandType === 'gigabit') {
+            tags.push({ label: '⚡ Gigabit+ Wireline', key: 'broadband', reset: () => {
+                filterState.broadbandType = 'all';
+                if (broadbandFilter) broadbandFilter.value = 'all';
             }});
         }
         if (filterState.search) {
@@ -2500,6 +2528,7 @@ document.addEventListener('DOMContentLoaded', () => {
             { category: 'Navigation', title: 'Switch to Full Map View', action: () => setViewMode('map'), badge: '3' },
             { category: 'Navigation', title: 'Open Market Analytics Dashboard', action: () => setViewMode('analytics'), badge: '4' },
             { category: 'Filters', title: 'Show Saved Shortlist Properties Only', action: () => { filterState.favoritesOnly = true; filterFavoritesToggle.checked = true; applyFilters(); }, badge: 'F' },
+            { category: 'Filters', title: 'Filter for Fiber Ready Footprint (Ziply / Quantum)', action: () => { filterState.fiberOnly = true; if (filterFiberToggle) filterFiberToggle.checked = true; if (broadbandFilter) broadbandFilter.value = 'fiber'; applyFilters(); }, badge: '🌐' },
             { category: 'Filters', title: 'Reset All Search Filters to Default', action: () => resetAllFilters(), badge: 'R' },
             { category: 'Sorting', title: 'Sort by Smart Shortlist Score', action: () => { filterState.sortBy = 'smart_score'; sortDropdown.value = 'smart_score'; applyFilters(); } },
             { category: 'Sorting', title: 'Sort by Price: Low to High', action: () => { filterState.sortBy = 'price_asc'; sortDropdown.value = 'price_asc'; applyFilters(); } },
@@ -2641,6 +2670,8 @@ document.addEventListener('DOMContentLoaded', () => {
         yearSelect.value = String(filterState.minYear || 0);
         ratingFilter.value = String(filterState.minRating || 0);
         filterFavoritesToggle.checked = !!filterState.favoritesOnly;
+        if (filterFiberToggle) filterFiberToggle.checked = !!filterState.fiberOnly;
+        if (broadbandFilter) broadbandFilter.value = filterState.broadbandType || (filterState.fiberOnly ? 'fiber' : 'all');
 
         bedsPillGroup.querySelectorAll('.pill-btn').forEach(b => b.classList.toggle('active', b.getAttribute('data-beds') === String(filterState.minBeds)));
         bathsPillGroup.querySelectorAll('.pill-btn').forEach(b => b.classList.toggle('active', b.getAttribute('data-baths') === String(filterState.minBaths)));
@@ -2706,6 +2737,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (filterState.minLot > 2000) params.set('minLot', filterState.minLot);
         if (filterState.minYear > 0) params.set('minYear', filterState.minYear);
         if (filterState.favoritesOnly) params.set('favorites', '1');
+        if (filterState.fiberOnly) params.set('fiber', '1');
+        if (filterState.broadbandType && filterState.broadbandType !== 'all') params.set('broadband', filterState.broadbandType);
         if (filterState.sortBy !== 'smart_score') params.set('sort', filterState.sortBy);
         if (activeView !== 'split') params.set('view', activeView);
         if (filterState.search) params.set('q', filterState.search);
@@ -2733,6 +2766,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (params.has('minLot')) filterState.minLot = parseInt(params.get('minLot'), 10);
         if (params.has('minYear')) filterState.minYear = parseInt(params.get('minYear'), 10);
         if (params.has('favorites')) filterState.favoritesOnly = params.get('favorites') === '1';
+        if (params.has('fiber')) filterState.fiberOnly = params.get('fiber') === '1';
+        if (params.has('broadband')) filterState.broadbandType = params.get('broadband');
         if (params.has('sort')) filterState.sortBy = params.get('sort');
         if (params.has('q')) filterState.search = params.get('q');
         if (params.has('view')) setViewMode(params.get('view'));
@@ -2751,6 +2786,8 @@ document.addEventListener('DOMContentLoaded', () => {
         lotDisplay.textContent = `${filterState.minLot.toLocaleString()}+ sqft`;
         yearSelect.value = String(filterState.minYear || 0);
         filterFavoritesToggle.checked = filterState.favoritesOnly;
+        if (filterFiberToggle) filterFiberToggle.checked = filterState.fiberOnly || (filterState.broadbandType === 'fiber');
+        if (broadbandFilter) broadbandFilter.value = filterState.broadbandType || (filterState.fiberOnly ? 'fiber' : 'all');
         sortDropdown.value = filterState.sortBy;
 
         bedsPillGroup.querySelectorAll('.pill-btn').forEach(b => b.classList.toggle('active', b.getAttribute('data-beds') === String(filterState.minBeds)));
@@ -3014,6 +3051,8 @@ document.addEventListener('DOMContentLoaded', () => {
         filterState.maxPpsqft = 500;
         filterState.minRating = 0;
         filterState.favoritesOnly = false;
+        filterState.fiberOnly = false;
+        filterState.broadbandType = 'all';
         filterState.sortBy = 'smart_score';
         filterState.mapBoundsOnly = false;
 
@@ -3035,6 +3074,8 @@ document.addEventListener('DOMContentLoaded', () => {
         maxPpsqftDisplay.textContent = 'No Limit';
         ratingFilter.value = '0';
         filterFavoritesToggle.checked = false;
+        if (filterFiberToggle) filterFiberToggle.checked = false;
+        if (broadbandFilter) broadbandFilter.value = 'all';
         if (mapBoundsFilterToggle) mapBoundsFilterToggle.checked = false;
         sortDropdown.value = 'smart_score';
         activePresetLabel.textContent = 'Presets';
@@ -3425,6 +3466,28 @@ document.addEventListener('DOMContentLoaded', () => {
             favoritesBadgeBtn.addEventListener('click', () => {
                 filterFavoritesToggle.checked = !filterFavoritesToggle.checked;
                 filterState.favoritesOnly = filterFavoritesToggle.checked;
+                applyFilters();
+            });
+        }
+
+        // Fiber Footprint Filter Toggle & Broadband Dropdown
+        if (filterFiberToggle) {
+            filterFiberToggle.addEventListener('change', (e) => {
+                filterState.fiberOnly = e.target.checked;
+                if (broadbandFilter) {
+                    broadbandFilter.value = e.target.checked ? 'fiber' : 'all';
+                }
+                filterState.broadbandType = e.target.checked ? 'fiber' : 'all';
+                applyFilters();
+            });
+        }
+        if (broadbandFilter) {
+            broadbandFilter.addEventListener('change', (e) => {
+                filterState.broadbandType = e.target.value;
+                filterState.fiberOnly = (e.target.value === 'fiber');
+                if (filterFiberToggle) {
+                    filterFiberToggle.checked = (e.target.value === 'fiber');
+                }
                 applyFilters();
             });
         }

@@ -19,7 +19,7 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
 
     <!-- Application Stylesheet -->
-    <link rel="stylesheet" href="styles.css?v=3.5">
+    <link rel="stylesheet" href="styles.css?v=3.6">
 </head>
 <body class="density-comfortable">
 
@@ -319,6 +319,16 @@
                                     <option value="5">★★★★★ (5 Stars - Top Pick)</option>
                                 </select>
                             </div>
+
+                            <!-- Broadband Internet Filter -->
+                            <div class="filter-block sub-block">
+                                <label for="broadband-filter" class="filter-label">Internet / Wireline Tech</label>
+                                <select id="broadband-filter" class="form-select">
+                                    <option value="all">All Wireline (Cable &amp; Fiber)</option>
+                                    <option value="fiber">🌐 Fiber Footprint (FTTH / Ziply / Quantum)</option>
+                                    <option value="gigabit">⚡ Gigabit+ (1,000+ Mbps Wireline)</option>
+                                </select>
+                            </div>
                         </div>
                     </div>
 
@@ -328,6 +338,15 @@
                             <input type="checkbox" id="filter-favorites-toggle">
                             <span class="switch-track"></span>
                             <span class="switch-text">Shortlist Only</span>
+                        </label>
+                    </div>
+
+                    <!-- Fiber Ready Footprint Switch -->
+                    <div class="filter-block toggle-block">
+                        <label class="switch-control" for="filter-fiber-toggle">
+                            <input type="checkbox" id="filter-fiber-toggle">
+                            <span class="switch-track"></span>
+                            <span class="switch-text">🌐 Fiber Ready Footprint</span>
                         </label>
                     </div>
 
@@ -1306,9 +1325,9 @@
     <script src="wa-boundary.js"></script>
     
     <!-- Embedded Properties Data (100% Offline & Local Loading) -->
-    <script src="data.js?v=3.5"></script>
+    <script src="data.js?v=3.6"></script>
     
     <!-- Application Logic -->
-    <script src="app.js?v=3.5"></script>
+    <script src="app.js?v=3.6"></script>
 </body>
 </html>
