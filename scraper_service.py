@@ -221,6 +221,12 @@ def clean_property_row(row: pd.Series, criteria: Dict[str, Any]) -> Optional[Dic
                             garage_amount = max(garage_amount, 2)
                             break
 
+        # 9. Strict Property Type & Style Check: Single-Family Traditional Houses ONLY
+        property_style = str(get_val(row, ['style', 'property_type', 'prop_type'], '')).lower()
+        full_text = f"{property_style} {desc} {str(get_val(row, ['address', 'formatted_address'], '')).lower()}"
+        if re.search(r'(mobile|manufactured|modular|trailer|park model|chattel|townhome|townhouse|town home|town house|row home|row house|townhouses|condo|condominium|apartment|apt\b|duplex|triplex|fourplex|multi-family|multifamily)', full_text):
+            return None
+
         if not has_garage:
             return None
 

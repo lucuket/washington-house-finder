@@ -457,6 +457,7 @@ document.addEventListener('DOMContentLoaded', () => {
         markerInstances = {};
 
         const validCoords = [];
+        const newMarkers = [];
 
         propertiesToDisplay.forEach(p => {
             if (p.latitude && p.longitude) {
@@ -472,19 +473,21 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
 
                 const marker = L.marker([p.latitude, p.longitude], { icon: customIcon });
-
                 const bbSummary = getCardBroadbandSummary(p);
+                const safeAddr = escapeHtml(p.address);
+                const safeFcc = safeUrl(p.broadband ? p.broadband.fcc_url : 'https://broadbandmap.fcc.gov');
+                const safePhoto = safeUrl(p.photos && p.photos[0] ? p.photos[0] : '');
 
                 const popupContent = `
                     <div class="map-popup-card" onclick="window.HouseFinderApp.openDrawerById('${p.id}')" style="cursor: pointer;">
-                        <img src="${p.photos[0] || ''}" alt="${p.address}" class="popup-img" loading="lazy" onerror="this.src='https://images.unsplash.com/photo-1570129477492-45c003edd2be?auto=format&fit=crop&w=600&q=80'">
+                        <img src="${safePhoto}" alt="${safeAddr}" class="popup-img" loading="lazy" onerror="this.src='https://images.unsplash.com/photo-1570129477492-45c003edd2be?auto=format&fit=crop&w=600&q=80'">
                         <div class="popup-info">
                             <span class="popup-price">$${p.price.toLocaleString()}</span>
-                            <strong class="popup-address">${p.address}</strong>
+                            <strong class="popup-address">${safeAddr}</strong>
                             <span class="popup-specs">${p.beds} Beds • ${p.baths} Baths • ${p.sqft.toLocaleString()} sqft</span>
                             <div style="margin-top: 5px; display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--border-subtle); padding-top: 4px;">
                                 <span style="font-size: 9.5px; color: ${bbSummary.isCableOnly ? '#b45309' : '#0284c7'}; font-weight: 700;">${bbSummary.badgeText}</span>
-                                <a href="${p.broadband ? p.broadband.fcc_url : 'https://broadbandmap.fcc.gov'}" target="_blank" rel="noopener noreferrer" style="font-size: 10px; color: var(--brand-primary); font-weight: 700; text-decoration: underline;" onclick="event.stopPropagation();">FCC Map ↗</a>
+                                <a href="${safeFcc}" target="_blank" rel="noopener noreferrer" style="font-size: 10px; color: var(--brand-primary); font-weight: 700; text-decoration: underline;" onclick="event.stopPropagation();">FCC Map ↗</a>
                             </div>
                         </div>
                     </div>
@@ -499,11 +502,17 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 });
 
-                markersLayer.addLayer(marker);
+                newMarkers.push(marker);
                 markerInstances[p.id] = marker;
                 validCoords.push([p.latitude, p.longitude]);
             }
         });
+
+        if (markersLayer.addLayers && typeof markersLayer.addLayers === 'function') {
+            markersLayer.addLayers(newMarkers);
+        } else {
+            newMarkers.forEach(m => markersLayer.addLayer(m));
+        }
 
         if (mapMarkerCount) {
             mapMarkerCount.textContent = `${validCoords.length} WA homes`;
@@ -996,9 +1005,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
             allProperties = data;
 
-            // Initialize photo index registry
+            // Initialize photo index registry and precompute derived metrics
             allProperties.forEach(p => {
                 if (!(p.id in activePhotoIndices)) activePhotoIndices[p.id] = 0;
+                p._ppsqft = Math.round(p.price / Math.max(1, p.sqft));
+                p._acres = (p.lot_sqft / 43560).toFixed(2);
+                p._cityLower = (p.city || '').toLowerCase();
+                p._searchCorpus = `${p.address} ${p.city} ${p.zip || ''} ${p.description || ''} ${p.user_notes || ''}`.toLowerCase();
             });
 
             computeMarketMedians();
@@ -1038,7 +1051,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         filteredProperties = allProperties.filter(p => {
             // City check
-            if (filterState.city !== 'all' && p.city.toLowerCase() !== filterState.city) return false;
+            if (filterState.city !== 'all' && (p._cityLower || p.city.toLowerCase()) !== filterState.city) return false;
 
             // Price Range
             if (p.price < filterState.minPrice || p.price > filterState.maxPrice) return false;
@@ -1064,7 +1077,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Max $/SqFt
             if (filterState.maxPpsqft < 500) {
-                const ppsqft = p.price / Math.max(1, p.sqft);
+                const ppsqft = p._ppsqft || (p.price / Math.max(1, p.sqft));
                 if (ppsqft > filterState.maxPpsqft) return false;
             }
 
@@ -1079,9 +1092,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (!mapBounds.contains([p.latitude, p.longitude])) return false;
             }
 
-            // Keyword Search (multi-term matching)
+            // Keyword Search (multi-term matching on pre-indexed corpus)
             if (searchTerms.length > 0) {
-                const corpus = `${p.address} ${p.city} ${p.zip} ${p.description} ${p.user_notes}`.toLowerCase();
+                const corpus = p._searchCorpus || `${p.address} ${p.city} ${p.zip} ${p.description} ${p.user_notes}`.toLowerCase();
                 for (const term of searchTerms) {
                     if (!corpus.includes(term)) return false;
                 }
@@ -1120,7 +1133,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 filteredProperties.sort((a, b) => b.price - a.price);
                 break;
             case 'price_per_sqft_asc':
-                filteredProperties.sort((a, b) => (a.price / Math.max(1, a.sqft)) - (b.price / Math.max(1, b.sqft)));
+                filteredProperties.sort((a, b) => (a._ppsqft || (a.price / Math.max(1, a.sqft))) - (b._ppsqft || (b.price / Math.max(1, b.sqft))));
                 break;
             case 'sqft_desc':
                 filteredProperties.sort((a, b) => b.sqft - a.sqft);
@@ -1130,6 +1143,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 break;
             case 'year_desc':
                 filteredProperties.sort((a, b) => b.year_built - a.year_built);
+                break;
             case 'rating_desc':
                 filteredProperties.sort((a, b) => (b.rating || 0) - (a.rating || 0));
                 break;
