@@ -1309,7 +1309,10 @@ document.addEventListener('DOMContentLoaded', () => {
                         </div>
                         <div style="display: flex; gap: 5px; align-items: center;">
                             <a href="${safeFccUrl}" target="_blank" rel="noopener noreferrer" class="card-fcc-action-btn" onclick="event.stopPropagation();" title="Open ${safeAddr} on official FCC National Broadband Map">
-                                <span>FCC Map ↗</span>
+                                <span>FCC ↗</span>
+                            </a>
+                            <a href="https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${p.latitude},${p.longitude}" target="_blank" rel="noopener noreferrer" class="card-fcc-action-btn card-sv-action-btn" onclick="event.stopPropagation();" title="Inspect utility pole and exterior ONT in Google Street View">
+                                <span>SV ↗</span>
                             </a>
                             <button class="card-note-trigger ${p.user_notes ? 'has-note' : ''}" data-id="${p.id}" title="Edit private notes">
                                 <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
@@ -1809,7 +1812,7 @@ document.addEventListener('DOMContentLoaded', () => {
             `;
         }
 
-        // Broadband & High-Speed Internet (FCC National Broadband Map)
+        // Broadband & High-Speed Internet (FCC National Broadband Map & Carrier Verification)
         const bbInfo = getRegionalBroadbandDetails(prop);
         if (drawerFccBroadbandLink) drawerFccBroadbandLink.href = bbInfo.fccMapUrl;
         if (btnDrawerFccHeader) btnDrawerFccHeader.href = bbInfo.fccMapUrl;
@@ -1852,6 +1855,62 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         if (drawerCableDown) drawerCableDown.textContent = bbInfo.cableDown;
         if (drawerCableUp) drawerCableUp.textContent = bbInfo.cableUp;
+
+        // Carrier Verification Action Hub
+        const btnVerifyFcc = document.getElementById('btn-verify-fcc');
+        const btnVerifyCarrier = document.getElementById('btn-verify-carrier');
+        const btnVerifyCarrierLabel = document.getElementById('btn-verify-carrier-label');
+        const btnVerifyStreetview = document.getElementById('btn-verify-streetview');
+        const btnCopyAddress = document.getElementById('btn-copy-address');
+        const btnCopyAddressLabel = document.getElementById('btn-copy-address-label');
+
+        const cleanAddr = `${prop.address}, ${prop.city}, WA ${prop.zip || ''}`.trim();
+        const cityLower = (prop.city || '').toLowerCase();
+
+        if (btnVerifyFcc) {
+            btnVerifyFcc.href = bbInfo.fccMapUrl;
+        }
+
+        if (btnVerifyCarrier && btnVerifyCarrierLabel) {
+            if (cityLower.includes('everett') || cityLower.includes('marysville') || cityLower.includes('snohomish') || cityLower.includes('lynnwood') || cityLower.includes('edmonds') || cityLower.includes('lake stevens') || cityLower.includes('bothell') || cityLower.includes('mill creek') || cityLower.includes('kennewick') || cityLower.includes('richland') || cityLower.includes('pasco')) {
+                btnVerifyCarrier.href = 'https://ziplyfiber.com/';
+                btnVerifyCarrierLabel.textContent = 'Check Ziply Fiber ↗';
+            } else if (cityLower.includes('vancouver') || cityLower.includes('camas') || cityLower.includes('ridgefield') || cityLower.includes('battle ground') || cityLower.includes('tacoma') || cityLower.includes('olympia') || cityLower.includes('spokane')) {
+                btnVerifyCarrier.href = 'https://www.quantumfiber.com/';
+                btnVerifyCarrierLabel.textContent = 'Check Quantum Fiber ↗';
+            } else if (cityLower.includes('wenatchee')) {
+                btnVerifyCarrier.href = 'https://www.chelanpud.org/fiber';
+                btnVerifyCarrierLabel.textContent = 'Check Chelan PUD ↗';
+            } else {
+                btnVerifyCarrier.href = 'https://www.xfinity.com/';
+                btnVerifyCarrierLabel.textContent = 'Check Xfinity / Cable ↗';
+            }
+        }
+
+        if (btnVerifyStreetview) {
+            if (prop.latitude && prop.longitude) {
+                btnVerifyStreetview.href = `https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${prop.latitude},${prop.longitude}`;
+            } else {
+                btnVerifyStreetview.href = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(cleanAddr)}`;
+            }
+        }
+
+        if (btnCopyAddress && btnCopyAddressLabel) {
+            btnCopyAddress.onclick = (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                navigator.clipboard.writeText(cleanAddr).then(() => {
+                    btnCopyAddress.classList.add('copied');
+                    btnCopyAddressLabel.textContent = '✓ Copied!';
+                    setTimeout(() => {
+                        btnCopyAddress.classList.remove('copied');
+                        btnCopyAddressLabel.textContent = 'Copy Address';
+                    }, 2000);
+                }).catch(() => {
+                    showToast('Address: ' + cleanAddr, 'info');
+                });
+            };
+        }
         if (drawerCableProviders) drawerCableProviders.textContent = bbInfo.cableProviders;
 
         // Gallery Stage

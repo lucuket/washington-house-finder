@@ -2431,6 +2431,112 @@ html, body {
     color: var(--text-primary);
 }
 
+/* Carrier Verification Hub */
+.carrier-verify-hub {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    background-color: #f8fafc;
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+    padding: 12px;
+}
+
+.verify-hub-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.verify-hub-title {
+    font-size: 11.5px;
+    font-weight: 700;
+    color: var(--text-primary);
+    letter-spacing: 0.01em;
+}
+
+.verify-action-buttons {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+}
+
+@media (max-width: 600px) {
+    .verify-action-buttons {
+        grid-template-columns: 1fr;
+    }
+}
+
+.btn-verify {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 7px 10px;
+    border-radius: var(--radius-sm);
+    text-decoration: none;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    border: 1px solid transparent;
+    font-family: inherit;
+}
+
+.btn-verify.btn-fcc {
+    background-color: #e0f2fe;
+    color: #0369a1;
+    border-color: #bae6fd;
+}
+
+.btn-verify.btn-fcc:hover {
+    background-color: #0284c7;
+    color: #ffffff;
+    border-color: #0284c7;
+}
+
+.btn-verify.btn-carrier {
+    background-color: #f0fdf4;
+    color: #15803d;
+    border-color: #bbf7d0;
+}
+
+.btn-verify.btn-carrier:hover {
+    background-color: #16a34a;
+    color: #ffffff;
+    border-color: #16a34a;
+}
+
+.btn-verify.btn-streetview {
+    background-color: #fef3c7;
+    color: #92400e;
+    border-color: #fde68a;
+}
+
+.btn-verify.btn-streetview:hover {
+    background-color: #d97706;
+    color: #ffffff;
+    border-color: #d97706;
+}
+
+.btn-verify.btn-copy-addr {
+    background-color: #f1f5f9;
+    color: #334155;
+    border-color: #cbd5e1;
+}
+
+.btn-verify.btn-copy-addr:hover {
+    background-color: #e2e8f0;
+    color: #0f172a;
+    border-color: #94a3b8;
+}
+
+.btn-verify.btn-copy-addr.copied {
+    background-color: #dcfce7;
+    color: #15803d;
+    border-color: #86efac;
+}
+
 /* Official FCC Statistics Tiles Grid */
 .fcc-stats-metrics-grid {
     display: grid;
@@ -2514,6 +2620,18 @@ html, body {
     color: #ffffff;
     border-color: #0284c7;
     text-decoration: none;
+}
+
+.card-sv-action-btn {
+    background-color: #fefce8;
+    color: #854d0e;
+    border-color: #fef08a;
+}
+
+.card-sv-action-btn:hover {
+    background-color: #ca8a04;
+    color: #ffffff;
+    border-color: #ca8a04;
 }
 
 .drawer-external-actions {
