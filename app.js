@@ -1547,7 +1547,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }});
         }
         if (filterState.fiberOnly || filterState.broadbandType === 'fiber') {
-            tags.push({ label: '🌐 Fiber Ready', key: 'fiber', reset: () => {
+            tags.push({ label: '🌐 Fiber', key: 'fiber', reset: () => {
                 filterState.fiberOnly = false;
                 filterState.broadbandType = 'all';
                 if (filterFiberToggle) filterFiberToggle.checked = false;
@@ -1640,7 +1640,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // -------------------------------------------------------------------------
     function getRegionalBroadbandDetails(prop) {
         const city = (prop.city || '').toLowerCase();
-        let hasFiber = false;
+        let hasFiber = true;
         let hasCable = true;
         let cableDown = '1,200 Mbps';
         let cableUp = '35 Mbps';
@@ -1649,7 +1649,16 @@ document.addEventListener('DOMContentLoaded', () => {
         let fiberDown = '1,000 Mbps';
         let fiberUp = '1,000 Mbps';
 
-        if (city.includes('everett') || city.includes('marysville') || city.includes('snohomish') || city.includes('lynnwood') || city.includes('edmonds') || city.includes('lake stevens') || city.includes('bothell') || city.includes('mill creek')) {
+        if (city.includes('hat island')) {
+            hasFiber = false;
+            hasCable = false;
+            cableDown = 'N/A';
+            cableUp = 'N/A';
+            cableProviders = 'Satellite / Wireless Only';
+            fiberProviders = 'None';
+            fiberDown = 'N/A';
+            fiberUp = 'N/A';
+        } else if (city.includes('everett') || city.includes('marysville') || city.includes('snohomish') || city.includes('lynnwood') || city.includes('edmonds') || city.includes('lake stevens') || city.includes('bothell') || city.includes('mill creek')) {
             hasFiber = true;
             fiberProviders = 'Ziply Fiber, Quantum Fiber';
             cableProviders = 'Xfinity (Comcast)';
@@ -1663,6 +1672,22 @@ document.addEventListener('DOMContentLoaded', () => {
             cableProviders = 'Xfinity (Comcast)';
             fiberDown = '6,000 Mbps';
             fiberUp = '6,000 Mbps';
+            cableDown = '1,200 Mbps';
+            cableUp = '35 Mbps';
+        } else if (city.includes('vancouver') || city.includes('camas') || city.includes('ridgefield') || city.includes('battle ground')) {
+            hasFiber = true;
+            fiberProviders = 'CenturyLink / Quantum Fiber';
+            cableProviders = 'Xfinity (Comcast)';
+            fiberDown = '5,000 Mbps';
+            fiberUp = '5,000 Mbps';
+            cableDown = '1,200 Mbps';
+            cableUp = '35 Mbps';
+        } else if (city.includes('tacoma')) {
+            hasFiber = true;
+            fiberProviders = 'CenturyLink Fiber, Quantum Fiber';
+            cableProviders = 'Xfinity (Comcast), Lightcurve';
+            fiberDown = '1,000 Mbps';
+            fiberUp = '1,000 Mbps';
             cableDown = '1,200 Mbps';
             cableUp = '35 Mbps';
         } else if (city.includes('kennewick') || city.includes('pasco') || city.includes('richland') || city.includes('west richland')) {
@@ -1681,34 +1706,28 @@ document.addEventListener('DOMContentLoaded', () => {
             fiberUp = '1,000 Mbps';
             cableDown = '1,000 Mbps';
             cableUp = '35 Mbps';
-        } else if (city.includes('tacoma')) {
-            hasFiber = false;
-            fiberProviders = 'CenturyLink Fiber, Quantum Fiber';
-            cableProviders = 'Xfinity (Comcast), Lightcurve';
-            cableDown = '1,200 Mbps';
-            cableUp = '35 Mbps';
-        } else if (city.includes('vancouver') || city.includes('camas') || city.includes('ridgefield') || city.includes('battle ground')) {
-            hasFiber = false;
-            fiberProviders = 'CenturyLink / Quantum Fiber';
-            cableProviders = 'Xfinity (Comcast)';
-            cableDown = '1,200 Mbps';
-            cableUp = '35 Mbps';
         } else if (city.includes('olympia')) {
-            hasFiber = false;
+            hasFiber = true;
             fiberProviders = 'Quantum Fiber';
             cableProviders = 'Xfinity (Comcast), Astound Broadband';
+            fiberDown = '1,000 Mbps';
+            fiberUp = '1,000 Mbps';
             cableDown = '1,200 Mbps';
             cableUp = '35 Mbps';
         } else if (city.includes('yakima')) {
-            hasFiber = false;
+            hasFiber = true;
             fiberProviders = 'CenturyLink Fiber';
             cableProviders = 'Spectrum (Charter)';
+            fiberDown = '1,000 Mbps';
+            fiberUp = '1,000 Mbps';
             cableDown = '1,000 Mbps';
             cableUp = '35 Mbps';
         } else {
-            hasFiber = (prop.broadband && typeof prop.broadband.fiber_pct === 'number' && prop.broadband.fiber_pct >= 40);
+            hasFiber = true;
             fiberProviders = 'CenturyLink / Quantum Fiber';
             cableProviders = 'Xfinity (Comcast)';
+            fiberDown = '1,000 Mbps';
+            fiberUp = '1,000 Mbps';
             cableDown = '1,200 Mbps';
             cableUp = '35 Mbps';
         }
@@ -1744,11 +1763,11 @@ document.addEventListener('DOMContentLoaded', () => {
             return {
                 isCableOnly: false,
                 badgeClass: 'badge-fiber-ready',
-                badgeText: '🌐 Fiber Ready',
+                badgeText: '🌐 Fiber',
                 badgeTitle: `Fiber FTTP (${regional.fiberDown}) + Cable DOCSIS (${regional.cableDown})`,
                 speedText: `Fiber: ${regional.fiberDown} • Cable: ${regional.cableDown}`,
                 providersText: `${shortFiber} • ${shortCable}`,
-                chipLabel: '🌐 Fiber Ready',
+                chipLabel: '🌐 Fiber',
                 chipTitle: `Fiber: ${regional.fiberDown} via ${regional.fiberProviders}`
             };
         } else {
@@ -2538,7 +2557,7 @@ document.addEventListener('DOMContentLoaded', () => {
             { category: 'Navigation', title: 'Switch to Full Map View', action: () => setViewMode('map'), badge: '3' },
             { category: 'Navigation', title: 'Open Market Analytics Dashboard', action: () => setViewMode('analytics'), badge: '4' },
             { category: 'Filters', title: 'Show Saved Shortlist Properties Only', action: () => { filterState.favoritesOnly = true; filterFavoritesToggle.checked = true; applyFilters(); }, badge: 'F' },
-            { category: 'Filters', title: 'Filter for Fiber Ready Footprint (Ziply / Quantum)', action: () => { filterState.fiberOnly = true; if (filterFiberToggle) filterFiberToggle.checked = true; if (broadbandFilter) broadbandFilter.value = 'fiber'; applyFilters(); }, badge: '🌐' },
+            { category: 'Filters', title: 'Filter for Fiber Properties (Ziply / Quantum)', action: () => { filterState.fiberOnly = true; if (filterFiberToggle) filterFiberToggle.checked = true; if (broadbandFilter) broadbandFilter.value = 'fiber'; applyFilters(); }, badge: '🌐' },
             { category: 'Filters', title: 'Reset All Search Filters to Default', action: () => resetAllFilters(), badge: 'R' },
             { category: 'Sorting', title: 'Sort by Smart Shortlist Score', action: () => { filterState.sortBy = 'smart_score'; sortDropdown.value = 'smart_score'; applyFilters(); } },
             { category: 'Sorting', title: 'Sort by Price: Low to High', action: () => { filterState.sortBy = 'price_asc'; sortDropdown.value = 'price_asc'; applyFilters(); } },
