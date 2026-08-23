@@ -1700,8 +1700,12 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         const fullAddress = `${prop.address}, ${prop.city}, WA ${prop.zip || ''}`.trim();
-        const encodedAddr = encodeURIComponent(fullAddress);
-        const fccMapUrl = `https://broadbandmap.fcc.gov/home?addr=${encodedAddr}`;
+        let fccMapUrl = 'https://broadbandmap.fcc.gov/home';
+        if (prop.latitude && prop.longitude) {
+            fccMapUrl = `https://broadbandmap.fcc.gov/location-summary/fixed?version=dec2025&zoom=17.5&vlat=${prop.latitude}&vlon=${prop.longitude}&br=r&speed=100_20&tech=1_2_3_6_7`;
+        } else {
+            fccMapUrl = `https://broadbandmap.fcc.gov/home?addr=${encodeURIComponent(fullAddress)}`;
+        }
 
         return {
             hasFiber,
