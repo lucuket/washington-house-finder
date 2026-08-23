@@ -1705,7 +1705,6 @@ document.addEventListener('DOMContentLoaded', () => {
             fiberDown = 'Up to 1,000 Mbps (Where Deployed)';
             fiberUp = 'Up to 1,000 Mbps (Where Deployed)';
             cableDown = '1,000 Mbps';
-            cableUp = '35 Mbps';
         } else {
             fiberProviders = 'CenturyLink / Quantum Fiber (Address-Dependent)';
             cableProviders = 'Xfinity (Comcast 1,200/35 Mbps)';
@@ -1723,9 +1722,16 @@ document.addEventListener('DOMContentLoaded', () => {
             fccMapUrl = `https://broadbandmap.fcc.gov/home?addr=${encodeURIComponent(fullAddress)}`;
         }
 
+        const fiberPct = prop.broadband && typeof prop.broadband.fiber_pct === 'number' ? prop.broadband.fiber_pct : 0;
+        const cablePct = prop.broadband && typeof prop.broadband.cable_pct === 'number' ? prop.broadband.cable_pct : 90;
+        const isFiberMarket = fiberPct >= 45;
+
         return {
-            hasFiber: false, // Fiber is always address-dependent across WA parcels; check FCC map
+            hasFiber: isFiberMarket,
             hasCable: true,
+            fiberPct,
+            cablePct,
+            isFiberMarket,
             fiberDown,
             fiberUp,
             cableDown,
@@ -1740,16 +1746,31 @@ document.addEventListener('DOMContentLoaded', () => {
     function getCardBroadbandSummary(prop) {
         const regional = getRegionalBroadbandDetails(prop);
 
-        return {
-            isCableOnly: true,
-            badgeClass: 'badge-cable-only',
-            badgeText: '⚡ Cable Gigabit',
-            badgeTitle: `Cable DOCSIS Gigabit Active (${regional.cableProviders}) • Click FCC Map link to verify FTTH Fiber at this address`,
-            speedText: `Cable: ${regional.cableDown} • Up: ${regional.cableUp}`,
-            providersText: regional.cableProviders,
-            chipLabel: '⚡ Cable Gigabit',
-            chipTitle: `Cable: ${regional.cableDown} Down / ${regional.cableUp} Up via ${regional.cableProviders}`
-        };
+        if (regional.isFiberMarket) {
+            const shortFiber = regional.fiberProviders.split(',')[0].replace(/\(.*?\)/g, '').trim();
+            const shortCable = regional.cableProviders.split('(')[0].trim();
+            return {
+                isCableOnly: false,
+                badgeClass: 'badge-fiber-ready',
+                badgeText: `🌐 Fiber Market (${Math.round(regional.fiberPct)}%)`,
+                badgeTitle: `Official FCC BDC: ${regional.fiberPct}% residential FTTH in ${prop.city} (${regional.fiberProviders}) • Click to verify exact parcel`,
+                speedText: `Fiber: ${regional.fiberDown} • Cable: ${regional.cableDown}`,
+                providersText: `${shortFiber} • ${shortCable}`,
+                chipLabel: `🌐 Fiber Market (${Math.round(regional.fiberPct)}%)`,
+                chipTitle: `Fiber: ${regional.fiberDown} via ${regional.fiberProviders} (${regional.fiberPct}% in ${prop.city})`
+            };
+        } else {
+            return {
+                isCableOnly: true,
+                badgeClass: 'badge-cable-only',
+                badgeText: `⚡ Cable Gigabit (${Math.round(regional.cablePct)}%)`,
+                badgeTitle: `Official FCC BDC: ${regional.cablePct}% Cable Gigabit in ${prop.city} (${regional.cableProviders}) • Fiber: ${regional.fiberPct}% in select pockets`,
+                speedText: `Cable: ${regional.cableDown} • Up: ${regional.cableUp}`,
+                providersText: regional.cableProviders,
+                chipLabel: '⚡ Cable Gigabit',
+                chipTitle: `Cable: ${regional.cableDown} Down / ${regional.cableUp} Up via ${regional.cableProviders}`
+            };
+        }
     }
 
     // -------------------------------------------------------------------------
@@ -1795,35 +1816,32 @@ document.addEventListener('DOMContentLoaded', () => {
         const drawerCableCell = document.getElementById('drawer-cable-cell');
 
         if (drawerBbMainStatus) {
-            if (bbInfo.hasFiber && bbInfo.hasCable) {
-                drawerBbMainStatus.textContent = '🌐 Fiber & Cable Available';
+            if (bbInfo.isFiberMarket) {
+                drawerBbMainStatus.textContent = `🌐 Fiber Market Footprint (${Math.round(bbInfo.fiberPct)}% Citywide FTTH)`;
                 drawerBbMainStatus.className = 'drawer-bb-status-pill status-both';
-            } else if (bbInfo.hasCable) {
-                drawerBbMainStatus.textContent = '⚡ Cable Gigabit Active (Check FCC for Fiber)';
-                drawerBbMainStatus.className = 'drawer-bb-status-pill status-cable-only';
             } else {
-                drawerBbMainStatus.textContent = '🌐 Fiber Only Available';
-                drawerBbMainStatus.className = 'drawer-bb-status-pill status-fiber-only';
+                drawerBbMainStatus.textContent = `⚡ Cable Gigabit Active (${Math.round(bbInfo.cablePct)}% Citywide DOCSIS)`;
+                drawerBbMainStatus.className = 'drawer-bb-status-pill status-cable-only';
             }
         }
 
-        if (drawerFiberCell) drawerFiberCell.classList.toggle('cell-unavailable', !bbInfo.hasFiber);
+        if (drawerFiberCell) drawerFiberCell.classList.toggle('cell-unavailable', false);
         if (drawerFiberAvail) {
-            drawerFiberAvail.textContent = bbInfo.hasFiber ? 'Available' : 'Check FCC Map';
-            drawerFiberAvail.className = `tech-avail-badge ${bbInfo.hasFiber ? 'avail-yes' : 'avail-no'}`;
+            drawerFiberAvail.textContent = bbInfo.isFiberMarket ? `Active in City (${Math.round(bbInfo.fiberPct)}%)` : `Pocket Coverage (${Math.round(bbInfo.fiberPct)}%)`;
+            drawerFiberAvail.className = `tech-avail-badge ${bbInfo.isFiberMarket ? 'avail-yes' : 'avail-no'}`;
         }
-        if (drawerFiberDown) drawerFiberDown.textContent = bbInfo.hasFiber ? bbInfo.fiberDown : 'Address Dependent';
-        if (drawerFiberUp) drawerFiberUp.textContent = bbInfo.hasFiber ? bbInfo.fiberUp : 'Address Dependent';
+        if (drawerFiberDown) drawerFiberDown.textContent = bbInfo.fiberDown;
+        if (drawerFiberUp) drawerFiberUp.textContent = bbInfo.fiberUp;
         if (drawerFiberProviders) drawerFiberProviders.textContent = bbInfo.fiberProviders;
 
-        if (drawerCableCell) drawerCableCell.classList.toggle('cell-unavailable', !bbInfo.hasCable);
+        if (drawerCableCell) drawerCableCell.classList.toggle('cell-unavailable', false);
         if (drawerCableAvail) {
-            drawerCableAvail.textContent = bbInfo.hasCable ? 'Available' : 'Not Available';
-            drawerCableAvail.className = `tech-avail-badge ${bbInfo.hasCable ? 'avail-yes' : 'avail-no'}`;
+            drawerCableAvail.textContent = `Available (${Math.round(bbInfo.cablePct)}%)`;
+            drawerCableAvail.className = 'tech-avail-badge avail-yes';
         }
-        if (drawerCableDown) drawerCableDown.textContent = bbInfo.hasCable ? bbInfo.cableDown : 'N/A';
-        if (drawerCableUp) drawerCableUp.textContent = bbInfo.hasCable ? bbInfo.cableUp : 'N/A';
-        if (drawerCableProviders) drawerCableProviders.textContent = bbInfo.hasCable ? bbInfo.cableProviders : 'None';
+        if (drawerCableDown) drawerCableDown.textContent = bbInfo.cableDown;
+        if (drawerCableUp) drawerCableUp.textContent = bbInfo.cableUp;
+        if (drawerCableProviders) drawerCableProviders.textContent = bbInfo.cableProviders;
 
         // Gallery Stage
         const photoIdx = activePhotoIndices[prop.id] || 0;
