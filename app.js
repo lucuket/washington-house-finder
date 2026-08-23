@@ -82,6 +82,26 @@ document.addEventListener('DOMContentLoaded', () => {
     let mapBoundsDebounceTimer = null;
     let noteSaveDebounceTimer = null;
 
+    // Security & Sanitization Utilities
+    function escapeHtml(str) {
+        if (str === null || str === undefined) return '';
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+    }
+
+    function safeUrl(url) {
+        if (!url || typeof url !== 'string') return '#';
+        const trimmed = url.trim();
+        if (/^(https?:\/\/|mailto:|\/|\.\/)/i.test(trimmed)) {
+            return trimmed;
+        }
+        return '#';
+    }
+
     // -------------------------------------------------------------------------
     // DOM Element References
     // -------------------------------------------------------------------------
@@ -496,16 +516,21 @@ document.addEventListener('DOMContentLoaded', () => {
         const photo = (p.photos && p.photos.length) ? p.photos[0] : 'https://images.unsplash.com/photo-1570129477492-45c003edd2be?auto=format&fit=crop&w=600&q=80';
         const bbSummary = getCardBroadbandSummary(p);
         
+        const safeAddr = escapeHtml(p.address);
+        const safeCity = escapeHtml(p.city);
+        const safePhoto = safeUrl(photo);
+        const safeFcc = safeUrl(p.broadband ? p.broadband.fcc_url : 'https://broadbandmap.fcc.gov');
+        
         mobilePreviewContent.innerHTML = `
-            <img src="${photo}" alt="${p.address}" class="mob-prev-img" loading="lazy" onerror="this.src='https://images.unsplash.com/photo-1568605117036-5fe5e7bab0b7?auto=format&fit=crop&w=300&q=75'">
+            <img src="${safePhoto}" alt="${safeAddr}" class="mob-prev-img" loading="lazy" onerror="this.src='https://images.unsplash.com/photo-1568605117036-5fe5e7bab0b7?auto=format&fit=crop&w=300&q=75'">
             <div class="mob-prev-details">
                 <div class="mob-prev-price mono">$${p.price.toLocaleString()} <span class="mob-prev-mo">~$${estMonthly.total.toLocaleString()}/mo</span></div>
-                <strong class="mob-prev-addr" title="${p.address}">${p.address}</strong>
-                <span class="mob-prev-city">${p.city}, WA • <strong style="color: ${bbSummary.isCableOnly ? '#b45309' : '#0284c7'}; font-size: 10px;">${bbSummary.badgeText}</strong></span>
+                <strong class="mob-prev-addr" title="${safeAddr}">${safeAddr}</strong>
+                <span class="mob-prev-city">${safeCity}, WA • <strong style="color: ${bbSummary.isCableOnly ? '#b45309' : '#0284c7'}; font-size: 10px;">${bbSummary.badgeText}</strong></span>
                 <div class="mob-prev-specs mono">${p.beds}b • ${p.baths}ba • ${p.sqft.toLocaleString()} sf</div>
                 <div style="display: flex; gap: 6px; margin-top: 6px;">
                     <button class="btn btn-primary btn-sm mob-prev-open-btn" data-id="${p.id}" style="flex: 1;">Details &rarr;</button>
-                    <a href="${p.broadband ? p.broadband.fcc_url : 'https://broadbandmap.fcc.gov'}" target="_blank" rel="noopener noreferrer" class="btn btn-secondary btn-sm" style="font-size: 10.5px; padding: 4px 8px; font-weight: 700; color: #0284c7;" onclick="event.stopPropagation();">FCC Map ↗</a>
+                    <a href="${safeFcc}" target="_blank" rel="noopener noreferrer" class="btn btn-secondary btn-sm" style="font-size: 10.5px; padding: 4px 8px; font-weight: 700; color: #0284c7;" onclick="event.stopPropagation();">FCC Map ↗</a>
                 </div>
             </div>
         `;
@@ -1168,12 +1193,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const acres = (p.lot_sqft / 43560).toFixed(2);
             const bbSummary = getCardBroadbandSummary(p);
+            const safeAddr = escapeHtml(p.address);
+            const safeCity = escapeHtml(p.city);
+            const safeZip = escapeHtml(p.zip || '');
+            const safeFccUrl = safeUrl(p.broadband ? p.broadband.fcc_url : 'https://broadbandmap.fcc.gov');
+            const safePhotoUrl = safeUrl(currentPhoto);
 
             card.innerHTML = `
                 <div class="card-media">
-                    <img src="${currentPhoto}" alt="${p.address}" class="card-img" id="img-${p.id}" loading="lazy" onerror="this.src='https://images.unsplash.com/photo-1570129477492-45c003edd2be?auto=format&fit=crop&w=800&q=80'">
+                    <img src="${safePhotoUrl}" alt="${safeAddr}" class="card-img" id="img-${p.id}" loading="lazy" onerror="this.src='https://images.unsplash.com/photo-1570129477492-45c003edd2be?auto=format&fit=crop&w=800&q=80'">
                     <div class="card-media-tags-top">
-                        <span class="card-city-badge">${p.city}, WA</span>
+                        <span class="card-city-badge">${safeCity}, WA</span>
                         ${isTopDeal ? `<span class="card-deal-badge" title="${dealEval.gradeLabel}">💎 TOP DEAL</span>` : ''}
                     </div>
                     <span class="card-score-badge mono" title="Smart Shortlist Score: ${scoreVal}/100">Score ${scoreVal}</span>
@@ -1200,8 +1230,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
 
                     <div class="card-address-block">
-                        <strong class="card-street" title="${p.address}">${p.address}</strong>
-                        <span class="card-city-zip">${p.city}, WA ${p.zip || ''}</span>
+                        <strong class="card-street" title="${safeAddr}">${safeAddr}</strong>
+                        <span class="card-city-zip">${safeCity}, WA ${safeZip}</span>
                     </div>
 
                     <div class="card-specs-grid">
@@ -1251,7 +1281,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             ${starsHtml}
                         </div>
                         <div style="display: flex; gap: 5px; align-items: center;">
-                            <a href="${p.broadband ? p.broadband.fcc_url : 'https://broadbandmap.fcc.gov'}" target="_blank" rel="noopener noreferrer" class="card-fcc-action-btn" onclick="event.stopPropagation();" title="Open ${p.address} on official FCC National Broadband Map">
+                            <a href="${safeFccUrl}" target="_blank" rel="noopener noreferrer" class="card-fcc-action-btn" onclick="event.stopPropagation();" title="Open ${safeAddr} on official FCC National Broadband Map">
                                 <span>FCC Map ↗</span>
                             </a>
                             <button class="card-note-trigger ${p.user_notes ? 'has-note' : ''}" data-id="${p.id}" title="Edit private notes">
@@ -1938,11 +1968,14 @@ document.addEventListener('DOMContentLoaded', () => {
         similar.forEach(p => {
             const item = document.createElement('div');
             item.className = 'similar-home-item';
+            const safeAddr = escapeHtml(p.address);
+            const safeCity = escapeHtml(p.city);
+            const safePhoto = safeUrl(p.photos && p.photos[0] ? p.photos[0] : '');
             item.innerHTML = `
-                <img src="${p.photos[0] || ''}" alt="${p.address}" class="sim-thumb" loading="lazy" onerror="this.src='https://images.unsplash.com/photo-1570129477492-45c003edd2be?auto=format&fit=crop&w=400&q=80'">
+                <img src="${safePhoto}" alt="${safeAddr}" class="sim-thumb" loading="lazy" onerror="this.src='https://images.unsplash.com/photo-1570129477492-45c003edd2be?auto=format&fit=crop&w=400&q=80'">
                 <div class="sim-info">
-                    <span class="sim-price mono">$${p.price.toLocaleString()} • ${p.city}</span>
-                    <strong class="sim-address">${p.address}</strong>
+                    <span class="sim-price mono">$${p.price.toLocaleString()} • ${safeCity}</span>
+                    <strong class="sim-address">${safeAddr}</strong>
                     <span style="font-size: 10.5px; color: var(--text-secondary);">${p.beds}b / ${p.baths}ba • ${p.sqft.toLocaleString()} sqft</span>
                 </div>
             `;
@@ -2540,8 +2573,9 @@ document.addEventListener('DOMContentLoaded', () => {
             presets.forEach((p, idx) => {
                 const item = document.createElement('div');
                 item.className = 'dropdown-item';
+                const safeName = escapeHtml(p.name);
                 item.innerHTML = `
-                    <span>${p.name}</span>
+                    <span>${safeName}</span>
                     <button class="filter-tag-remove" data-idx="${idx}" title="Delete preset">✕</button>
                 `;
                 item.addEventListener('click', (e) => {
@@ -3162,7 +3196,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         if (line.includes('[MATCH]')) cls += ' match';
                         else if (line.includes('Error') || line.includes('[ERROR]')) cls += ' error';
                         else if (line.includes('Starting') || line.includes('Completed') || line.includes('Merged')) cls += ' info';
-                        return `<div class="${cls}">&gt; ${line}</div>`;
+                        return `<div class="${cls}">&gt; ${escapeHtml(line)}</div>`;
                     }).join('');
                     scraperTerminal.scrollTop = scraperTerminal.scrollHeight;
                 }

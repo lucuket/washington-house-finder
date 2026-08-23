@@ -46,7 +46,7 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_credentials=True,
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -101,7 +101,7 @@ def normalize_property(item: Dict[str, Any]) -> Dict[str, Any]:
             "https://images.unsplash.com/photo-1568605114967-8130f3a36994?auto=format&fit=crop&w=1200&q=80",
         ]
 
-    return {
+    res = {
         "id": prop_id,
         "address": address,
         "city": city,
@@ -124,6 +124,11 @@ def normalize_property(item: Dict[str, Any]) -> Dict[str, Any]:
         "rating": int(item.get("rating", 0)),
         "user_notes": str(item.get("user_notes", "")),
     }
+
+    if "broadband" in item:
+        res["broadband"] = item["broadband"]
+
+    return res
 
 
 def load_properties_from_disk():
@@ -189,6 +194,22 @@ async def serve_js():
     if os.path.exists(js_path):
         return FileResponse(js_path, media_type="application/javascript")
     raise HTTPException(status_code=404, detail="app.js not found")
+
+
+@app.get("/wa-boundary.js")
+async def serve_wa_boundary():
+    boundary_path = os.path.join(BASE_DIR, "wa-boundary.js")
+    if os.path.exists(boundary_path):
+        return FileResponse(boundary_path, media_type="application/javascript")
+    raise HTTPException(status_code=404, detail="wa-boundary.js not found")
+
+
+@app.get("/data.js")
+async def serve_data_js():
+    data_path = os.path.join(BASE_DIR, "data.js")
+    if os.path.exists(data_path):
+        return FileResponse(data_path, media_type="application/javascript")
+    raise HTTPException(status_code=404, detail="data.js not found")
 
 
 @app.get("/properties.json")
@@ -409,10 +430,10 @@ async def get_properties_stats(
             "year_built_distribution": {},
         }
 
-    prices = [p.price for p in listings]
-    sqfts = [p.sqft for p in listings if p.sqft > 0]
-    lots = [p.lot_sqft for p in listings if p.lot_sqft > 0]
-    prices_per_sqft = [p.price / p.sqft for p in listings if p.sqft > 0]
+    prices = [p["price"] for p in listings]
+    sqfts = [p["sqft"] for p in listings if p["sqft"] > 0]
+    lots = [p["lot_sqft"] for p in listings if p["lot_sqft"] > 0]
+    prices_per_sqft = [p["price"] / p["sqft"] for p in listings if p["sqft"] > 0]
 
     avg_price = int(statistics.mean(prices))
     median_price = int(statistics.median(prices))
@@ -425,13 +446,13 @@ async def get_properties_stats(
     avg_ppsqft = int(statistics.mean(prices_per_sqft)) if prices_per_sqft else 0
     median_ppsqft = int(statistics.median(prices_per_sqft)) if prices_per_sqft else 0
 
-    favorites_count = sum(1 for p in listings if p.favorite)
-    rated_count = sum(1 for p in listings if p.rating > 0)
+    favorites_count = sum(1 for p in listings if p.get("favorite", False))
+    rated_count = sum(1 for p in listings if p.get("rating", 0) > 0)
 
     # City counts
     city_counts: Dict[str, int] = {}
     for p in listings:
-        c = p.city or "Other"
+        c = p.get("city") or "Other"
         city_counts[c] = city_counts.get(c, 0) + 1
 
     # Price bracket distribution
@@ -447,15 +468,16 @@ async def get_properties_stats(
     # Garage distribution
     garage_dist: Dict[str, int] = {}
     for p in listings:
-        g = f"{p.garage} Car" if p.garage > 0 else "No Garage"
+        garage_val = p.get("garage", 0)
+        g = f"{garage_val} Car" if garage_val > 0 else "No Garage"
         garage_dist[g] = garage_dist.get(g, 0) + 1
 
     # Year built distribution
     year_dist = {
-        "Pre-1980": sum(1 for p in listings if p.year_built < 1980 and p.year_built > 0),
-        "1980 - 1999": sum(1 for p in listings if 1980 <= p.year_built < 2000),
-        "2000 - 2015": sum(1 for p in listings if 2000 <= p.year_built < 2016),
-        "2016+": sum(1 for p in listings if p.year_built >= 2016),
+        "Pre-1980": sum(1 for p in listings if p.get("year_built", 0) < 1980 and p.get("year_built", 0) > 0),
+        "1980 - 1999": sum(1 for p in listings if 1980 <= p.get("year_built", 0) < 2000),
+        "2000 - 2015": sum(1 for p in listings if 2000 <= p.get("year_built", 0) < 2016),
+        "2016+": sum(1 for p in listings if p.get("year_built", 0) >= 2016),
     }
 
     return {
@@ -546,30 +568,33 @@ async def export_properties_csv(
     ])
 
     for p in filtered_listings:
-        ppsqft = round(p.price / max(1, p.sqft), 2)
-        lot_acres = round(p.lot_sqft / 43560, 3)
+        sqft = p.get("sqft", 0)
+        lot_sqft = p.get("lot_sqft", 0)
+        price = p.get("price", 0)
+        ppsqft = round(price / max(1, sqft), 2)
+        lot_acres = round(lot_sqft / 43560, 3)
         writer.writerow([
-            p.id,
-            p.address,
-            p.city,
-            p.state,
-            p.zip,
-            p.price,
-            p.beds,
-            p.baths,
-            p.sqft,
-            p.lot_sqft,
+            p.get("id", ""),
+            p.get("address", ""),
+            p.get("city", ""),
+            p.get("state", ""),
+            p.get("zip", ""),
+            price,
+            p.get("beds", 0),
+            p.get("baths", 0),
+            sqft,
+            lot_sqft,
             lot_acres,
             ppsqft,
-            p.year_built,
-            p.hoa,
-            p.garage,
-            p.rating,
-            "Yes" if p.favorite else "No",
-            str(p.user_notes).replace("\n", " ").replace("\r", ""),
-            p.latitude,
-            p.longitude,
-            p.url,
+            p.get("year_built", 0),
+            p.get("hoa", 0),
+            p.get("garage", 0),
+            p.get("rating", 0),
+            "Yes" if p.get("favorite") else "No",
+            str(p.get("user_notes", "")).replace("\n", " ").replace("\r", ""),
+            p.get("latitude", ""),
+            p.get("longitude", ""),
+            p.get("url", ""),
         ])
 
     output.seek(0)

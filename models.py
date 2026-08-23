@@ -47,6 +47,9 @@ class PropertyListing(BaseModel):
     favorite: bool = False
     rating: int = 0
     user_notes: str = ""
+    broadband: Optional[Dict[str, Any]] = None
+
+    model_config = {"extra": "allow"}
 
 class ScrapeJobStatus(BaseModel):
     is_active: bool = False
