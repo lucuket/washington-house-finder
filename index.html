@@ -19,7 +19,7 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
 
     <!-- Application Stylesheet -->
-    <link rel="stylesheet" href="styles.css?v=3.7">
+    <link rel="stylesheet" href="styles.css?v=3.8">
 </head>
 <body class="density-comfortable">
 
@@ -325,8 +325,8 @@
                                 <label for="broadband-filter" class="filter-label">Internet / Wireline Tech</label>
                                 <select id="broadband-filter" class="form-select">
                                     <option value="all">All Wireline (Cable &amp; Fiber)</option>
-                                    <option value="fiber">🌐 Fiber Footprint (FTTH / Ziply / Quantum)</option>
-                                    <option value="gigabit">⚡ Gigabit+ (1,000+ Mbps Wireline)</option>
+                                    <option value="fiber">🌐 Fiber Internet Only</option>
+                                    <option value="gigabit">⚡ Gigabit+ Wireline Only</option>
                                 </select>
                             </div>
                         </div>
@@ -341,12 +341,12 @@
                         </label>
                     </div>
 
-                    <!-- Fiber Ready Footprint Switch -->
+                    <!-- Fiber Ready Switch -->
                     <div class="filter-block toggle-block">
                         <label class="switch-control" for="filter-fiber-toggle">
                             <input type="checkbox" id="filter-fiber-toggle">
                             <span class="switch-track"></span>
-                            <span class="switch-text">🌐 Fiber Ready Footprint</span>
+                            <span class="switch-text">🌐 Fiber Ready Only</span>
                         </label>
                     </div>
 
@@ -847,15 +847,15 @@
                         <div class="internet-tech-cell" id="drawer-fiber-cell">
                             <div class="tech-cell-top">
                                 <span class="tech-tag tag-fiber">FIBER (FTTP / FTTH)</span>
-                                <span class="tech-avail-badge avail-no" id="drawer-fiber-avail">Check FCC Map</span>
+                                <span class="tech-avail-badge avail-yes" id="drawer-fiber-avail">Available</span>
                             </div>
                             <div class="tech-speed-specs">
-                                <div class="speed-row"><span class="speed-lbl">Max Down:</span> <strong class="speed-val mono" id="drawer-fiber-down">Address Dependent</strong></div>
-                                <div class="speed-row"><span class="speed-lbl">Max Up:</span> <strong class="speed-val mono" id="drawer-fiber-up">Address Dependent</strong></div>
+                                <div class="speed-row"><span class="speed-lbl">Max Down:</span> <strong class="speed-val mono" id="drawer-fiber-down">6,000 Mbps</strong></div>
+                                <div class="speed-row"><span class="speed-lbl">Max Up:</span> <strong class="speed-val mono" id="drawer-fiber-up">6,000 Mbps</strong></div>
                             </div>
                             <div class="tech-provider-row">
                                 <span class="tech-provider-lbl">Providers:</span>
-                                <strong class="tech-provider-name" id="drawer-fiber-providers">Ziply Fiber, Quantum Fiber (Address-Dependent)</strong>
+                                <strong class="tech-provider-name" id="drawer-fiber-providers">Ziply Fiber, Quantum Fiber</strong>
                             </div>
                         </div>
 
@@ -1325,9 +1325,9 @@
     <script src="wa-boundary.js"></script>
     
     <!-- Embedded Properties Data (100% Offline & Local Loading) -->
-    <script src="data.js?v=3.7"></script>
+    <script src="data.js?v=3.8"></script>
     
     <!-- Application Logic -->
-    <script src="app.js?v=3.7"></script>
+    <script src="app.js?v=3.8"></script>
 </body>
 </html>

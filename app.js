@@ -1093,13 +1093,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Fiber & High-Speed Internet Filter
             if (filterState.fiberOnly || filterState.broadbandType === 'fiber') {
-                const fiberPct = p.broadband && typeof p.broadband.fiber_pct === 'number' ? p.broadband.fiber_pct : 0;
-                const primaryFiber = p.broadband && p.broadband.primary_fiber ? p.broadband.primary_fiber.toLowerCase() : '';
-                const hasFiberFootprint = fiberPct >= 40 || (primaryFiber && !primaryFiber.includes('none'));
-                if (!hasFiberFootprint) return false;
+                const regional = getRegionalBroadbandDetails(p);
+                if (!regional.hasFiber) return false;
             } else if (filterState.broadbandType === 'gigabit') {
-                const gigabitPct = p.broadband && typeof p.broadband.gigabit_pct === 'number' ? p.broadband.gigabit_pct : 0;
-                if (gigabitPct < 80) return false;
+                const regional = getRegionalBroadbandDetails(p);
+                if (!regional.hasCable && !regional.hasFiber) return false;
             }
 
             // Map Bounds Filter
@@ -1549,7 +1547,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }});
         }
         if (filterState.fiberOnly || filterState.broadbandType === 'fiber') {
-            tags.push({ label: '🌐 Fiber Ready Footprint', key: 'fiber', reset: () => {
+            tags.push({ label: '🌐 Fiber Ready', key: 'fiber', reset: () => {
                 filterState.fiberOnly = false;
                 filterState.broadbandType = 'all';
                 if (filterFiberToggle) filterFiberToggle.checked = false;
@@ -1642,74 +1640,75 @@ document.addEventListener('DOMContentLoaded', () => {
     // -------------------------------------------------------------------------
     function getRegionalBroadbandDetails(prop) {
         const city = (prop.city || '').toLowerCase();
+        let hasFiber = false;
         let hasCable = true;
         let cableDown = '1,200 Mbps';
         let cableUp = '35 Mbps';
         let cableProviders = 'Xfinity (Comcast)';
-        let fiberProviders = 'CenturyLink / Quantum Fiber (Address-Dependent)';
-        let fiberDown = '1,000 – 6,000 Mbps (Where Deployed)';
-        let fiberUp = '1,000 – 6,000 Mbps (Where Deployed)';
+        let fiberProviders = 'CenturyLink / Quantum Fiber';
+        let fiberDown = '1,000 Mbps';
+        let fiberUp = '1,000 Mbps';
 
         if (city.includes('everett') || city.includes('marysville') || city.includes('snohomish') || city.includes('lynnwood') || city.includes('edmonds') || city.includes('lake stevens') || city.includes('bothell') || city.includes('mill creek')) {
-            fiberProviders = 'Ziply Fiber (FTTP up to 6,000 Mbps in footprint), Quantum Fiber';
-            cableProviders = 'Xfinity (Comcast 1,200/35 Mbps; Next-Gen Mid-Split 2,000/250 Mbps in select areas)';
-            fiberDown = 'Up to 6,000 Mbps (Where Deployed)';
-            fiberUp = 'Up to 6,000 Mbps (Where Deployed)';
-            cableDown = '1,200 – 2,000 Mbps';
-            cableUp = '35 – 250 Mbps';
-        } else if (city.includes('tacoma')) {
-            fiberProviders = 'CenturyLink / Quantum Fiber (Address-Dependent — Check FCC Map)';
-            cableProviders = 'Xfinity (Comcast up to 1,200/35), Lightcurve (up to 1,000/12)';
-            fiberDown = 'Up to 1,000 Mbps (Where Deployed)';
-            fiberUp = 'Up to 1,000 Mbps (Where Deployed)';
-            cableDown = '1,000 – 1,200 Mbps';
-            cableUp = '12 – 35 Mbps';
+            hasFiber = true;
+            fiberProviders = 'Ziply Fiber, Quantum Fiber';
+            cableProviders = 'Xfinity (Comcast)';
+            fiberDown = '6,000 Mbps';
+            fiberUp = '6,000 Mbps';
+            cableDown = '1,200 Mbps';
+            cableUp = '35 Mbps';
         } else if (city.includes('spokane')) {
-            fiberProviders = 'Quantum Fiber, Ziply Fiber (Address-Dependent)';
-            cableProviders = 'Xfinity (Comcast 1,200/35 Mbps)';
-            fiberDown = 'Up to 1,000 – 6,000 Mbps (Where Deployed)';
-            fiberUp = 'Up to 1,000 – 6,000 Mbps (Where Deployed)';
+            hasFiber = true;
+            fiberProviders = 'Quantum Fiber, Ziply Fiber';
+            cableProviders = 'Xfinity (Comcast)';
+            fiberDown = '6,000 Mbps';
+            fiberUp = '6,000 Mbps';
             cableDown = '1,200 Mbps';
             cableUp = '35 Mbps';
         } else if (city.includes('kennewick') || city.includes('pasco') || city.includes('richland') || city.includes('west richland')) {
-            fiberProviders = 'Ziply Fiber (FTTH in Kennewick/Richland), CenturyLink Fiber (Address-Dependent)';
-            cableProviders = 'Spectrum (Charter 1,000/35 Mbps)';
-            fiberDown = 'Up to 1,000 – 5,000 Mbps (Where Deployed)';
-            fiberUp = 'Up to 1,000 – 5,000 Mbps (Where Deployed)';
+            hasFiber = true;
+            fiberProviders = 'Ziply Fiber, CenturyLink Fiber';
+            cableProviders = 'Spectrum (Charter)';
+            fiberDown = '5,000 Mbps';
+            fiberUp = '5,000 Mbps';
             cableDown = '1,000 Mbps';
             cableUp = '35 Mbps';
-        } else if (city.includes('yakima')) {
-            fiberProviders = 'CenturyLink Fiber (Address-Dependent)';
-            cableProviders = 'Spectrum (Charter 1,000/35 Mbps)';
-            fiberDown = 'Up to 1,000 Mbps (Where Deployed)';
-            fiberUp = 'Up to 1,000 Mbps (Where Deployed)';
+        } else if (city.includes('wenatchee')) {
+            hasFiber = true;
+            fiberProviders = 'Chelan County PUD Fiber';
+            cableProviders = 'Spectrum (Charter)';
+            fiberDown = '1,000 Mbps';
+            fiberUp = '1,000 Mbps';
             cableDown = '1,000 Mbps';
+            cableUp = '35 Mbps';
+        } else if (city.includes('tacoma')) {
+            hasFiber = false;
+            fiberProviders = 'CenturyLink Fiber, Quantum Fiber';
+            cableProviders = 'Xfinity (Comcast), Lightcurve';
+            cableDown = '1,200 Mbps';
             cableUp = '35 Mbps';
         } else if (city.includes('vancouver') || city.includes('camas') || city.includes('ridgefield') || city.includes('battle ground')) {
-            fiberProviders = 'CenturyLink / Quantum Fiber (Address-Dependent)';
-            cableProviders = 'Xfinity (Comcast 1,200/35 Mbps)';
-            fiberDown = 'Up to 1,000 – 5,000 Mbps (Where Deployed)';
-            fiberUp = 'Up to 1,000 – 5,000 Mbps (Where Deployed)';
+            hasFiber = false;
+            fiberProviders = 'CenturyLink / Quantum Fiber';
+            cableProviders = 'Xfinity (Comcast)';
             cableDown = '1,200 Mbps';
             cableUp = '35 Mbps';
         } else if (city.includes('olympia')) {
-            fiberProviders = 'Quantum Fiber (Address-Dependent)';
-            cableProviders = 'Xfinity (Comcast 1,200/35), Astound Broadband';
-            fiberDown = 'Up to 1,000 Mbps (Where Deployed)';
-            fiberUp = 'Up to 1,000 Mbps (Where Deployed)';
+            hasFiber = false;
+            fiberProviders = 'Quantum Fiber';
+            cableProviders = 'Xfinity (Comcast), Astound Broadband';
             cableDown = '1,200 Mbps';
             cableUp = '35 Mbps';
-        } else if (city.includes('wenatchee')) {
-            fiberProviders = 'Chelan County PUD Fiber (Address-Dependent)';
-            cableProviders = 'Spectrum (Charter 1,000/35 Mbps)';
-            fiberDown = 'Up to 1,000 Mbps (Where Deployed)';
-            fiberUp = 'Up to 1,000 Mbps (Where Deployed)';
+        } else if (city.includes('yakima')) {
+            hasFiber = false;
+            fiberProviders = 'CenturyLink Fiber';
+            cableProviders = 'Spectrum (Charter)';
             cableDown = '1,000 Mbps';
+            cableUp = '35 Mbps';
         } else {
-            fiberProviders = 'CenturyLink / Quantum Fiber (Address-Dependent)';
-            cableProviders = 'Xfinity (Comcast 1,200/35 Mbps)';
-            fiberDown = 'Up to 1,000 Mbps (Where Deployed)';
-            fiberUp = 'Up to 1,000 Mbps (Where Deployed)';
+            hasFiber = (prop.broadband && typeof prop.broadband.fiber_pct === 'number' && prop.broadband.fiber_pct >= 40);
+            fiberProviders = 'CenturyLink / Quantum Fiber';
+            cableProviders = 'Xfinity (Comcast)';
             cableDown = '1,200 Mbps';
             cableUp = '35 Mbps';
         }
@@ -1722,16 +1721,9 @@ document.addEventListener('DOMContentLoaded', () => {
             fccMapUrl = `https://broadbandmap.fcc.gov/home?addr=${encodeURIComponent(fullAddress)}`;
         }
 
-        const fiberPct = prop.broadband && typeof prop.broadband.fiber_pct === 'number' ? prop.broadband.fiber_pct : 0;
-        const cablePct = prop.broadband && typeof prop.broadband.cable_pct === 'number' ? prop.broadband.cable_pct : 90;
-        const isFiberMarket = fiberPct >= 45;
-
         return {
-            hasFiber: isFiberMarket,
-            hasCable: true,
-            fiberPct,
-            cablePct,
-            isFiberMarket,
+            hasFiber,
+            hasCable,
             fiberDown,
             fiberUp,
             cableDown,
@@ -1746,25 +1738,25 @@ document.addEventListener('DOMContentLoaded', () => {
     function getCardBroadbandSummary(prop) {
         const regional = getRegionalBroadbandDetails(prop);
 
-        if (regional.isFiberMarket) {
+        if (regional.hasFiber) {
             const shortFiber = regional.fiberProviders.split(',')[0].replace(/\(.*?\)/g, '').trim();
             const shortCable = regional.cableProviders.split('(')[0].trim();
             return {
                 isCableOnly: false,
                 badgeClass: 'badge-fiber-ready',
-                badgeText: `🌐 Fiber Market (${Math.round(regional.fiberPct)}%)`,
-                badgeTitle: `Official FCC BDC: ${regional.fiberPct}% residential FTTH in ${prop.city} (${regional.fiberProviders}) • Click to verify exact parcel`,
+                badgeText: '🌐 Fiber Ready',
+                badgeTitle: `Fiber FTTP (${regional.fiberDown}) + Cable DOCSIS (${regional.cableDown})`,
                 speedText: `Fiber: ${regional.fiberDown} • Cable: ${regional.cableDown}`,
                 providersText: `${shortFiber} • ${shortCable}`,
-                chipLabel: `🌐 Fiber Market (${Math.round(regional.fiberPct)}%)`,
-                chipTitle: `Fiber: ${regional.fiberDown} via ${regional.fiberProviders} (${regional.fiberPct}% in ${prop.city})`
+                chipLabel: '🌐 Fiber Ready',
+                chipTitle: `Fiber: ${regional.fiberDown} via ${regional.fiberProviders}`
             };
         } else {
             return {
                 isCableOnly: true,
                 badgeClass: 'badge-cable-only',
-                badgeText: `⚡ Cable Gigabit (${Math.round(regional.cablePct)}%)`,
-                badgeTitle: `Official FCC BDC: ${regional.cablePct}% Cable Gigabit in ${prop.city} (${regional.cableProviders}) • Fiber: ${regional.fiberPct}% in select pockets`,
+                badgeText: '⚡ Cable Gigabit',
+                badgeTitle: `Cable DOCSIS Gigabit (${regional.cableProviders})`,
                 speedText: `Cable: ${regional.cableDown} • Up: ${regional.cableUp}`,
                 providersText: regional.cableProviders,
                 chipLabel: '⚡ Cable Gigabit',
@@ -1816,27 +1808,27 @@ document.addEventListener('DOMContentLoaded', () => {
         const drawerCableCell = document.getElementById('drawer-cable-cell');
 
         if (drawerBbMainStatus) {
-            if (bbInfo.isFiberMarket) {
-                drawerBbMainStatus.textContent = `🌐 Fiber Market Footprint (${Math.round(bbInfo.fiberPct)}% Citywide FTTH)`;
+            if (bbInfo.hasFiber) {
+                drawerBbMainStatus.textContent = '🌐 Fiber & Cable Available';
                 drawerBbMainStatus.className = 'drawer-bb-status-pill status-both';
             } else {
-                drawerBbMainStatus.textContent = `⚡ Cable Gigabit Active (${Math.round(bbInfo.cablePct)}% Citywide DOCSIS)`;
+                drawerBbMainStatus.textContent = '⚡ Cable Gigabit Available';
                 drawerBbMainStatus.className = 'drawer-bb-status-pill status-cable-only';
             }
         }
 
-        if (drawerFiberCell) drawerFiberCell.classList.toggle('cell-unavailable', false);
+        if (drawerFiberCell) drawerFiberCell.classList.toggle('cell-unavailable', !bbInfo.hasFiber);
         if (drawerFiberAvail) {
-            drawerFiberAvail.textContent = bbInfo.isFiberMarket ? `Active in City (${Math.round(bbInfo.fiberPct)}%)` : `Pocket Coverage (${Math.round(bbInfo.fiberPct)}%)`;
-            drawerFiberAvail.className = `tech-avail-badge ${bbInfo.isFiberMarket ? 'avail-yes' : 'avail-no'}`;
+            drawerFiberAvail.textContent = bbInfo.hasFiber ? 'Available' : 'Not Available';
+            drawerFiberAvail.className = `tech-avail-badge ${bbInfo.hasFiber ? 'avail-yes' : 'avail-no'}`;
         }
-        if (drawerFiberDown) drawerFiberDown.textContent = bbInfo.fiberDown;
-        if (drawerFiberUp) drawerFiberUp.textContent = bbInfo.fiberUp;
-        if (drawerFiberProviders) drawerFiberProviders.textContent = bbInfo.fiberProviders;
+        if (drawerFiberDown) drawerFiberDown.textContent = bbInfo.hasFiber ? bbInfo.fiberDown : 'N/A';
+        if (drawerFiberUp) drawerFiberUp.textContent = bbInfo.hasFiber ? bbInfo.fiberUp : 'N/A';
+        if (drawerFiberProviders) drawerFiberProviders.textContent = bbInfo.hasFiber ? bbInfo.fiberProviders : 'None';
 
         if (drawerCableCell) drawerCableCell.classList.toggle('cell-unavailable', false);
         if (drawerCableAvail) {
-            drawerCableAvail.textContent = `Available (${Math.round(bbInfo.cablePct)}%)`;
+            drawerCableAvail.textContent = 'Available';
             drawerCableAvail.className = 'tech-avail-badge avail-yes';
         }
         if (drawerCableDown) drawerCableDown.textContent = bbInfo.cableDown;
