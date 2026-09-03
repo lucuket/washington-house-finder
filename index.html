@@ -19,7 +19,7 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
 
     <!-- Application Stylesheet -->
-    <link rel="stylesheet" href="styles.css?v=4.1">
+    <link rel="stylesheet" href="styles.css?v=4.2">
 </head>
 <body class="density-comfortable">
 
@@ -498,6 +498,12 @@
                             </div>
 
                             <div class="map-quick-actions">
+                                <!-- Basemap Layer Switcher -->
+                                <div class="map-basemap-segmented" id="map-basemap-segmented" role="radiogroup" aria-label="Map Style">
+                                    <button class="map-basemap-btn active" data-basemap="streets" title="Street Map">Streets</button>
+                                    <button class="map-basemap-btn" data-basemap="satellite" title="Satellite Imagery">Satellite</button>
+                                    <button class="map-basemap-btn" data-basemap="topo" title="Topographic Elevation">Topo</button>
+                                </div>
                                 <label class="map-search-area-toggle" title="Filter listings to visible map boundary">
                                     <input type="checkbox" id="map-bounds-filter-toggle">
                                     <span>Search map area</span>
@@ -1349,9 +1355,9 @@
     <script src="wa-boundary.js"></script>
     
     <!-- Embedded Properties Data (100% Offline & Local Loading) -->
-    <script src="data.js?v=4.1"></script>
+    <script src="data.js?v=4.2"></script>
     
     <!-- Application Logic -->
-    <script src="app.js?v=4.1"></script>
+    <script src="app.js?v=4.2"></script>
 </body>
 </html>

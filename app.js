@@ -387,11 +387,52 @@ document.addEventListener('DOMContentLoaded', () => {
         // Add clean zoom controls at bottom-right (Realtor standard, avoids header overlap)
         L.control.zoom({ position: 'bottomright' }).addTo(map);
 
-        // Clean, bright Realtor Voyager tiles with complete seamless geography
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-            maxZoom: 19,
-            subdomains: 'abcd'
-        }).addTo(map);
+        // Keyless, zero-watermark, high-performance GIS basemap layers
+        const basemapLayers = {
+            'streets': L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {
+                maxZoom: 19,
+                attribution: '&copy; Esri, HERE, Garmin, USGS'
+            }),
+            'satellite': L.layerGroup([
+                L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+                    maxZoom: 19,
+                    attribution: '&copy; Esri, Maxar, Earthstar Geographics'
+                }),
+                L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', {
+                    maxZoom: 19
+                })
+            ]),
+            'topo': L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}', {
+                maxZoom: 19,
+                attribution: '&copy; Esri, Intermap, USGS'
+            })
+        };
+
+        let currentBasemapKey = 'streets';
+        let currentBasemapLayer = basemapLayers[currentBasemapKey];
+        currentBasemapLayer.addTo(map);
+
+        function switchBasemap(key) {
+            if (!basemapLayers[key] || key === currentBasemapKey) return;
+            map.removeLayer(currentBasemapLayer);
+            currentBasemapLayer = basemapLayers[key];
+            currentBasemapLayer.addTo(map);
+            currentBasemapKey = key;
+
+            const btns = document.querySelectorAll('.map-basemap-btn');
+            btns.forEach(b => {
+                b.classList.toggle('active', b.getAttribute('data-basemap') === key);
+            });
+        }
+
+        const basemapBtns = document.querySelectorAll('.map-basemap-btn');
+        basemapBtns.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const mode = btn.getAttribute('data-basemap');
+                if (mode) switchBasemap(mode);
+            });
+        });
 
         // Marker Cluster Layer with clean Redfin/Zillow count pins
         if (typeof L.markerClusterGroup === 'function') {
