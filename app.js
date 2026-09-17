@@ -98,6 +98,9 @@ document.addEventListener('DOMContentLoaded', () => {
     function safeUrl(url) {
         if (!url || typeof url !== 'string') return '#';
         const trimmed = url.trim();
+        // Reject attribute-breaking characters so interpolated src/href values
+        // cannot escape their quotes (dataset URLs are always encoded).
+        if (/["'<>\s`]/.test(trimmed)) return '#';
         if (/^(https?:\/\/|mailto:|\/|\.\/)/i.test(trimmed)) {
             return trimmed;
         }
@@ -539,7 +542,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 const popupContent = `
                     <div class="map-popup-card" onclick="window.HouseFinderApp.openDrawerById('${p.id}')" style="cursor: pointer;">
-                        <img src="${safePhoto}" alt="${safeAddr}" class="popup-img" loading="lazy" onerror="this.src='https://images.unsplash.com/photo-1570129477492-45c003edd2be?auto=format&fit=crop&w=600&q=80'">
+                        <img src="${safePhoto}" alt="${safeAddr}" class="popup-img" loading="lazy" onerror="this.onerror=null;this.src='https://images.unsplash.com/photo-1570129477492-45c003edd2be?auto=format&fit=crop&w=600&q=80'">
                         <div class="popup-info">
                             <span class="popup-price">$${p.price.toLocaleString()}</span>
                             <strong class="popup-address">${safeAddr}</strong>
@@ -590,7 +593,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const safeFcc = safeUrl(p.broadband ? p.broadband.fcc_url : 'https://broadbandmap.fcc.gov');
         
         mobilePreviewContent.innerHTML = `
-            <img src="${safePhoto}" alt="${safeAddr}" class="mob-prev-img" loading="lazy" onerror="this.src='https://images.unsplash.com/photo-1568605117036-5fe5e7bab0b7?auto=format&fit=crop&w=300&q=75'">
+            <img src="${safePhoto}" alt="${safeAddr}" class="mob-prev-img" loading="lazy" onerror="this.onerror=null;this.src='https://images.unsplash.com/photo-1568605117036-5fe5e7bab0b7?auto=format&fit=crop&w=300&q=75'">
             <div class="mob-prev-details">
                 <div class="mob-prev-price mono">$${p.price.toLocaleString()} <span class="mob-prev-mo">~$${estMonthly.total.toLocaleString()}/mo</span></div>
                 <strong class="mob-prev-addr" title="${safeAddr}">${safeAddr}</strong>
@@ -1306,7 +1309,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             card.innerHTML = `
                 <div class="card-media">
-                    <img src="${safePhotoUrl}" alt="${safeAddr}" class="card-img" id="img-${p.id}" loading="lazy" onerror="this.src='https://images.unsplash.com/photo-1570129477492-45c003edd2be?auto=format&fit=crop&w=600&q=80'">
+                    <img src="${safePhotoUrl}" alt="${safeAddr}" class="card-img" id="img-${p.id}" loading="lazy" onerror="this.onerror=null;this.src='https://images.unsplash.com/photo-1570129477492-45c003edd2be?auto=format&fit=crop&w=600&q=80'">
                     <div class="card-media-tags-top">
                         <span class="card-city-badge">${safeCity}, WA</span>
                         ${isTopDeal ? `<span class="card-deal-badge" title="${dealEval.gradeLabel}">💎 TOP DEAL</span>` : ''}
@@ -2219,7 +2222,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const safeCity = escapeHtml(p.city);
             const safePhoto = safeUrl(thumbUrl(p.photos && p.photos[0] ? p.photos[0] : '', 400));
             item.innerHTML = `
-                <img src="${safePhoto}" alt="${safeAddr}" class="sim-thumb" loading="lazy" onerror="this.src='https://images.unsplash.com/photo-1570129477492-45c003edd2be?auto=format&fit=crop&w=400&q=80'">
+                <img src="${safePhoto}" alt="${safeAddr}" class="sim-thumb" loading="lazy" onerror="this.onerror=null;this.src='https://images.unsplash.com/photo-1570129477492-45c003edd2be?auto=format&fit=crop&w=400&q=80'">
                 <div class="sim-info">
                     <span class="sim-price mono">$${p.price.toLocaleString()} • ${safeCity}</span>
                     <strong class="sim-address">${safeAddr}</strong>
@@ -3094,7 +3097,7 @@ document.addEventListener('DOMContentLoaded', () => {
             card.innerHTML = `
                 <div class="deal-card-top">
                     <div class="deal-thumb-box">
-                        <img src="${primaryPhoto}" alt="${p.address}" loading="lazy" onerror="this.src='https://images.unsplash.com/photo-1568605117036-5fe5e7bab0b7?auto=format&fit=crop&w=400&q=75'">
+                        <img src="${primaryPhoto}" alt="${p.address}" loading="lazy" onerror="this.onerror=null;this.src='https://images.unsplash.com/photo-1568605117036-5fe5e7bab0b7?auto=format&fit=crop&w=400&q=75'">
                         <span class="deal-rank-badge">#${index + 1} TOP VALUE</span>
                     </div>
                     <div class="deal-top-info">
