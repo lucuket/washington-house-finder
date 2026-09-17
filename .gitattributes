@@ -1,0 +1,18 @@
+# Normalize line endings to LF on commit; checkout as-is per platform.
+# Prevents whole-file "modified" diffs when OneDrive/Windows editors flip CRLF.
+* text=auto
+
+# Large generated/data files: keep exact bytes, still diffable as text.
+*.json text
+*.js text
+*.css text
+*.html text
+
+# True binaries must never be line-ending converted.
+*.zip binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.webp binary
+*.ico binary
+*.woff2 binary

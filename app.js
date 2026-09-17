@@ -104,6 +104,16 @@ document.addEventListener('DOMContentLoaded', () => {
         return '#';
     }
 
+    // Downsizes Realtor CDN photos for small surfaces (cards, popups, deal tiles).
+    // Full-resolution URLs are still used in the detail drawer and lightbox.
+    function thumbUrl(url, width = 600) {
+        if (!url || typeof url !== 'string') return url;
+        if (url.indexOf('ap.rdcpix.com') !== -1) {
+            return url.replace(/([?&])w=\d+/, '$1w=' + width);
+        }
+        return url;
+    }
+
     // -------------------------------------------------------------------------
     // DOM Element References
     // -------------------------------------------------------------------------
@@ -340,6 +350,10 @@ document.addEventListener('DOMContentLoaded', () => {
     let map = null;
     let markersLayer = null;
     let markerInstances = {}; // propId -> L.Marker
+    let mapMarkersDirty = false; // true when filters changed while map was hidden
+    function isMapVisible() {
+        return activeView === 'split' || activeView === 'map';
+    }
 
     // Strict Washington State Boundary coordinates (South-West to North-East)
     const WA_SOUTH_WEST = L.latLng(45.45, -125.0);
@@ -521,7 +535,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const bbSummary = getCardBroadbandSummary(p);
                 const safeAddr = escapeHtml(p.address);
                 const safeFcc = safeUrl(p.broadband ? p.broadband.fcc_url : 'https://broadbandmap.fcc.gov');
-                const safePhoto = safeUrl(p.photos && p.photos[0] ? p.photos[0] : '');
+                const safePhoto = safeUrl(thumbUrl(p.photos && p.photos[0] ? p.photos[0] : '', 600));
 
                 const popupContent = `
                     <div class="map-popup-card" onclick="window.HouseFinderApp.openDrawerById('${p.id}')" style="cursor: pointer;">
@@ -567,7 +581,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function showMobileMapPreview(p) {
         if (!mobileMapPreviewCard || !mobilePreviewContent) return;
         const estMonthly = calculateEstimatedMonthly(p.price, p.hoa);
-        const photo = (p.photos && p.photos.length) ? p.photos[0] : 'https://images.unsplash.com/photo-1570129477492-45c003edd2be?auto=format&fit=crop&w=600&q=80';
+        const photo = (p.photos && p.photos.length) ? thumbUrl(p.photos[0], 600) : 'https://images.unsplash.com/photo-1570129477492-45c003edd2be?auto=format&fit=crop&w=600&q=80';
         const bbSummary = getCardBroadbandSummary(p);
         
         const safeAddr = escapeHtml(p.address);
@@ -998,6 +1012,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // -------------------------------------------------------------------------
     // Data Loading & API Fetching (With GitHub Pages relative path support)
+    // Order: async fetch first (non-blocking paint), embedded bundle second
+    // (legacy fallback), backend API last (local dev only, never on Pages).
     // -------------------------------------------------------------------------
     async function loadProperties() {
         try {
@@ -1005,26 +1021,41 @@ document.addEventListener('DOMContentLoaded', () => {
             
             let data = null;
 
-            // 1. Check embedded dataset (100% instant local & GitHub Pages offline support)
-            if (window.WASHINGTON_PROPERTIES && Array.isArray(window.WASHINGTON_PROPERTIES) && window.WASHINGTON_PROPERTIES.length > 0) {
-                data = JSON.parse(JSON.stringify(window.WASHINGTON_PROPERTIES));
+            // 1. Try relative static JSON (async; does not block first paint)
+            try {
+                const res = await fetch('properties.json');
+                if (res.ok) data = await res.json();
+            } catch (e) {}
+
+            // 2. Embedded dataset fallback (e.g. file:// preview without a server)
+            if (!data && window.WASHINGTON_PROPERTIES && Array.isArray(window.WASHINGTON_PROPERTIES) && window.WASHINGTON_PROPERTIES.length > 0) {
+                data = window.WASHINGTON_PROPERTIES;
             }
 
-            // 2. Try relative static JSON
-            if (!data) {
-                try {
-                    const res = await fetch('properties.json');
-                    if (res.ok) data = await res.json();
-                } catch (e) {}
-            }
-
-            // 3. Try API if backend is running
+            // 3. Try API if backend is running (local dev only)
             if (!data) {
                 try {
                     const apiRes = await fetch('/api/properties');
                     if (apiRes.ok) data = await apiRes.json();
                 } catch (e) {}
             }
+
+            if (!data) {
+                try {
+                    const absRes = await fetch('./properties.json');
+                    if (absRes.ok) data = await absRes.json();
+                } catch (e) {}
+            }
+
+            if (!data || !Array.isArray(data)) {
+                throw new Error("Could not load properties data.");
+            }
+
+            // Shallow-copy each record so downstream mutations (favorite, rating,
+            // notes, derived _fields) never touch the shared source array.
+            // Nested arrays (photos) are never mutated in place, so a deep
+            // clone (2x parse cost on ~5MB) is unnecessary.
+            data = data.map(p => ({ ...p }));
 
             if (!data) {
                 try {
@@ -1167,7 +1198,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Render UI
         renderGalleryCards(true);
-        updateMapMarkers(filteredProperties);
+        // Rebuilding hundreds of Leaflet markers while the map is hidden
+        // (grid/deals/analytics views) is wasted work; defer until visible.
+        if (isMapVisible()) {
+            updateMapMarkers(filteredProperties);
+        } else {
+            mapMarkersDirty = true;
+        }
         renderActiveFilterTags();
         updateHeaderAndMarketStats();
         if (activeView === 'deals') renderDealsView();
@@ -1236,7 +1273,7 @@ document.addEventListener('DOMContentLoaded', () => {
             card.setAttribute('aria-label', `${p.address}, ${p.city}, WA. Listing price $${p.price.toLocaleString()}`);
 
             const photoIdx = activePhotoIndices[p.id] || 0;
-            const currentPhoto = p.photos[photoIdx] || 'https://images.unsplash.com/photo-1570129477492-45c003edd2be?auto=format&fit=crop&w=800&q=80';
+            const currentPhoto = thumbUrl(p.photos[photoIdx], 600) || 'https://images.unsplash.com/photo-1570129477492-45c003edd2be?auto=format&fit=crop&w=600&q=80';
             const totalPhotos = p.photos.length || 1;
             const ppsqft = Math.round(p.price / Math.max(1, p.sqft));
             const estMonthly = calculateEstimatedMonthly(p.price, p.hoa);
@@ -1269,7 +1306,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             card.innerHTML = `
                 <div class="card-media">
-                    <img src="${safePhotoUrl}" alt="${safeAddr}" class="card-img" id="img-${p.id}" loading="lazy" onerror="this.src='https://images.unsplash.com/photo-1570129477492-45c003edd2be?auto=format&fit=crop&w=800&q=80'">
+                    <img src="${safePhotoUrl}" alt="${safeAddr}" class="card-img" id="img-${p.id}" loading="lazy" onerror="this.src='https://images.unsplash.com/photo-1570129477492-45c003edd2be?auto=format&fit=crop&w=600&q=80'">
                     <div class="card-media-tags-top">
                         <span class="card-city-badge">${safeCity}, WA</span>
                         ${isTopDeal ? `<span class="card-deal-badge" title="${dealEval.gradeLabel}">💎 TOP DEAL</span>` : ''}
@@ -2180,7 +2217,7 @@ document.addEventListener('DOMContentLoaded', () => {
             item.className = 'similar-home-item';
             const safeAddr = escapeHtml(p.address);
             const safeCity = escapeHtml(p.city);
-            const safePhoto = safeUrl(p.photos && p.photos[0] ? p.photos[0] : '');
+            const safePhoto = safeUrl(thumbUrl(p.photos && p.photos[0] ? p.photos[0] : '', 400));
             item.innerHTML = `
                 <img src="${safePhoto}" alt="${safeAddr}" class="sim-thumb" loading="lazy" onerror="this.src='https://images.unsplash.com/photo-1570129477492-45c003edd2be?auto=format&fit=crop&w=400&q=80'">
                 <div class="sim-info">
@@ -2296,7 +2333,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const p = propArray[i];
                 slot.classList.add('filled');
                 slot.innerHTML = `
-                    <img src="${p.photos[0] || ''}" alt="${p.address}" class="dock-thumb-img" title="${p.address} ($${p.price.toLocaleString()})" loading="lazy">
+                    <img src="${thumbUrl(p.photos[0], 400) || ''}" alt="${p.address}" class="dock-thumb-img" title="${p.address} ($${p.price.toLocaleString()})" loading="lazy">
                     <button class="dock-thumb-remove" data-id="${p.id}" title="Remove" aria-label="Remove">✕</button>
                 `;
             } else {
@@ -2335,7 +2372,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         <th>Property Details</th>
                         ${props.map(p => `
                             <td>
-                                <img src="${p.photos[0] || ''}" class="comp-img-header" alt="${p.address}" loading="lazy">
+                                <img src="${thumbUrl(p.photos[0], 600) || ''}" class="comp-img-header" alt="${p.address}" loading="lazy">
                                 <div class="comp-price">$${p.price.toLocaleString()}</div>
                                 <strong>${p.address}</strong><br>
                                 <span style="font-size: 11px; color: var(--text-secondary);">${p.city}, WA ${p.zip || ''}</span>
@@ -3049,7 +3086,7 @@ document.addEventListener('DOMContentLoaded', () => {
         topDeals.forEach((item, index) => {
             const p = item.property;
             const ev = item.eval;
-            const primaryPhoto = (p.photos && p.photos.length) ? p.photos[0] : 'https://images.unsplash.com/photo-1570129477492-45c003edd2be?auto=format&fit=crop&w=800&q=80';
+            const primaryPhoto = (p.photos && p.photos.length) ? thumbUrl(p.photos[0], 600) : 'https://images.unsplash.com/photo-1570129477492-45c003edd2be?auto=format&fit=crop&w=600&q=80';
             const estMonthly = calculateEstimatedMonthly(p.price, p.hoa);
 
             const card = document.createElement('div');
@@ -3206,6 +3243,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (map && (mode === 'split' || mode === 'map')) {
             setTimeout(() => map.invalidateSize(), 150);
+            // Flush marker updates that were skipped while the map was hidden.
+            if (mapMarkersDirty) {
+                mapMarkersDirty = false;
+                updateMapMarkers(filteredProperties);
+            }
         }
 
         syncStateToUrl();
