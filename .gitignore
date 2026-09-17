@@ -14,5 +14,3 @@ clean_all_sold.py
 mingit.zip
 *.csv
 *.zip
-!data/fcc/*.csv
-!data/fcc/*.zip
