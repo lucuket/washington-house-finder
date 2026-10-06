@@ -15,7 +15,6 @@
 
     <!-- Image CDN hints (largest above-the-fold payloads) -->
     <link rel="preconnect" href="https://ap.rdcpix.com">
-    <link rel="preconnect" href="https://images.unsplash.com">
 
     <!-- Leaflet.js CSS for Interactive GIS Mapping -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
@@ -23,7 +22,7 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
 
     <!-- Application Stylesheet -->
-    <link rel="stylesheet" href="styles.css?v=4.3">
+    <link rel="stylesheet" href="styles.css?v=4.4">
 </head>
 <body class="density-comfortable">
 
@@ -1357,9 +1356,9 @@
     
     <!-- Embedded Properties Data (fallback only; primary load is async fetch of properties.json).
          wa-boundary.js removed: it defined window.WASHINGTON_GEOJSON which nothing references (dead 75KB). -->
-    <script defer src="data.js?v=4.3"></script>
+    <script defer src="data.js?v=4.4"></script>
     
     <!-- Application Logic (deferred; executes in order after data.js, before DOMContentLoaded handlers fire) -->
-    <script defer src="app.js?v=4.3"></script>
+    <script defer src="app.js?v=4.4"></script>
 </body>
 </html>

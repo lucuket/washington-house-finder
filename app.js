@@ -117,6 +117,18 @@ document.addEventListener('DOMContentLoaded', () => {
         return url;
     }
 
+    // Neutral inline placeholder for missing or broken listing photos.
+    // Preserves zero-fabrication data integrity without displaying arbitrary stock homes.
+    const PHOTO_PLACEHOLDER = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 250" fill="none">' +
+        '<rect width="400" height="250" fill="#f1f5f9"/>' +
+        '<path d="M160 145l40-32 40 32v40h-80z" stroke="#94a3b8" stroke-width="3" stroke-linejoin="round" fill="none"/>' +
+        '<path d="M150 145l50-40 50 40" stroke="#94a3b8" stroke-width="3" stroke-linecap="round"/>' +
+        '<circle cx="230" cy="115" r="8" fill="#94a3b8"/>' +
+        '<text x="200" y="210" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="600" fill="#64748b" text-anchor="middle">No Photo Available</text>' +
+        '</svg>'
+    );
+
     // -------------------------------------------------------------------------
     // DOM Element References
     // -------------------------------------------------------------------------
@@ -542,7 +554,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 const popupContent = `
                     <div class="map-popup-card" onclick="window.HouseFinderApp.openDrawerById('${p.id}')" style="cursor: pointer;">
-                        <img src="${safePhoto}" alt="${safeAddr}" class="popup-img" loading="lazy" onerror="this.onerror=null;this.src='https://images.unsplash.com/photo-1570129477492-45c003edd2be?auto=format&fit=crop&w=600&q=80'">
+                        <img src="${safePhoto}" alt="${safeAddr}" class="popup-img" loading="lazy" onerror="this.onerror=null;this.src='${PHOTO_PLACEHOLDER}'">
                         <div class="popup-info">
                             <span class="popup-price">$${p.price.toLocaleString()}</span>
                             <strong class="popup-address">${safeAddr}</strong>
@@ -584,7 +596,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function showMobileMapPreview(p) {
         if (!mobileMapPreviewCard || !mobilePreviewContent) return;
         const estMonthly = calculateEstimatedMonthly(p.price, p.hoa);
-        const photo = (p.photos && p.photos.length) ? thumbUrl(p.photos[0], 600) : 'https://images.unsplash.com/photo-1570129477492-45c003edd2be?auto=format&fit=crop&w=600&q=80';
+        const photo = (p.photos && p.photos.length) ? thumbUrl(p.photos[0], 600) : PHOTO_PLACEHOLDER;
         const bbSummary = getCardBroadbandSummary(p);
         
         const safeAddr = escapeHtml(p.address);
@@ -593,7 +605,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const safeFcc = safeUrl(p.broadband ? p.broadband.fcc_url : 'https://broadbandmap.fcc.gov');
         
         mobilePreviewContent.innerHTML = `
-            <img src="${safePhoto}" alt="${safeAddr}" class="mob-prev-img" loading="lazy" onerror="this.onerror=null;this.src='https://images.unsplash.com/photo-1568605117036-5fe5e7bab0b7?auto=format&fit=crop&w=300&q=75'">
+            <img src="${safePhoto}" alt="${safeAddr}" class="mob-prev-img" loading="lazy" onerror="this.onerror=null;this.src='${PHOTO_PLACEHOLDER}'">
             <div class="mob-prev-details">
                 <div class="mob-prev-price mono">$${p.price.toLocaleString()} <span class="mob-prev-mo">~$${estMonthly.total.toLocaleString()}/mo</span></div>
                 <strong class="mob-prev-addr" title="${safeAddr}">${safeAddr}</strong>
@@ -1276,7 +1288,7 @@ document.addEventListener('DOMContentLoaded', () => {
             card.setAttribute('aria-label', `${p.address}, ${p.city}, WA. Listing price $${p.price.toLocaleString()}`);
 
             const photoIdx = activePhotoIndices[p.id] || 0;
-            const currentPhoto = thumbUrl(p.photos[photoIdx], 600) || 'https://images.unsplash.com/photo-1570129477492-45c003edd2be?auto=format&fit=crop&w=600&q=80';
+            const currentPhoto = thumbUrl(p.photos[photoIdx], 600) || PHOTO_PLACEHOLDER;
             const totalPhotos = p.photos.length || 1;
             const ppsqft = Math.round(p.price / Math.max(1, p.sqft));
             const estMonthly = calculateEstimatedMonthly(p.price, p.hoa);
@@ -1293,9 +1305,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 starsHtml += `<span class="star ${filledClass}" data-rate="${i}" title="Rate ${i} stars">★</span>`;
             }
 
-            // Signals HTML
+            // On cards, show distinctive differential value signals (e.g. $/sqft vs median) without repeating basic specs
             let signalsHtml = '';
-            signals.slice(0, 2).forEach(s => {
+            signals.filter(s => s.label.includes('median')).forEach(s => {
                 signalsHtml += `<span class="chip chip-signal-${s.type}">${s.label}</span>`;
             });
 
@@ -1309,10 +1321,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
             card.innerHTML = `
                 <div class="card-media">
-                    <img src="${safePhotoUrl}" alt="${safeAddr}" class="card-img" id="img-${p.id}" loading="lazy" onerror="this.onerror=null;this.src='https://images.unsplash.com/photo-1570129477492-45c003edd2be?auto=format&fit=crop&w=600&q=80'">
+                    <img src="${safePhotoUrl}" alt="${safeAddr}" class="card-img" id="img-${p.id}" loading="lazy" onerror="this.onerror=null;this.src='${PHOTO_PLACEHOLDER}'">
                     <div class="card-media-tags-top">
                         <span class="card-city-badge">${safeCity}, WA</span>
-                        ${isTopDeal ? `<span class="card-deal-badge" title="${dealEval.gradeLabel}">💎 TOP DEAL</span>` : ''}
+                        ${isTopDeal ? `<span class="card-deal-badge" title="${escapeHtml(dealEval.gradeLabel)}">💎 TOP DEAL</span>` : ''}
                     </div>
                     <span class="card-score-badge mono" title="Smart Shortlist Score: ${scoreVal}/100">Score ${scoreVal}</span>
                     
@@ -1366,7 +1378,6 @@ document.addEventListener('DOMContentLoaded', () => {
                         <span class="chip mono">${acres} Ac Lot</span>
                         <span class="chip">Built ${p.year_built}</span>
                         <span class="chip">${p.hoa > 0 ? `$${p.hoa}/mo HOA` : 'No HOA'}</span>
-                        <span class="chip chip-broadband ${bbSummary.isCableOnly ? 'chip-cable-only' : ''}" title="${bbSummary.badgeTitle}">🌐 ${bbSummary.chipLabel}</span>
                         ${signalsHtml}
                     </div>
 
@@ -2047,7 +2058,8 @@ document.addEventListener('DOMContentLoaded', () => {
         // Gallery Stage
         const photoIdx = activePhotoIndices[prop.id] || 0;
         const totalPhotos = prop.photos.length || 1;
-        drawerActiveImg.src = prop.photos[photoIdx] || 'https://images.unsplash.com/photo-1570129477492-45c003edd2be?auto=format&fit=crop&w=1200&q=80';
+        drawerActiveImg.src = prop.photos[photoIdx] || PHOTO_PLACEHOLDER;
+        drawerActiveImg.onerror = () => { drawerActiveImg.onerror = null; drawerActiveImg.src = PHOTO_PLACEHOLDER; };
         drawerImgCur.textContent = photoIdx + 1;
         drawerImgTot.textContent = totalPhotos;
 
@@ -2222,7 +2234,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const safeCity = escapeHtml(p.city);
             const safePhoto = safeUrl(thumbUrl(p.photos && p.photos[0] ? p.photos[0] : '', 400));
             item.innerHTML = `
-                <img src="${safePhoto}" alt="${safeAddr}" class="sim-thumb" loading="lazy" onerror="this.onerror=null;this.src='https://images.unsplash.com/photo-1570129477492-45c003edd2be?auto=format&fit=crop&w=400&q=80'">
+                <img src="${safePhoto}" alt="${safeAddr}" class="sim-thumb" loading="lazy" onerror="this.onerror=null;this.src='${PHOTO_PLACEHOLDER}'">
                 <div class="sim-info">
                     <span class="sim-price mono">$${p.price.toLocaleString()} • ${safeCity}</span>
                     <strong class="sim-address">${safeAddr}</strong>
@@ -3089,7 +3101,7 @@ document.addEventListener('DOMContentLoaded', () => {
         topDeals.forEach((item, index) => {
             const p = item.property;
             const ev = item.eval;
-            const primaryPhoto = (p.photos && p.photos.length) ? thumbUrl(p.photos[0], 600) : 'https://images.unsplash.com/photo-1570129477492-45c003edd2be?auto=format&fit=crop&w=600&q=80';
+            const primaryPhoto = (p.photos && p.photos.length) ? thumbUrl(p.photos[0], 600) : PHOTO_PLACEHOLDER;
             const estMonthly = calculateEstimatedMonthly(p.price, p.hoa);
 
             const card = document.createElement('div');
@@ -3097,7 +3109,7 @@ document.addEventListener('DOMContentLoaded', () => {
             card.innerHTML = `
                 <div class="deal-card-top">
                     <div class="deal-thumb-box">
-                        <img src="${primaryPhoto}" alt="${p.address}" loading="lazy" onerror="this.onerror=null;this.src='https://images.unsplash.com/photo-1568605117036-5fe5e7bab0b7?auto=format&fit=crop&w=400&q=75'">
+                        <img src="${primaryPhoto}" alt="${p.address}" loading="lazy" onerror="this.onerror=null;this.src='${PHOTO_PLACEHOLDER}'">
                         <span class="deal-rank-badge">#${index + 1} TOP VALUE</span>
                     </div>
                     <div class="deal-top-info">
@@ -3534,6 +3546,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 filterState.minPrice = min;
                 if (priceRangeDisplay) priceRangeDisplay.textContent = `$${Math.round(min/1000)}k – $${Math.round(max/1000)}k`;
+                priceMinSlider.style.zIndex = min > 500000 ? '3' : '2';
                 triggerFilterDebounced(40);
             });
             priceMinSlider.addEventListener('change', applyFilters);
@@ -3549,6 +3562,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 filterState.maxPrice = max;
                 if (priceRangeDisplay) priceRangeDisplay.textContent = `$${Math.round(min/1000)}k – $${Math.round(max/1000)}k`;
+                priceMinSlider.style.zIndex = min > 500000 ? '3' : '2';
                 triggerFilterDebounced(40);
             });
             priceMaxSlider.addEventListener('change', applyFilters);
@@ -3565,6 +3579,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 filterState.minSqft = min;
                 if (sqftRangeDisplay) sqftRangeDisplay.textContent = `${min.toLocaleString()} – ${max.toLocaleString()} sqft`;
+                sqftMinSlider.style.zIndex = min > 2400 ? '3' : '2';
                 triggerFilterDebounced(40);
             });
             sqftMinSlider.addEventListener('change', applyFilters);
@@ -3580,6 +3595,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 filterState.maxSqft = max;
                 if (sqftRangeDisplay) sqftRangeDisplay.textContent = `${min.toLocaleString()} – ${max.toLocaleString()} sqft`;
+                sqftMinSlider.style.zIndex = min > 2400 ? '3' : '2';
                 triggerFilterDebounced(40);
             });
             sqftMaxSlider.addEventListener('change', applyFilters);
@@ -3807,7 +3823,32 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Command Palette Trigger & Input
         if (btnOpenCmdPalette) btnOpenCmdPalette.addEventListener('click', openCommandPalette);
-        if (cmdPaletteInput) cmdPaletteInput.addEventListener('input', (e) => renderCommandPaletteResults(e.target.value));
+        if (cmdPaletteInput) {
+            cmdPaletteInput.addEventListener('input', (e) => renderCommandPaletteResults(e.target.value));
+            cmdPaletteInput.addEventListener('keydown', (e) => {
+                const items = Array.from(cmdPaletteResults.querySelectorAll('.cmd-item'));
+                if (!items.length) return;
+                let currentIdx = items.findIndex(item => item.classList.contains('selected'));
+                if (e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    if (currentIdx >= 0) items[currentIdx].classList.remove('selected');
+                    currentIdx = (currentIdx + 1) % items.length;
+                    items[currentIdx].classList.add('selected');
+                    items[currentIdx].scrollIntoView({ block: 'nearest' });
+                } else if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    if (currentIdx >= 0) items[currentIdx].classList.remove('selected');
+                    currentIdx = (currentIdx - 1 + items.length) % items.length;
+                    items[currentIdx].classList.add('selected');
+                    items[currentIdx].scrollIntoView({ block: 'nearest' });
+                } else if (e.key === 'Enter') {
+                    e.preventDefault();
+                    if (currentIdx >= 0 && items[currentIdx]) {
+                        items[currentIdx].click();
+                    }
+                }
+            });
+        }
 
         // Smart Scoring Trigger & Weight Sliders
         if (btnOpenScoring) btnOpenScoring.addEventListener('click', openScoringModal);
