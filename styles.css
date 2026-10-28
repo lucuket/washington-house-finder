@@ -1116,8 +1116,8 @@ html, body {
 .odd-method p { max-width: 85ch; padding: 4px 0; }
 .odd-finds-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); gap: 18px; }
 .odd-find-card { min-width: 0; display: flex; flex-direction: column; border: 1px solid #ded8ca; border-radius: 6px; background: var(--bg-surface); overflow: hidden; }
-.odd-photo { position: relative; aspect-ratio: 3 / 2; background: var(--bg-surface-secondary); }
-.odd-photo img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.odd-photo { position: relative; flex-shrink: 0; aspect-ratio: 3 / 2; overflow: hidden; background: var(--bg-surface-secondary); }
+.odd-photo img { position: absolute; inset: 0; display: block; width: 100%; height: 100%; object-fit: cover; }
 .odd-feature-label { position: absolute; bottom: 10px; left: 10px; right: 10px; width: fit-content; max-width: calc(100% - 20px); background: #fff8e5; border: 1px solid #d8be8a; border-radius: 3px; padding: 4px 8px; font-size: 11px; font-weight: 700; color: #61431a; }
 .odd-card-body { display: flex; flex-direction: column; flex: 1; padding: 14px; }
 .odd-card-body h3 { font-size: 16px; line-height: 1.4; margin-bottom: 8px; }
