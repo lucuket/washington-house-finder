@@ -22,7 +22,7 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
 
     <!-- Application Stylesheet -->
-    <link rel="stylesheet" href="styles.css?v=4.7">
+    <link rel="stylesheet" href="styles.css?v=4.8">
 </head>
 <body class="density-comfortable">
 
@@ -456,6 +456,9 @@
                                 </svg>
                                 <span>Analytics</span>
                             </button>
+                            <button class="view-tab-btn odd-tab" data-view="odd" title="A little off the beaten floor plan (6)" id="view-tab-odd" role="tab" aria-selected="false" aria-controls="odd-finds-view">
+                                <span aria-hidden="true">✦</span><span>Odd Finds</span>
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -588,6 +591,17 @@
                     </div>
 
                     <!-- Analytics Dashboard Tab (Hidden by default) -->
+                    <section class="odd-finds-view" id="odd-finds-view" role="tabpanel" aria-labelledby="view-tab-odd">
+                        <header class="odd-finds-header">
+                            <div><p class="odd-eyebrow">✦ A little off the beaten floor plan</p><h2>Odd Finds</h2><p>For when “three beds, two baths” leaves out the bomb shelter.</p></div>
+                            <button class="btn btn-secondary" id="btn-odd-surprise">Surprise me <span aria-hidden="true">↝</span></button>
+                        </header>
+                        <div class="odd-finds-intro"><p id="odd-finds-count" role="status" aria-live="polite">Finding the unexpected…</p><span>Your filters and sort apply.</span></div>
+                        <details class="odd-method"><summary>What makes a home an Odd Find?</summary><p>Specific clues in the listing description: a bomb shelter, entertaining silo, church, hidden lounge or room, enclosed pool room, treehouse, climbing wall, A-frame, community airstrip or Hat Island ferry access. Up to three homes per feature keep the collection varied, following your current listing sort. Excerpts show the clue; these are listing claims, so verify the details at the source. Community airstrips stay labeled as community features.</p></details>
+                        <div class="odd-finds-empty hidden" id="odd-finds-empty"><h3>The plot is suspiciously normal.</h3><p>No Odd Finds match these filters. Widen the search to find something unexpected.</p><button class="btn btn-secondary" id="btn-odd-reset">Reset filters</button></div>
+                        <div class="odd-finds-grid" id="odd-finds-grid"></div>
+                    </section>
+
                     <section class="analytics-view-wrapper" id="analytics-view-wrapper" role="tabpanel" aria-labelledby="view-tab-analytics">
                         <div class="analytics-header-banner">
                             <div>
@@ -693,6 +707,9 @@
             <button class="mobile-nav-item" data-mobile-view="analytics" id="mob-nav-analytics">
                 <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
                 <span>Analytics</span>
+            </button>
+            <button class="mobile-nav-item" data-mobile-view="odd" id="mob-nav-odd" title="Odd Finds">
+                <span class="odd-mobile-icon" aria-hidden="true">✦</span><span>Odd Finds</span>
             </button>
             <button class="mobile-nav-item" id="mob-nav-filters">
                 <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon></svg>
@@ -1365,6 +1382,6 @@
     
     <!-- Primary data loads asynchronously. The generated bundle is loaded only
          if JSON loading fails, including offline file:// previews. -->
-    <script defer src="app.js?v=20261028c" data-listings-fallback="data.js?v=20261028"></script>
+    <script defer src="app.js?v=20261028d" data-listings-fallback="data.js?v=20261028"></script>
 </body>
 </html>

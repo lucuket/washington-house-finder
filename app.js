@@ -25,7 +25,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let filteredProperties = [];
     let activePhotoIndices = {}; // propId -> current image index
     let comparisonSet = new Set(); // Set of propIds (max 4)
-    let activeView = 'grid'; // 'split' | 'grid' | 'map' | 'deals' | 'analytics'
+    let activeView = 'grid'; // 'split' | 'grid' | 'map' | 'deals' | 'analytics' | 'odd'
     let selectedPropId = null; // currently selected property in drawer
     let currentDrawerIndex = 0;
     let recentPropertyIds = [];
@@ -220,6 +220,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const viewTabMap = document.getElementById('view-tab-map');
     const viewTabDeals = document.getElementById('view-tab-deals');
     const viewTabAnalytics = document.getElementById('view-tab-analytics');
+    const viewTabOdd = document.getElementById('view-tab-odd');
+    const oddFindsGrid = document.getElementById('odd-finds-grid');
+    const oddFindsCount = document.getElementById('odd-finds-count');
+    const oddFindsEmpty = document.getElementById('odd-finds-empty');
+    const btnOddSurprise = document.getElementById('btn-odd-surprise');
+    let currentOddFinds = [];
+    const oddFindsCache = new Map();
 
     // Top Deals View Elements
     const dealsViewWrapper = document.getElementById('deals-view-wrapper');
@@ -377,6 +384,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const mobNavMap = document.getElementById('mob-nav-map');
     const mobNavDeals = document.getElementById('mob-nav-deals');
     const mobNavAnalytics = document.getElementById('mob-nav-analytics');
+    const mobNavOdd = document.getElementById('mob-nav-odd');
     const mobNavFilters = document.getElementById('mob-nav-filters');
     const mobileMapPreviewCard = document.getElementById('mobile-map-preview-card');
     const mobilePreviewContent = document.getElementById('mobile-preview-content');
@@ -1121,6 +1129,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             allProperties = data;
             propertyById = new Map();
+            oddFindsCache.clear();
 
             // Initialize photo index registry and precompute derived metrics
             allProperties.forEach(p => {
@@ -1253,6 +1262,7 @@ document.addEventListener('DOMContentLoaded', () => {
         renderActiveFilterTags();
         updateHeaderAndMarketStats();
         if (activeView === 'deals') renderDealsView();
+        if (activeView === 'odd') renderOddFinds();
         syncStateToUrl();
     }
 
@@ -2705,6 +2715,7 @@ document.addEventListener('DOMContentLoaded', () => {
             { category: 'Navigation', title: 'Switch to Full Map View', action: () => setViewMode('map'), badge: '3' },
             { category: 'Navigation', title: 'Open Top Value Deals Evaluation View', action: () => setViewMode('deals'), badge: '4' },
             { category: 'Navigation', title: 'Open Market Analytics Dashboard', action: () => setViewMode('analytics'), badge: '5' },
+            { category: 'Navigation', title: 'Open Odd Finds: unusual homes and delightful plot twists', action: () => setViewMode('odd'), badge: '6' },
             { category: 'Filters', title: 'Show Saved Shortlist Properties Only', action: () => { filterState.favoritesOnly = true; filterFavoritesToggle.checked = true; applyFilters(); }, badge: 'F' },
             { category: 'Filters', title: 'Filter for Cities with Fiber Coverage', action: () => { filterState.fiberOnly = true; if (filterFiberToggle) filterFiberToggle.checked = true; if (broadbandFilter) broadbandFilter.value = 'fiber'; applyFilters(); }, badge: 'FIBER' },
             { category: 'Filters', title: 'Reset All Search Filters to Default', action: () => resetAllFilters(), badge: 'R' },
@@ -3183,6 +3194,100 @@ document.addEventListener('DOMContentLoaded', () => {
     // -------------------------------------------------------------------------
     // Mobile Off-Canvas Drawer Control
     // -------------------------------------------------------------------------
+    // A deliberately narrow collection of clues, audited against the saved
+    // descriptions. Generic marketing adjectives and numerical outliers do not
+    // qualify. Keep community facilities explicit and retain source evidence.
+    function classifyOddFind(property) {
+        const description = String(property.description || '');
+        const rules = [
+            { key: 'shelter', label: 'Bomb shelter', title: 'The downstairs plot twist.', pattern: /\bbomb shelter downstairs\b/i },
+            { key: 'silo', label: 'Silo entertaining area', title: 'Dinner at the silo?', pattern: /\ba unique silo entertaining area\b/i },
+            { key: 'church', label: 'Church / meeting hall', title: 'Yes, it’s a church.', pattern: /\blong used as a church and meeting hall\b/i, note: 'Residential conversion and occupancy require City approval and buyer verification, per the listing.' },
+            { key: 'speakeasy', label: 'Hidden speakeasy', title: 'Your house has a secret nightlife.', pattern: /\bhidden speakeasy lounge\b/i },
+            { key: 'hidden-room', label: 'Hidden room', title: 'There’s another room. Somewhere.', pattern: /\bwall safes and a hidden room\b/i },
+            { key: 'pool-room', label: 'Enclosed pool room', title: 'The pool gets its own room.', pattern: /\bpermitted [\d,]+ sq ft enclosed pool room\b/i },
+            { key: 'treehouse', label: 'Backyard treehouse', title: 'The backyard has an upstairs.', pattern: /\b(?:magical|charming) treehouse\b/i },
+            { key: 'climbing', label: 'Climbing wall', title: 'Permission to climb the walls.', pattern: /\bbasketball hoop, and climbing wall\b/i },
+            { key: 'a-frame', label: 'A-frame architecture', title: 'A roof with main-character energy.', pattern: /\ba[- ]frame(?:-style)?\s+(?:home|retreat|cabin)\b/i },
+            { key: 'airstrip', label: 'Community airstrip', title: 'The neighbors have a runway.', pattern: /\bcommunity(?:-owned)?\b[^.!?]{0,45}\bairstrip\b|\bairstrip within the community\b/i, note: 'The airstrip is a community feature. Verify access and rules.' },
+            { key: 'island', label: 'Hat Island ferry access', title: 'Getting home includes a boat.', pattern: /\b(?:private|passenger|foot|Hat Island)\b[^.!?]{0,65}\bferry\b/i, islandOnly: true, note: 'Verify ferry access, schedules, dues and year-round logistics.' },
+        ];
+        for (const rule of rules) {
+            if (rule.islandOnly && property.city !== 'Hat Island' && !/\bon private Hat Island\b/i.test(description)) continue;
+            const match = rule.pattern.exec(description);
+            if (!match) continue;
+            if (/\b(?:could|potential|future|build|imagine|room for|space for)\b[^.!?]{0,65}$/i.test(description.slice(Math.max(0, match.index - 90), match.index))) continue;
+            // Quote the sentence containing the actual clue, with enough local
+            // context for inspection. Trim long marketing sentences on both ends.
+            const before = description.slice(0, match.index);
+            const sentenceStart = Math.max(before.lastIndexOf('. '), before.lastIndexOf('! '), before.lastIndexOf('? '));
+            let start = Math.max(sentenceStart < 0 ? 0 : sentenceStart + 2, match.index - 90);
+            if (start > 0 && start !== sentenceStart + 2) {
+                const wordStart = description.indexOf(' ', start);
+                if (wordStart >= 0 && wordStart < match.index) start = wordStart + 1;
+            }
+            const after = description.slice(match.index + match[0].length);
+            const stop = after.search(/[.!?](?:\s|$)/);
+            let end = Math.min(description.length, match.index + match[0].length + (stop < 0 ? after.length : stop + 1), match.index + match[0].length + 180);
+            if (end < description.length && !/[.!?]$/.test(description.slice(0, end))) {
+                const wordEnd = description.lastIndexOf(' ', end);
+                if (wordEnd > match.index + match[0].length) end = wordEnd;
+            }
+            return { key: rule.key, label: rule.label, title: rule.title, note: rule.note || '', evidence: description.slice(start, end).trim(), leadingTrim: start > 0 && start !== sentenceStart + 2, trailingTrim: end < description.length && !/[.!?]$/.test(description.slice(0, end)) };
+        }
+        return null;
+    }
+
+    function selectOddFinds(properties) {
+        const counts = new Map();
+        const finds = [];
+        for (const property of properties) {
+            const cached = oddFindsCache.get(property.id);
+            const feature = cached && cached.description === property.description && cached.city === property.city
+                ? cached.feature : classifyOddFind(property);
+            if (!cached || cached.description !== property.description || cached.city !== property.city) oddFindsCache.set(property.id, { description: property.description, city: property.city, feature });
+            if (!feature || (counts.get(feature.key) || 0) >= 3) continue;
+            counts.set(feature.key, (counts.get(feature.key) || 0) + 1);
+            finds.push({ property, feature });
+        }
+        return finds;
+    }
+
+    function renderOddFinds() {
+        currentOddFinds = selectOddFinds(filteredProperties);
+        oddFindsCount.textContent = `${currentOddFinds.length} odd find${currentOddFinds.length === 1 ? '' : 's'} in your results`;
+        oddFindsEmpty.classList.toggle('hidden', currentOddFinds.length > 0);
+        btnOddSurprise.disabled = currentOddFinds.length === 0;
+        oddFindsGrid.replaceChildren();
+        const fragment = document.createDocumentFragment();
+        currentOddFinds.forEach(({ property: p, feature }) => {
+            const card = document.createElement('article');
+            card.className = 'odd-find-card';
+            const address = escapeHtml(p.address);
+            const photo = safeUrl(thumbUrl(p.photos?.[0] || PHOTO_PLACEHOLDER, 600));
+            const monthly = calculateEstimatedMonthly(p.price, p.hoa);
+            card.innerHTML = `
+                <div class="odd-photo"><img src="${photo}" alt="${address}" loading="lazy" decoding="async" width="600" height="400" onerror="this.onerror=null;this.src='${PHOTO_PLACEHOLDER}'"><span class="odd-feature-label">${escapeHtml(feature.label)}</span></div>
+                <div class="odd-card-body">
+                    <h3>${escapeHtml(feature.title)}</h3>
+                    <div class="odd-price mono">$${p.price.toLocaleString()} <span>$${Math.round(p.price / Math.max(1, p.sqft)).toLocaleString()}/sqft</span></div>
+                    <p class="odd-monthly mono">Est. $${monthly.total.toLocaleString()}/mo${hasListingMetric(p, 'hoa') ? '' : '*'}</p>
+                    <p class="odd-address"><strong>${address}</strong><br>${escapeHtml(p.city)}, WA ${escapeHtml(p.zip || '')}</p>
+                    <a class="listing-source-link" href="${safeUrl(p.url)}" target="_blank" rel="noopener noreferrer" aria-label="View ${address} on Realtor.com (opens in a new tab)">View home on Realtor.com ↗</a>
+                    <p class="odd-specs">${listingMetric(p, 'beds')} beds · ${listingMetric(p, 'baths')} baths · ${listingMetric(p, 'sqft')} sqft · Built ${listingMetric(p, 'year_built')}<br>${hasListingMetric(p, 'lot_sqft') ? `${(p.lot_sqft / 43560).toFixed(2)} ac lot` : 'Lot unknown'} · ${hasListingMetric(p, 'garage') ? listingMetric(p, 'garage', '-car garage') : 'Garage unknown'} · ${listingHoa(p)}</p>
+                    <div class="odd-evidence"><span>From the listing</span><blockquote>“${feature.leadingTrim ? '…' : ''}${escapeHtml(feature.evidence)}${feature.trailingTrim ? '…' : ''}”</blockquote></div>
+                    ${feature.note ? `<p class="odd-feature-note">${escapeHtml(feature.note)}</p>` : ''}
+                    <div class="odd-card-actions"><label class="compare-checkbox-label"><input type="checkbox" class="compare-check" data-id="${escapeHtml(p.id)}" ${comparisonSet.has(p.id) ? 'checked' : ''}><span>Compare</span></label><button class="btn btn-secondary btn-sm odd-open-details">Take a look ↗</button></div>
+                </div>`;
+            card.querySelector('.odd-open-details').addEventListener('click', () => openPropertyDrawer(p.id));
+            const checkbox = card.querySelector('input');
+            checkbox.setAttribute('aria-label', `Compare ${p.address}`);
+            checkbox.addEventListener('change', () => toggleComparison(p.id, checkbox.checked, checkbox));
+            fragment.appendChild(card);
+        });
+        oddFindsGrid.appendChild(fragment);
+    }
+
     function openMobileSidebar() {
         if (appSidebar) appSidebar.classList.add('mobile-open');
         if (sidebarBackdrop) sidebarBackdrop.classList.remove('hidden');
@@ -3197,7 +3302,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // View Switcher
     // -------------------------------------------------------------------------
     function setViewMode(mode) {
-        if (!['split', 'grid', 'map', 'deals', 'analytics'].includes(mode)) return;
+        if (!['split', 'grid', 'map', 'deals', 'analytics', 'odd'].includes(mode)) return;
         activeView = mode;
         // Hidden map bounds must not silently restrict a listings-only search.
         const clearMapBounds = !isMapVisible() && filterState.mapBoundsOnly;
@@ -3206,7 +3311,7 @@ document.addEventListener('DOMContentLoaded', () => {
             filterState.mapBoundsOnly = false;
             if (mapBoundsFilterToggle) mapBoundsFilterToggle.checked = false;
         }
-        [viewTabSplit, viewTabGrid, viewTabMap, viewTabDeals, viewTabAnalytics].filter(Boolean).forEach(btn => {
+        [viewTabSplit, viewTabGrid, viewTabMap, viewTabDeals, viewTabAnalytics, viewTabOdd].filter(Boolean).forEach(btn => {
             const isActive = btn.dataset.view === mode;
             btn.classList.toggle('active', isActive);
             btn.setAttribute('aria-selected', String(isActive));
@@ -3224,6 +3329,7 @@ document.addEventListener('DOMContentLoaded', () => {
             viewTabAnalytics.classList.add('active');
             renderAnalytics();
         }
+        if (mode === 'odd') renderOddFinds();
 
         // Sync Mobile Bottom Navigation Tabs
         const mobButtons = [
@@ -3231,7 +3337,8 @@ document.addEventListener('DOMContentLoaded', () => {
             { id: 'grid', el: mobNavGrid },
             { id: 'map', el: mobNavMap },
             { id: 'deals', el: mobNavDeals },
-            { id: 'analytics', el: mobNavAnalytics }
+            { id: 'analytics', el: mobNavAnalytics },
+            { id: 'odd', el: mobNavOdd }
         ];
         mobButtons.forEach(b => {
             if (b.el) b.el.classList.toggle('active', b.id === mode);
@@ -3901,6 +4008,13 @@ document.addEventListener('DOMContentLoaded', () => {
         if (viewTabMap) viewTabMap.addEventListener('click', () => setViewMode('map'));
         if (viewTabDeals) viewTabDeals.addEventListener('click', () => setViewMode('deals'));
         if (viewTabAnalytics) viewTabAnalytics.addEventListener('click', () => setViewMode('analytics'));
+        if (viewTabOdd) viewTabOdd.addEventListener('click', () => setViewMode('odd'));
+        btnOddSurprise.addEventListener('click', () => {
+            if (!currentOddFinds.length) return;
+            const pick = currentOddFinds[Math.floor(Math.random() * currentOddFinds.length)];
+            openPropertyDrawer(pick.property.id);
+        });
+        document.getElementById('btn-odd-reset').addEventListener('click', resetAllFilters);
         document.getElementById('btn-close-map').addEventListener('click', () => {
             setViewMode('grid');
             (window.innerWidth <= 768 ? mobNavSplit : viewTabSplit).focus();
@@ -4107,6 +4221,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (e.key === '3') setViewMode('map');
             if (e.key === '4') setViewMode('deals');
             if (e.key === '5') setViewMode('analytics');
+            if (e.key === '6') setViewMode('odd');
         });
 
         // Mobile & iPhone Navigation & Drawer Handlers
@@ -4121,6 +4236,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (mobNavMap) mobNavMap.addEventListener('click', () => setViewMode('map'));
         if (mobNavDeals) mobNavDeals.addEventListener('click', () => setViewMode('deals'));
         if (mobNavAnalytics) mobNavAnalytics.addEventListener('click', () => setViewMode('analytics'));
+        if (mobNavOdd) mobNavOdd.addEventListener('click', () => setViewMode('odd'));
     }
 
     // -------------------------------------------------------------------------

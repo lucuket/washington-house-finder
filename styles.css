@@ -1091,6 +1091,57 @@ html, body {
 /* ==========================================================================
    Property Cards Grid (Dimensional Realtor / Redfin Style)
    ========================================================================== */
+.odd-finds-view { display: none; }
+.workspace-viewport.view-odd > :not(.odd-finds-view) { display: none !important; }
+.workspace-viewport.view-odd .odd-finds-view {
+    display: block;
+    width: 100%;
+    height: 100%;
+    min-width: 0;
+    overflow-y: auto;
+    padding: 20px;
+    background: #faf9f6;
+}
+.odd-tab { color: #6d4a18; }
+.odd-finds-header { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; border-bottom: 1px solid #ded8ca; padding-bottom: 16px; }
+.odd-eyebrow { color: #775416; font-size: 11px; font-weight: 700; margin-bottom: 4px; }
+.odd-finds-header h2 { font-size: 23px; line-height: 1.3; margin-bottom: 4px; }
+.odd-finds-header p:last-child { font-size: 12px; color: var(--text-secondary); }
+#btn-odd-surprise { min-height: 44px; border-color: #c2a46b; background: #fff9e9; color: #61431a; }
+.odd-finds-intro { display: flex; align-items: baseline; gap: 8px 16px; flex-wrap: wrap; padding-top: 14px; font-size: 12px; }
+.odd-finds-intro p { font-weight: 700; }
+.odd-finds-intro span { color: var(--text-muted); font-size: 11px; }
+.odd-method { font-size: 11px; line-height: 1.7; margin: 4px 0 16px; color: var(--text-secondary); }
+.odd-method summary { cursor: pointer; width: fit-content; padding: 5px 0; }
+.odd-method p { max-width: 85ch; padding: 4px 0; }
+.odd-finds-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); gap: 18px; }
+.odd-find-card { min-width: 0; display: flex; flex-direction: column; border: 1px solid #ded8ca; border-radius: 6px; background: var(--bg-surface); overflow: hidden; }
+.odd-photo { position: relative; aspect-ratio: 3 / 2; background: var(--bg-surface-secondary); }
+.odd-photo img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.odd-feature-label { position: absolute; bottom: 10px; left: 10px; right: 10px; width: fit-content; max-width: calc(100% - 20px); background: #fff8e5; border: 1px solid #d8be8a; border-radius: 3px; padding: 4px 8px; font-size: 11px; font-weight: 700; color: #61431a; }
+.odd-card-body { display: flex; flex-direction: column; flex: 1; padding: 14px; }
+.odd-card-body h3 { font-size: 16px; line-height: 1.4; margin-bottom: 8px; }
+.odd-price { font-size: 20px; font-weight: 700; }
+.odd-price span { font-size: 11px; color: var(--text-muted); font-weight: 500; white-space: nowrap; }
+.odd-monthly { font-size: 11px; color: var(--text-secondary); margin-top: 3px; }
+.odd-address { font-size: 12px; line-height: 1.7; margin-top: 6px; overflow-wrap: anywhere; }
+.odd-specs { font-size: 11px; line-height: 1.8; color: var(--text-secondary); margin: 6px 0 12px; }
+.odd-evidence { border-left: 3px solid #c2a46b; padding: 0 0 0 10px; margin-bottom: 12px; }
+.odd-evidence > span { display: block; font-size: 10px; font-weight: 700; color: #775416; margin-bottom: 4px; }
+.odd-evidence blockquote { font-size: 12px; line-height: 1.7; color: var(--text-secondary); overflow-wrap: anywhere; }
+.odd-feature-note { font-size: 11px; line-height: 1.6; background: #fff8e5; padding: 8px; margin-bottom: 12px; color: #61431a; }
+.odd-card-actions { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: auto; padding-top: 10px; border-top: 1px solid var(--border-subtle); }
+.odd-card-actions button, .odd-card-actions label { min-height: 44px; }
+.odd-finds-empty { border: 1px dashed #c2a46b; padding: 24px; font-size: 12px; line-height: 1.8; }
+.odd-finds-empty h3 { font-size: 16px; }
+.odd-finds-empty button { margin-top: 12px; }
+.mobile-nav-item .odd-mobile-icon { font-size: 20px; line-height: 20px; }
+@media (max-width: 768px) {
+    .workspace-viewport.view-odd .odd-finds-view { padding: 12px; }
+    .odd-method summary { min-height: 44px; display: flex; align-items: center; }
+    .odd-finds-grid { gap: 12px; }
+}
+
 .cards-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
