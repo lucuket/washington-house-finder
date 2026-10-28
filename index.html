@@ -460,7 +460,7 @@
                     </div>
                 </div>
 
-                <p class="dataset-notice">Historical listing snapshot last saved August 23, 2026. Verify current price and availability at the source. *Payment estimates assume $0 when HOA dues are unknown.</p>
+                <p class="dataset-notice">Listing snapshot refreshed October 28, 2026: 20 Washington markets, $200k–$750k single-family homes. Verify current price and availability at the source. Unreported specifications are marked Unknown. *Payment estimates assume $0 when HOA dues are unknown.</p>
 
                 <!-- Workspace Viewport Container -->
                 <div class="workspace-viewport view-split" id="workspace-viewport">
@@ -1356,11 +1356,8 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
     <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
     
-    <!-- Embedded Properties Data (fallback only; primary load is async fetch of properties.json).
-         wa-boundary.js removed: it defined window.WASHINGTON_GEOJSON which nothing references (dead 75KB). -->
-    <script defer src="data.js?v=4.4"></script>
-    
-    <!-- Application Logic (deferred; executes in order after data.js, before DOMContentLoaded handlers fire) -->
-    <script defer src="app.js?v=4.5"></script>
+    <!-- Primary data loads asynchronously. The generated bundle is loaded only
+         if JSON loading fails, including offline file:// previews. -->
+    <script defer src="app.js?v=20261028" data-listings-fallback="data.js?v=20261028"></script>
 </body>
 </html>

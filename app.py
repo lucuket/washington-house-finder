@@ -120,6 +120,11 @@ def normalize_property(item: Dict[str, Any]) -> Dict[str, Any]:
     if "broadband" in item:
         res["broadband"] = item["broadband"]
 
+    for field in ("unknown_fields", "source", "source_property_id", "source_listing_id",
+                  "status", "mls_status", "source_updated_at", "snapshot_date"):
+        if field in item:
+            res[field] = item[field]
+
     return res
 
 

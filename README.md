@@ -6,7 +6,18 @@ Live site is a **static GitHub Pages deploy** — no server runs in production.
 ## Data refresh and deployment
 
 The site is a static GitHub Pages deploy; no live scraper runs there. The
-existing listing snapshot is historical and must not be assumed current.
+listing snapshot was refreshed October 28, 2026 and contains 4,225 distinct
+active single-family listings returned for 20 Washington markets in the
+$200,000–$750,000 range. This is a dated snapshot, not a complete MLS feed;
+verify current availability and price at the source. `data/listing_snapshot.json`
+records the markets, source counts, rejected records, and missing-field counts.
+Existing property IDs and saved research were retained where listing URLs matched.
+
+Missing numeric specifications are represented internally by zero plus an
+`unknown_fields` entry. The interface and CSV export distinguish these from
+reported zero garage spaces or HOA dues. No missing values are inferred from
+old listing records.
+
 Realtor.com's [terms](https://www.realtor.com/terms-of-service/) and
 [robots.txt](https://www.realtor.com/robots.txt) require express written
 permission for automated collection. Use a data feed licensed for the intended
@@ -27,7 +38,8 @@ errors or challenges. A failed refresh leaves the existing data unchanged.
 |---|---|
 | `index.html`, `styles.css`, `app.js` | Production site (Pages serves these) |
 | `properties.json` | Listing database — source of truth, fetched async |
-| `data.js` | Generated fallback bundle for `file://` previews — do not hand-edit |
+| `data.js` | Generated fallback, loaded only when primary JSON fails — do not hand-edit |
+| `data/listing_snapshot.json` | Listing snapshot provenance and refresh validation summary |
 | `build_data_js.py` | Regenerates `data.js` from `properties.json` |
 | `app.py`, `models.py`, `scraper_service.py` | Local-dev backend only (`start_online.bat`: FastAPI + Cloudflare tunnel). Never runs on Pages |
 | `scraper.py` | Local-only MLS scraper |
@@ -39,6 +51,6 @@ errors or challenges. A failed refresh leaves the existing data unchanged.
 ## Browser data loading order (`app.js`)
 
 1. `fetch('properties.json')` — primary, async, non-blocking
-2. `window.WASHINGTON_PROPERTIES` from `data.js` — fallback (file preview)
+2. Load `data.js` on demand and use `window.WASHINGTON_PROPERTIES` — fallback (file preview)
 3. `/api/*` — local backend only; on Pages these calls fail silently and
    favorites/notes persist to `localStorage` instead

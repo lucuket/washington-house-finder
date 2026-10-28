@@ -85,6 +85,21 @@ document.addEventListener('DOMContentLoaded', () => {
     let noteSaveDebounceTimer = null;
 
     // Security & Sanitization Utilities
+    function hasListingMetric(property, field) {
+        return Number.isFinite(property[field]) && (Array.isArray(property.unknown_fields)
+            ? !property.unknown_fields.includes(field)
+            : property[field] > 0);
+    }
+
+    function listingMetric(property, field, suffix = '') {
+        return hasListingMetric(property, field) ? `${property[field].toLocaleString()}${suffix}` : 'Unknown';
+    }
+
+    function listingHoa(property) {
+        if (!hasListingMetric(property, 'hoa')) return 'HOA unknown';
+        return property.hoa === 0 ? 'No HOA ($0)' : `$${property.hoa}/mo HOA`;
+    }
+
     function escapeHtml(str) {
         if (str === null || str === undefined) return '';
         return String(str)
@@ -558,7 +573,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         <div class="popup-info">
                             <span class="popup-price">$${p.price.toLocaleString()}</span>
                             <strong class="popup-address">${safeAddr}</strong>
-                            <span class="popup-specs">${p.beds} Beds • ${p.baths} Baths • ${p.sqft.toLocaleString()} sqft</span>
+                            <span class="popup-specs">${listingMetric(p, 'beds')} Beds • ${listingMetric(p, 'baths')} Baths • ${p.sqft.toLocaleString()} sqft</span>
                             <div style="margin-top: 5px; display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--border-subtle); padding-top: 4px;">
                                 <span style="font-size: 9.5px; color: ${bbSummary.isCableOnly ? '#b45309' : '#0284c7'}; font-weight: 700;">${bbSummary.badgeText}</span>
                                 <a href="${safeFcc}" target="_blank" rel="noopener noreferrer" style="font-size: 10px; color: var(--brand-primary); font-weight: 700; text-decoration: underline;" onclick="event.stopPropagation();">FCC Map ↗</a>
@@ -610,7 +625,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div class="mob-prev-price mono">$${p.price.toLocaleString()} <span class="mob-prev-mo">~$${estMonthly.total.toLocaleString()}/mo</span></div>
                 <strong class="mob-prev-addr" title="${safeAddr}">${safeAddr}</strong>
                 <span class="mob-prev-city">${safeCity}, WA • <strong style="color: ${bbSummary.isCableOnly ? '#b45309' : '#0284c7'}; font-size: 10px;">${bbSummary.badgeText}</strong></span>
-                <div class="mob-prev-specs mono">${p.beds}b • ${p.baths}ba • ${p.sqft.toLocaleString()} sf</div>
+                <div class="mob-prev-specs mono">${listingMetric(p, 'beds')}b • ${listingMetric(p, 'baths')}ba • ${p.sqft.toLocaleString()} sf</div>
                 <div style="display: flex; gap: 6px; margin-top: 6px;">
                     <button class="btn btn-primary btn-sm mob-prev-open-btn" data-id="${p.id}" style="flex: 1;">Details &rarr;</button>
                     <a href="${safeFcc}" target="_blank" rel="noopener noreferrer" class="btn btn-secondary btn-sm" style="font-size: 10.5px; padding: 4px 8px; font-weight: 700; color: #0284c7;" onclick="event.stopPropagation();">FCC Map ↗</a>
@@ -799,18 +814,18 @@ document.addEventListener('DOMContentLoaded', () => {
         const scoreSqft = Math.max(0, Math.min(100, Math.round(((p.sqft - 1000) / 1500) * 100)));
 
         // 3. Lot Size score (0 - 100): 5000 - 20000 normalized
-        const scoreLot = Math.max(0, Math.min(100, Math.round(((p.lot_sqft - 4000) / 16000) * 100)));
+        const scoreLot = hasListingMetric(p, 'lot_sqft') ? Math.max(0, Math.min(100, Math.round(((p.lot_sqft - 4000) / 16000) * 100))) : 50;
 
         // 4. Garage score (0 - 100)
-        const scoreGarage = p.garage >= 3 ? 100 : (p.garage === 2 ? 75 : 40);
+        const scoreGarage = !hasListingMetric(p, 'garage') ? 50 : p.garage >= 3 ? 100 : (p.garage === 2 ? 75 : 40);
 
         // 5. Year built score (0 - 100)
         const currentYear = new Date().getFullYear();
         const age = Math.max(0, currentYear - (p.year_built || 1980));
-        const scoreYear = Math.max(0, Math.min(100, Math.round(100 - (age / 50) * 100)));
+        const scoreYear = hasListingMetric(p, 'year_built') ? Math.max(0, Math.min(100, Math.round(100 - (age / 50) * 100))) : 50;
 
         // 6. Low HOA score (0 - 100)
-        const scoreHoa = !p.hoa ? 50 : Math.max(0, Math.min(100, Math.round(100 - (p.hoa / 100) * 100)));
+        const scoreHoa = !hasListingMetric(p, 'hoa') ? 50 : Math.max(0, Math.min(100, Math.round(100 - (p.hoa / 100) * 100)));
 
         // 7. Rating score (0 - 100)
         const scoreRating = (p.rating || 0) > 0 ? (p.rating / 5) * 100 : 50;
@@ -890,12 +905,12 @@ document.addEventListener('DOMContentLoaded', () => {
         if (acres >= 0.5) lotScore = 100;
         else if (acres >= 0.25) lotScore = 85 + Math.round((acres - 0.25) * 60);
         else if (acres >= 0.15) lotScore = 70 + Math.round((acres - 0.15) * 150);
-        else lotScore = Math.max(20, Math.round(acres * 400));
+        else if (hasListingMetric(p, 'lot_sqft')) lotScore = Math.max(20, Math.round(acres * 400));
         lotScore = Math.min(100, lotScore);
 
         // 3. Carrying Cost (HOA) Score (0-100)
         let hoaScore = 50;
-        if (p.hoa > 0) {
+        if (hasListingMetric(p, 'hoa')) {
             if (p.hoa <= 35) hoaScore = 85;
             else if (p.hoa <= 75) hoaScore = 70;
             else if (p.hoa <= 150) hoaScore = 50;
@@ -921,7 +936,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (p.year_built >= 2015) ageScore = 100;
         else if (p.year_built >= 2000) ageScore = 85 + Math.round((p.year_built - 2000));
         else if (p.year_built >= 1980) ageScore = 65 + Math.round((p.year_built - 1980));
-        else ageScore = Math.max(30, 40 + Math.round((p.year_built - 1940) / 2));
+        else if (hasListingMetric(p, 'year_built')) ageScore = Math.max(30, 40 + Math.round((p.year_built - 1940) / 2));
         ageScore = Math.min(100, ageScore);
 
         // Weighted composite deal score
@@ -938,9 +953,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const ppsqftText = ppsqftPct > 0 
             ? `priced ${ppsqftPct}% below the ${p.city} median ($${cityMedPpsqft}/sqft)` 
             : `priced at $${ppsqft}/sqft in ${p.city}`;
-        const lotText = acres >= 0.2 ? `a substantial ${acres.toFixed(2)}-acre (${p.lot_sqft.toLocaleString()} sqft) parcel` : `a ${p.lot_sqft.toLocaleString()} sqft lot`;
-        const hoaText = p.hoa > 0 ? `$${p.hoa}/mo in reported HOA dues` : `unverified HOA dues`;
-        const garageText = p.garage >= 2 ? `a ${p.garage}-car garage` : `${p.garage} garage space`;
+        const lotText = !hasListingMetric(p, 'lot_sqft') ? 'an unreported lot size' : acres >= 0.2 ? `a substantial ${acres.toFixed(2)}-acre (${p.lot_sqft.toLocaleString()} sqft) parcel` : `a ${p.lot_sqft.toLocaleString()} sqft lot`;
+        const hoaText = hasListingMetric(p, 'hoa') ? `$${p.hoa}/mo in reported HOA dues` : `unverified HOA dues`;
+        const garageText = !hasListingMetric(p, 'garage') ? 'unreported garage capacity' : p.garage >= 2 ? `a ${p.garage}-car garage` : `${p.garage} garage space`;
 
         const narrative = `This ${p.city} property offers ${p.sqft.toLocaleString()} sqft ${ppsqftText}, paired with ${lotText}, ${hoaText}, and ${garageText}. The price-per-square-foot comparison is based on the listings in this snapshot.`;
 
@@ -963,11 +978,11 @@ document.addEventListener('DOMContentLoaded', () => {
             acres,
             factors: {
                 price: { label: "$/SqFt Advantage", score: priceScore, desc: `${ppsqftPct > 0 ? '-' + ppsqftPct + '%' : '+' + Math.abs(ppsqftPct) + '%'} vs median` },
-                lot: { label: "Lot & Acreage Space", score: lotScore, desc: `${acres.toFixed(2)} Acres (${p.lot_sqft.toLocaleString()} sf)` },
-                hoa: { label: "Carrying Cost Efficiency", score: hoaScore, desc: p.hoa > 0 ? `$${p.hoa}/mo` : 'HOA unknown' },
+                lot: { label: "Lot & Acreage Space", score: lotScore, desc: hasListingMetric(p, 'lot_sqft') ? `${acres.toFixed(2)} Acres (${p.lot_sqft.toLocaleString()} sf)` : 'Lot size unknown' },
+                hoa: { label: "Carrying Cost Efficiency", score: hoaScore, desc: listingHoa(p) },
                 space: { label: "Living Area Usability", score: spaceScore, desc: `${p.sqft.toLocaleString()} SqFt` },
-                garage: { label: "Garage & Workshop", score: garageScore, desc: `${p.garage}-Car Garage` },
-                age: { label: "Construction & Era", score: ageScore, desc: `Built ${p.year_built}` }
+                garage: { label: "Garage & Workshop", score: garageScore, desc: listingMetric(p, 'garage', '-Car Garage') },
+                age: { label: "Construction & Era", score: ageScore, desc: `Built ${listingMetric(p, 'year_built')}` }
             },
             narrative
         };
@@ -1025,7 +1040,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // -------------------------------------------------------------------------
     // Data Loading & API Fetching (With GitHub Pages relative path support)
-    // Order: async fetch first (non-blocking paint), embedded bundle second
+    // Order: async fetch first (non-blocking paint), on-demand bundle second
     // (legacy fallback), backend API last (local dev only, never on Pages).
     // -------------------------------------------------------------------------
     let cityBroadband = {};
@@ -1041,13 +1056,25 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // 1. Try relative static JSON (async; does not block first paint)
             try {
-                const res = await fetch('properties.json');
+                const res = await fetch('properties.json?v=20261028');
                 if (res.ok) data = await res.json();
             } catch (e) {}
 
-            // 2. Embedded dataset fallback (e.g. file:// preview without a server)
-            if (!data && window.WASHINGTON_PROPERTIES && Array.isArray(window.WASHINGTON_PROPERTIES) && window.WASHINGTON_PROPERTIES.length > 0) {
-                data = window.WASHINGTON_PROPERTIES;
+            // 2. Load the fallback only if JSON failed; never download both copies
+            // during a normal page load. This also supports file:// previews.
+            if (!data) {
+                if (!Array.isArray(window.WASHINGTON_PROPERTIES)) {
+                    try {
+                        await new Promise((resolve, reject) => {
+                            const script = document.createElement('script');
+                            script.src = document.querySelector('script[data-listings-fallback]')?.dataset.listingsFallback || 'data.js';
+                            script.onload = resolve;
+                            script.onerror = reject;
+                            document.head.appendChild(script);
+                        });
+                    } catch (error) { /* Continue to the optional backend. */ }
+                }
+                if (Array.isArray(window.WASHINGTON_PROPERTIES)) data = window.WASHINGTON_PROPERTIES;
             }
 
             // 3. Try API if backend is running (local dev only)
@@ -1162,7 +1189,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (p.sqft < filterState.minSqft || p.sqft > filterState.maxSqft) return false;
 
             // HOA Fee
-            if (p.hoa > filterState.maxHoa || (!p.hoa && filterState.maxHoa < 300)) return false;
+            if (p.hoa > filterState.maxHoa || (!hasListingMetric(p, 'hoa') && filterState.maxHoa < 300)) return false;
 
             // Lot Size
             if (p.lot_sqft < filterState.minLot) return false;
@@ -1350,7 +1377,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div class="card-body">
                     <div class="card-price-row">
                         <span class="card-price mono">$${p.price.toLocaleString()}</span>
-                        <span class="card-mortgage-badge mono" data-id="${p.id}" title="${p.hoa > 0 ? 'Click to view mortgage breakdown' : 'Estimate assumes $0 HOA because dues are unknown'}">Est. $${estMonthly.total.toLocaleString()}/mo${p.hoa > 0 ? "" : "*"}</span>
+                        <span class="card-mortgage-badge mono" data-id="${p.id}" title="${hasListingMetric(p, 'hoa') ? 'Click to view mortgage breakdown' : 'Estimate assumes $0 HOA because dues are unknown'}">Est. $${estMonthly.total.toLocaleString()}/mo${hasListingMetric(p, 'hoa') ? "" : "*"}</span>
                     </div>
 
                     <div class="card-address-block">
@@ -1360,11 +1387,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     <div class="card-specs-grid">
                         <div class="spec-item">
-                            <span class="spec-val mono">${p.beds}</span>
+                            <span class="spec-val mono">${listingMetric(p, 'beds')}</span>
                             <span class="spec-lbl">Beds</span>
                         </div>
                         <div class="spec-item">
-                            <span class="spec-val mono">${p.baths}</span>
+                            <span class="spec-val mono">${listingMetric(p, 'baths')}</span>
                             <span class="spec-lbl">Baths</span>
                         </div>
                         <div class="spec-item">
@@ -1372,16 +1399,16 @@ document.addEventListener('DOMContentLoaded', () => {
                             <span class="spec-lbl">SqFt</span>
                         </div>
                         <div class="spec-item">
-                            <span class="spec-val mono">${p.garage} Car</span>
+                            <span class="spec-val mono">${listingMetric(p, 'garage', ' Car')}</span>
                             <span class="spec-lbl">Garage</span>
                         </div>
                     </div>
 
                     <div class="card-extra-chips">
                         <span class="chip mono">$${ppsqft}/sqft</span>
-                        <span class="chip mono">${acres} Ac Lot</span>
-                        <span class="chip">Built ${p.year_built}</span>
-                        <span class="chip">${p.hoa > 0 ? `$${p.hoa}/mo HOA` : 'HOA unknown'}</span>
+                        <span class="chip mono">${hasListingMetric(p, 'lot_sqft') ? `${acres} Ac Lot` : 'Lot unknown'}</span>
+                        <span class="chip">Built ${listingMetric(p, 'year_built')}</span>
+                        <span class="chip">${listingHoa(p)}</span>
                         ${signalsHtml}
                     </div>
 
@@ -1941,7 +1968,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
                     <div class="deal-metric-cell">
                         <span class="dmc-label">Carrying Dues</span>
-                        <strong class="dmc-val good mono">${prop.hoa > 0 ? '$' + prop.hoa + '/mo' : 'HOA unknown'}</strong>
+                        <strong class="dmc-val good mono">${listingHoa(prop)}</strong>
                     </div>
                 `;
             }
@@ -1963,14 +1990,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Specs Grid
         const ppsqft = Math.round(prop.price / Math.max(1, prop.sqft));
-        dSpecBeds.textContent = prop.beds;
-        dSpecBaths.textContent = prop.baths;
+        dSpecBeds.textContent = listingMetric(prop, 'beds');
+        dSpecBaths.textContent = listingMetric(prop, 'baths');
         dSpecSqft.textContent = `${prop.sqft.toLocaleString()} sqft`;
         dSpecPpsqft.textContent = `$${ppsqft}/sqft`;
-        dSpecLot.textContent = `${prop.lot_sqft.toLocaleString()} sqft (${(prop.lot_sqft/43560).toFixed(2)} ac)`;
-        dSpecGarage.textContent = `${prop.garage} Car`;
-        dSpecYear.textContent = prop.year_built;
-        dSpecHoa.textContent = prop.hoa > 0 ? `$${prop.hoa}/mo` : 'Unknown';
+        dSpecLot.textContent = hasListingMetric(prop, 'lot_sqft') ? `${prop.lot_sqft.toLocaleString()} sqft (${(prop.lot_sqft/43560).toFixed(2)} ac)` : 'Unknown';
+        dSpecGarage.textContent = listingMetric(prop, 'garage', ' Car');
+        dSpecYear.textContent = listingMetric(prop, 'year_built');
+        dSpecHoa.textContent = listingHoa(prop);
 
         // Description
         drawerDescription.textContent = prop.description || "Washington residential listing.";
@@ -2064,7 +2091,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div class="sim-info">
                     <span class="sim-price mono">$${p.price.toLocaleString()} • ${safeCity}</span>
                     <strong class="sim-address">${safeAddr}</strong>
-                    <span style="font-size: 10.5px; color: var(--text-secondary);">${p.beds}b / ${p.baths}ba • ${p.sqft.toLocaleString()} sqft</span>
+                    <span style="font-size: 10.5px; color: var(--text-secondary);">${listingMetric(p, 'beds')}b / ${listingMetric(p, 'baths')}ba • ${p.sqft.toLocaleString()} sqft</span>
                 </div>
             `;
             item.addEventListener('click', () => {
@@ -2203,7 +2230,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const maxSqft = Math.max(...props.map(p => p.sqft));
         const maxLot = Math.max(...props.map(p => p.lot_sqft));
         const maxYear = Math.max(...props.map(p => p.year_built));
-        const minHoa = Math.min(...props.filter(p => p.hoa > 0).map(p => p.hoa));
+        const minHoa = Math.min(...props.filter(p => hasListingMetric(p, 'hoa')).map(p => p.hoa));
         const maxRating = Math.max(...props.map(p => p.rating || 0));
 
         let tableHtml = `
@@ -2239,7 +2266,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     </tr>
                     <tr>
                         <th>Bedrooms / Baths</th>
-                        ${props.map(p => `<td>${p.beds} Beds • ${p.baths} Baths</td>`).join('')}
+                        ${props.map(p => `<td>${listingMetric(p, 'beds')} Beds • ${listingMetric(p, 'baths')} Baths</td>`).join('')}
                     </tr>
                     <tr>
                         <th>Living Area</th>
@@ -2247,19 +2274,19 @@ document.addEventListener('DOMContentLoaded', () => {
                     </tr>
                     <tr>
                         <th>Lot Size</th>
-                        ${props.map(p => `<td class="${p.lot_sqft === maxLot ? 'best-metric-cell' : ''}">${p.lot_sqft.toLocaleString()} sqft (${(p.lot_sqft / 43560).toFixed(2)} ac)</td>`).join('')}
+                        ${props.map(p => `<td class="${hasListingMetric(p, 'lot_sqft') && p.lot_sqft === maxLot ? 'best-metric-cell' : ''}">${hasListingMetric(p, 'lot_sqft') ? `${p.lot_sqft.toLocaleString()} sqft (${(p.lot_sqft / 43560).toFixed(2)} ac)` : 'Unknown'}</td>`).join('')}
                     </tr>
                     <tr>
                         <th>Garage Spaces</th>
-                        ${props.map(p => `<td>${p.garage} Car</td>`).join('')}
+                        ${props.map(p => `<td>${listingMetric(p, 'garage', ' Car')}</td>`).join('')}
                     </tr>
                     <tr>
                         <th>HOA Monthly</th>
-                        ${props.map(p => `<td class="${p.hoa > 0 && p.hoa === minHoa ? 'best-metric-cell' : ''}">${p.hoa > 0 ? `$${p.hoa}/mo` : 'Unknown'}</td>`).join('')}
+                        ${props.map(p => `<td class="${hasListingMetric(p, 'hoa') && p.hoa === minHoa ? 'best-metric-cell' : ''}">${listingHoa(p)}</td>`).join('')}
                     </tr>
                     <tr>
                         <th>Year Built</th>
-                        ${props.map(p => `<td class="${p.year_built === maxYear ? 'best-metric-cell' : ''}">${p.year_built}</td>`).join('')}
+                        ${props.map(p => `<td class="${hasListingMetric(p, 'year_built') && p.year_built === maxYear ? 'best-metric-cell' : ''}">${listingMetric(p, 'year_built')}</td>`).join('')}
                     </tr>
                     <tr>
                         <th>Personal Rating</th>
@@ -2388,7 +2415,7 @@ document.addEventListener('DOMContentLoaded', () => {
         currentLightboxIndex = startIdx;
 
         lightboxAddress.textContent = `${prop.address}, ${prop.city}, WA`;
-        lightboxSpecs.textContent = `${prop.beds} Beds • ${prop.baths} Baths • ${prop.sqft.toLocaleString()} sqft • Built ${prop.year_built}`;
+        lightboxSpecs.textContent = `${listingMetric(prop, 'beds')} Beds • ${listingMetric(prop, 'baths')} Baths • ${prop.sqft.toLocaleString()} sqft • Built ${listingMetric(prop, 'year_built')}`;
         lightboxPrice.textContent = `$${prop.price.toLocaleString()}`;
         lightboxExternalLink.href = prop.url;
 
@@ -2524,9 +2551,10 @@ document.addEventListener('DOMContentLoaded', () => {
         // Garage distribution
         if (garageDistributionList) {
             garageDistributionList.innerHTML = '';
-            const garageCounts = { '2 Car': 0, '3+ Car': 0, 'Other': 0 };
+            const garageCounts = { '2 Car': 0, '3+ Car': 0, 'Other': 0, 'Unknown': 0 };
             filteredList.forEach(p => {
-                if (p.garage >= 3) garageCounts['3+ Car']++;
+                if (!hasListingMetric(p, 'garage')) garageCounts['Unknown']++;
+                else if (p.garage >= 3) garageCounts['3+ Car']++;
                 else if (p.garage === 2) garageCounts['2 Car']++;
                 else garageCounts['Other']++;
             });
@@ -2548,6 +2576,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 'Pre-1990': filteredList.filter(p => p.year_built < 1990 && p.year_built > 0).length,
                 '1990–2009': filteredList.filter(p => p.year_built >= 1990 && p.year_built < 2010).length,
                 '2010+ (Modern)': filteredList.filter(p => p.year_built >= 2010).length,
+                'Unknown': filteredList.filter(p => !hasListingMetric(p, 'year_built')).length,
             };
             for (const [y, count] of Object.entries(yearCounts)) {
                 const row = document.createElement('div');
@@ -2946,11 +2975,11 @@ document.addEventListener('DOMContentLoaded', () => {
                         <span class="deal-card-addr" title="${p.address}">${p.address}</span>
                         <span class="deal-card-sub">${p.city}, WA ${p.zip || ''}</span>
                         <div class="deal-card-specs-row mono">
-                            <span>${p.beds}b / ${p.baths}ba</span>
+                            <span>${listingMetric(p, 'beds')}b / ${listingMetric(p, 'baths')}ba</span>
                             <span>•</span>
                             <span>${p.sqft.toLocaleString()} sqft</span>
                             <span>•</span>
-                            <span>${p.garage} Car</span>
+                            <span>${listingMetric(p, 'garage', ' Car')}</span>
                         </div>
                     </div>
                 </div>
@@ -2987,7 +3016,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         </div>
                         <div class="deal-bar-row">
                             <div class="deal-bar-labels">
-                                <span>Lot &amp; Land Value (${ev.acres.toFixed(2)} Ac / ${p.lot_sqft.toLocaleString()} sf)</span>
+                                <span>Lot &amp; Land Value (${hasListingMetric(p, 'lot_sqft') ? `${ev.acres.toFixed(2)} Ac / ${p.lot_sqft.toLocaleString()} sf` : 'Unknown lot size'})</span>
                                 <span class="mono">${ev.factors.lot.score}/100</span>
                             </div>
                             <div class="deal-bar-track">
@@ -2996,7 +3025,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         </div>
                         <div class="deal-bar-row">
                             <div class="deal-bar-labels">
-                                <span>Carrying Cost Savings (${p.hoa > 0 ? '$' + p.hoa + '/mo' : 'HOA unknown'})</span>
+                                <span>Carrying Cost Savings (${listingHoa(p)})</span>
                                 <span class="mono">${ev.factors.hoa.score}/100</span>
                             </div>
                             <div class="deal-bar-track">
@@ -3181,15 +3210,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 `"${p.state}"`,
                 `"${p.zip || ''}"`,
                 p.price,
-                p.beds,
-                p.baths,
+                hasListingMetric(p, 'beds') ? p.beds : '',
+                hasListingMetric(p, 'baths') ? p.baths : '',
                 p.sqft,
-                p.lot_sqft,
-                acres,
+                hasListingMetric(p, 'lot_sqft') ? p.lot_sqft : '',
+                hasListingMetric(p, 'lot_sqft') ? acres : '',
                 ppsqft,
-                p.year_built,
-                p.hoa,
-                p.garage,
+                hasListingMetric(p, 'year_built') ? p.year_built : '',
+                hasListingMetric(p, 'hoa') ? p.hoa : '',
+                hasListingMetric(p, 'garage') ? p.garage : '',
                 p.rating || 0,
                 p.favorite ? "Yes" : "No",
                 `"${notesClean}"`,
