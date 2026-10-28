@@ -1175,7 +1175,20 @@ document.addEventListener('DOMContentLoaded', () => {
     // -------------------------------------------------------------------------
     // Filtering, Sorting & Search Engine
     // -------------------------------------------------------------------------
+    function updateDualRangeTracks() {
+        [[priceMinSlider, priceMaxSlider], [sqftMinSlider, sqftMaxSlider]].forEach(([lower, upper]) => {
+            if (!lower || !upper) return;
+            const minimum = Number(lower.min);
+            const span = Number(lower.max) - minimum;
+            if (span <= 0) return;
+            const percent = value => Math.max(0, Math.min(100, (Number(value) - minimum) / span * 100));
+            lower.parentElement.style.setProperty('--range-start', `${percent(lower.value)}%`);
+            lower.parentElement.style.setProperty('--range-end', `${percent(upper.value)}%`);
+        });
+    }
+
     function applyFilters(resetLimit = true) {
+        updateDualRangeTracks();
         const searchTerms = filterState.search.trim().toLowerCase().split(/\s+/).filter(Boolean);
         const mapBounds = (map && filterState.mapBoundsOnly) ? map.getBounds() : null;
 
@@ -3681,6 +3694,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 filterState.minPrice = min;
                 if (priceRangeDisplay) priceRangeDisplay.textContent = `$${Math.round(min/1000)}k – $${Math.round(max/1000)}k`;
                 priceMinSlider.style.zIndex = min > 500000 ? '3' : '2';
+                updateDualRangeTracks();
                 triggerFilterDebounced(40);
             });
             priceMinSlider.addEventListener('change', applyFilters);
@@ -3697,6 +3711,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 filterState.maxPrice = max;
                 if (priceRangeDisplay) priceRangeDisplay.textContent = `$${Math.round(min/1000)}k – $${Math.round(max/1000)}k`;
                 priceMinSlider.style.zIndex = min > 500000 ? '3' : '2';
+                updateDualRangeTracks();
                 triggerFilterDebounced(40);
             });
             priceMaxSlider.addEventListener('change', applyFilters);
@@ -3714,6 +3729,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 filterState.minSqft = min;
                 if (sqftRangeDisplay) sqftRangeDisplay.textContent = `${min.toLocaleString()} – ${max.toLocaleString()} sqft`;
                 sqftMinSlider.style.zIndex = min > 2400 ? '3' : '2';
+                updateDualRangeTracks();
                 triggerFilterDebounced(40);
             });
             sqftMinSlider.addEventListener('change', applyFilters);
@@ -3730,6 +3746,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 filterState.maxSqft = max;
                 if (sqftRangeDisplay) sqftRangeDisplay.textContent = `${min.toLocaleString()} – ${max.toLocaleString()} sqft`;
                 sqftMinSlider.style.zIndex = min > 2400 ? '3' : '2';
+                updateDualRangeTracks();
                 triggerFilterDebounced(40);
             });
             sqftMaxSlider.addEventListener('change', applyFilters);

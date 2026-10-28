@@ -530,10 +530,14 @@ html, body {
 .range-dual-container::before {
     content: '';
     position: absolute;
-    left: 0;
-    right: 0;
+    left: 8px;
+    right: 8px;
     height: 5px;
-    background: #e2e8f0;
+    background: linear-gradient(to right,
+        var(--bg-surface-tertiary) var(--range-start, 0%),
+        var(--brand-primary) var(--range-start, 0%),
+        var(--brand-primary) var(--range-end, 100%),
+        var(--bg-surface-tertiary) var(--range-end, 100%));
     border-radius: 4px;
     z-index: 1;
     pointer-events: none;
