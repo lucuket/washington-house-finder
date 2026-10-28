@@ -1,25 +1,34 @@
+"""Washington Home Search - local backend.
+
+The public site is a static GitHub Pages deploy; this FastAPI app is the
+local-development / private-tunnel backend. It serves the same static files
+plus a small JSON API for filtering, analytics, CSV export, personal research
+(favorites, ratings, notes), and the permission-gated live refresh.
+
+Environment:
+    HOST / PORT            Bind address (default 127.0.0.1:8000).
+    WHS_READ_ONLY=1        Reject every write (notes, favorites, refresh); use
+                           this whenever the server is exposed publicly.
+    REALTOR_SCRAPING_AUTHORIZED=yes
+                           Required for live refresh; see README.
+"""
+from __future__ import annotations
+
 import asyncio
-import csv
-import io
 import json
 import logging
 import os
-import sys
 import threading
-from typing import Any, Dict, List, Optional
-import statistics
+from contextlib import asynccontextmanager
+from typing import Any, Dict, Optional
 
-# Windows Proactor event loop policy
-if sys.platform == "win32":
-    try:
-        asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
-    except Exception:
-        pass
-
-from fastapi import FastAPI, HTTPException, Request, Response
+from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, StreamingResponse
+from fastapi.middleware.gzip import GZipMiddleware
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
 
+from analytics import ListingFilter, apply_filters, compute_stats, listings_to_csv, sort_listings
+from datastore import BASE_DIR, PropertyStore
 from models import (
     FavoriteToggle,
     PropertyListing,
@@ -27,200 +36,164 @@ from models import (
     ScrapeJobStatus,
     SearchCriteria,
 )
-from scraper_service import run_live_scraper
+from scraper_service import ScrapeError, run_live_scraper, scraping_authorized
 
-# Setup logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger("washington-home-search")
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-PROPERTIES_FILE = os.path.join(BASE_DIR, "properties.json")
+APP_VERSION = "3.0.0"
 INDEX_FILE = os.path.join(BASE_DIR, "index.html")
+
+# Files the browser may request from the project root. Anything else is a 404,
+# so listing data and source files are never exposed by accident.
+STATIC_FILES: Dict[str, tuple] = {
+    "/styles.css": ("styles.css", "text/css"),
+    "/app.js": ("app.js", "application/javascript"),
+    "/data.js": ("data.js", "application/javascript"),
+    "/data/fcc_wa_broadband_by_city.json": (
+        os.path.join("data", "fcc_wa_broadband_by_city.json"), "application/json"),
+    "/data/listing_snapshot.json": (
+        os.path.join("data", "listing_snapshot.json"), "application/json"),
+}
+
+
+def read_only() -> bool:
+    return os.environ.get("WHS_READ_ONLY") == "1"
+
+
+def require_writable() -> None:
+    if read_only():
+        raise HTTPException(status_code=403, detail="Server is in read-only mode.")
+
+
+store = PropertyStore()
+
+
+class ScrapeJobTracker:
+    """Thread-safe progress and log state for the single live-refresh job."""
+
+    MAX_LOGS = 200
+
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        self._state = ScrapeJobStatus()
+
+    def try_start(self) -> bool:
+        """Atomically claim the job slot; ``False`` if one is already running."""
+        with self._lock:
+            if self._state.is_active:
+                return False
+            self._state = ScrapeJobStatus(is_active=True, progress=5,
+                                          message="Initializing live scraper...")
+            return True
+
+    def log(self, message: str) -> None:
+        logger.info("[Scraper] %s", message)
+        with self._lock:
+            self._state.logs = (self._state.logs + [message])[-self.MAX_LOGS:]
+            self._state.message = message
+
+    def progress(self, percent: int, message: str) -> None:
+        with self._lock:
+            self._state.progress = percent
+            self._state.message = message
+
+    def finish(self, message: str, matched: Optional[int] = None) -> None:
+        with self._lock:
+            self._state.progress = 100
+            self._state.message = message
+            if matched is not None:
+                self._state.matched_count = matched
+            self._state.is_active = False
+
+    def snapshot(self) -> ScrapeJobStatus:
+        with self._lock:
+            return self._state.model_copy(deep=True)
+
+
+scrape_job = ScrapeJobTracker()
+_background_tasks: set = set()
+_properties_cache: Dict[str, Any] = {"version": -1, "body": b""}
+
+
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    store.load()
+    yield
+
 
 app = FastAPI(
     title="Washington Home Search API",
     description="REST API for Washington real estate discovery, mapping, comparison, and analysis.",
-    version="2.1.0",
+    version=APP_VERSION,
+    lifespan=lifespan,
 )
 
+# The UI is served same-origin, so CORS only needs to admit other local ports
+# (e.g. a static preview server) - never arbitrary websites.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=False,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origin_regex=r"https?://(localhost|127\.0\.0\.1)(:\d+)?",
+    allow_methods=["GET", "POST", "PATCH"],
+    allow_headers=["Content-Type"],
 )
-
-# Global in-memory property cache and thread safety lock
-db_lock = threading.Lock()
-properties_db: List[Dict[str, Any]] = []
-
-# Global scraping status tracker
-scraper_lock = threading.Lock()
-scraper_state = ScrapeJobStatus()
+app.add_middleware(GZipMiddleware, minimum_size=1024)
 
 
-def normalize_property(item: Dict[str, Any]) -> Dict[str, Any]:
-    """Ensures each property dictionary adheres to strict model schema with ID & coordinates."""
-    address = str(item.get("address", "Address Available On Request"))
-    city = str(item.get("city", "Washington")).title()
-    state = str(item.get("state", "WA"))
-    zip_code = str(item.get("zip", ""))
-    price = int(item.get("price", 0))
+# -----------------------------------------------------------------------------
+# Static & raw data routes
+# -----------------------------------------------------------------------------
 
-    prop_id = item.get("id")
-    if not prop_id:
-        import hashlib
-        h = hashlib.md5(f"{address}_{city}_{price}".encode()).hexdigest()[:12]
-        prop_id = f"prop_{h}"
+@app.get("/", response_class=HTMLResponse, include_in_schema=False)
+async def serve_root():
+    if not os.path.exists(INDEX_FILE):
+        return HTMLResponse("<h1>Washington Home Search: index.html not found</h1>", status_code=404)
+    return FileResponse(INDEX_FILE, media_type="text/html")
 
-    lat = item.get("latitude")
-    lng = item.get("longitude")
 
-    # Clean photos list
-    photos = item.get("photos", [])
-    if isinstance(photos, str):
-        try:
-            photos = json.loads(photos.replace("'", '"'))
-        except Exception:
-            photos = [p.strip() for p in photos.split(",") if p.strip()]
+def _static_route(url_path: str, relative: str, media_type: str) -> None:
+    full_path = os.path.join(BASE_DIR, relative)
 
-    clean_photos = []
-    seen = set()
-    for p in photos:
-        p_str = str(p).strip()
-        if p_str and p_str not in seen and p_str.startswith("http"):
-            seen.add(p_str)
-            clean_photos.append(p_str)
+    async def handler():
+        if not os.path.exists(full_path):
+            raise HTTPException(status_code=404, detail=f"{relative} not found")
+        return FileResponse(full_path, media_type=media_type)
 
-    res = {
-        "id": prop_id,
-        "address": address,
-        "city": city,
-        "state": state,
-        "zip": zip_code,
-        "price": price,
-        "beds": int(item.get("beds", 0)),
-        "baths": float(item.get("baths", 0.0)),
-        "sqft": int(item.get("sqft", 0)),
-        "lot_sqft": int(item.get("lot_sqft", 0)),
-        "year_built": int(item.get("year_built", 0)),
-        "hoa": int(item.get("hoa", 0)),
-        "garage": max(0, int(item.get("garage") or 0)),
-        "description": str(item.get("description", "")),
-        "url": str(item.get("url") or ""),
-        "photos": clean_photos,
-        "latitude": lat,
-        "longitude": lng,
-        "favorite": bool(item.get("favorite", False)),
-        "rating": int(item.get("rating", 0)),
-        "user_notes": str(item.get("user_notes", "")),
+    app.add_api_route(url_path, handler, methods=["GET"], include_in_schema=False,
+                      name=f"static:{relative}")
+
+
+for _url, (_relative, _type) in STATIC_FILES.items():
+    _static_route(_url, _relative, _type)
+
+
+@app.get("/properties.json", include_in_schema=False)
+async def serve_raw_properties():
+    """Full listing set including personal research, cached until data changes."""
+    version = store.version
+    if _properties_cache["version"] != version:
+        _properties_cache["body"] = json.dumps(store.all(), ensure_ascii=False).encode("utf-8")
+        _properties_cache["version"] = version
+    return Response(_properties_cache["body"], media_type="application/json",
+                    headers={"Cache-Control": "no-cache"})
+
+
+@app.get("/api/health")
+async def health():
+    return {
+        "status": "ok",
+        "version": APP_VERSION,
+        "listings": len(store),
+        "read_only": read_only(),
+        "scraping_authorized": scraping_authorized(),
     }
 
-    if "broadband" in item:
-        res["broadband"] = item["broadband"]
-
-    for field in ("unknown_fields", "source", "source_property_id", "source_listing_id",
-                  "status", "mls_status", "source_updated_at", "snapshot_date"):
-        if field in item:
-            res[field] = item[field]
-
-    return res
-
-
-def load_properties_from_disk():
-    """Loads and normalizes properties from properties.json."""
-    global properties_db
-    with db_lock:
-        if os.path.exists(PROPERTIES_FILE):
-            try:
-                with open(PROPERTIES_FILE, "r", encoding="utf-8") as f:
-                    raw_data = json.load(f)
-                properties_db = [normalize_property(p) for p in raw_data if isinstance(p, dict)]
-                logger.info(f"Loaded {len(properties_db)} properties from {PROPERTIES_FILE}")
-            except Exception as e:
-                logger.error(f"Failed to load properties.json: {e}")
-                properties_db = []
-        else:
-            logger.warning(f"Properties file not found at {PROPERTIES_FILE}")
-            properties_db = []
-
-
-def save_properties_to_disk_unlocked():
-    """Writes in-memory properties to properties.json (must be called within db_lock)."""
-    try:
-        with open(PROPERTIES_FILE, "w", encoding="utf-8") as f:
-            json.dump(properties_db, f, indent=2)
-        logger.info(f"Persisted {len(properties_db)} properties to {PROPERTIES_FILE}")
-    except Exception as e:
-        logger.error(f"Error saving to {PROPERTIES_FILE}: {e}")
-
-
-def save_properties_to_disk():
-    with db_lock:
-        save_properties_to_disk_unlocked()
-
-
-# Initialize database on module load
-load_properties_from_disk()
-
 
 # -----------------------------------------------------------------------------
-# Static & HTML Routes
+# Listing queries
 # -----------------------------------------------------------------------------
 
-@app.get("/", response_class=HTMLResponse)
-async def serve_root():
-    if os.path.exists(INDEX_FILE):
-        with open(INDEX_FILE, "r", encoding="utf-8") as f:
-            return HTMLResponse(content=f.read())
-    return HTMLResponse(content="<h1>Washington Home Search index.html not found!</h1>", status_code=404)
-
-
-@app.get("/styles.css")
-async def serve_styles():
-    css_path = os.path.join(BASE_DIR, "styles.css")
-    if os.path.exists(css_path):
-        return FileResponse(css_path, media_type="text/css")
-    raise HTTPException(status_code=404, detail="styles.css not found")
-
-
-@app.get("/app.js")
-async def serve_js():
-    js_path = os.path.join(BASE_DIR, "app.js")
-    if os.path.exists(js_path):
-        return FileResponse(js_path, media_type="application/javascript")
-    raise HTTPException(status_code=404, detail="app.js not found")
-
-
-@app.get("/wa-boundary.js")
-async def serve_wa_boundary():
-    boundary_path = os.path.join(BASE_DIR, "wa-boundary.js")
-    if os.path.exists(boundary_path):
-        return FileResponse(boundary_path, media_type="application/javascript")
-    raise HTTPException(status_code=404, detail="wa-boundary.js not found")
-
-
-@app.get("/data.js")
-async def serve_data_js():
-    data_path = os.path.join(BASE_DIR, "data.js")
-    if os.path.exists(data_path):
-        return FileResponse(data_path, media_type="application/javascript")
-    raise HTTPException(status_code=404, detail="data.js not found")
-
-
-@app.get("/properties.json")
-async def serve_raw_properties():
-    with db_lock:
-        return JSONResponse(properties_db)
-
-
-# -----------------------------------------------------------------------------
-# Property Search & Filter Endpoints
-# -----------------------------------------------------------------------------
-
-@app.get("/api/properties", response_model=List[PropertyListing])
-async def get_properties(
+def listing_filters(
     city: Optional[str] = None,
     min_price: Optional[int] = None,
     max_price: Optional[int] = None,
@@ -235,480 +208,120 @@ async def get_properties(
     min_rating: Optional[int] = None,
     favorites_only: bool = False,
     search: Optional[str] = None,
-    sort_by: str = "default",
-):
-    """Returns filtered and sorted property listings with full metadata."""
-    with db_lock:
-        results = list(properties_db)
+) -> ListingFilter:
+    """Query-string filters shared by listings, stats, and CSV export."""
+    return ListingFilter(
+        city=city, min_price=min_price, max_price=max_price, min_beds=min_beds,
+        min_baths=min_baths, min_sqft=min_sqft, max_sqft=max_sqft, min_lot=min_lot,
+        min_garage=min_garage, min_year=min_year, max_hoa=max_hoa, min_rating=min_rating,
+        favorites_only=favorites_only, search=search,
+    )
 
-    # Filter by City
-    if city and city.lower() != "all":
-        target_city = city.strip().lower()
-        results = [p for p in results if p["city"].lower() == target_city]
 
-    # Filter by Price Range
-    if min_price is not None:
-        results = [p for p in results if p["price"] >= min_price]
-    if max_price is not None:
-        results = [p for p in results if p["price"] <= max_price]
-
-    # Filter by Beds & Baths
-    if min_beds is not None:
-        results = [p for p in results if p["beds"] >= min_beds]
-    if min_baths is not None:
-        results = [p for p in results if p["baths"] >= min_baths]
-
-    # Filter by Sqft Range
-    if min_sqft is not None:
-        results = [p for p in results if p["sqft"] >= min_sqft]
-    if max_sqft is not None:
-        results = [p for p in results if p["sqft"] <= max_sqft]
-
-    # Filter by Lot Size
-    if min_lot is not None:
-        results = [p for p in results if p["lot_sqft"] >= min_lot]
-
-    # Filter by Garage
-    if min_garage is not None:
-        results = [p for p in results if p["garage"] >= min_garage]
-
-    # Filter by Year Built
-    if min_year is not None:
-        results = [p for p in results if p["year_built"] >= min_year]
-
-    # Filter by HOA
-    if max_hoa is not None:
-        results = [p for p in results if p["hoa"] <= max_hoa]
-
-    # Filter by Star Rating
-    if min_rating is not None and min_rating > 0:
-        results = [p for p in results if p["rating"] >= min_rating]
-
-    # Filter by Favorites
-    if favorites_only:
-        results = [p for p in results if p.get("favorite", False)]
-
-    # Keyword Search
-    if search and search.strip():
-        q = search.strip().lower()
-        results = [
-            p
-            for p in results
-            if q in p["address"].lower()
-            or q in p["city"].lower()
-            or q in p["zip"].lower()
-            or q in p["description"].lower()
-            or q in p.get("user_notes", "").lower()
-        ]
-
-    # Sorting
-    if sort_by == "price_asc":
-        results.sort(key=lambda x: x["price"])
-    elif sort_by == "price_desc":
-        results.sort(key=lambda x: x["price"], reverse=True)
-    elif sort_by == "sqft_desc":
-        results.sort(key=lambda x: x["sqft"], reverse=True)
-    elif sort_by == "lot_desc":
-        results.sort(key=lambda x: x["lot_sqft"], reverse=True)
-    elif sort_by == "year_desc":
-        results.sort(key=lambda x: x["year_built"], reverse=True)
-    elif sort_by == "rating_desc":
-        results.sort(key=lambda x: x["rating"], reverse=True)
-    elif sort_by == "price_per_sqft_asc":
-        results.sort(key=lambda x: (x["price"] / max(1, x["sqft"])))
-
-    return results
+@app.get("/api/properties")
+async def get_properties(filters: ListingFilter = Depends(listing_filters), sort_by: str = "default"):
+    """Filtered and sorted listings. Unknown specs keep their ``unknown_fields`` marker."""
+    results = sort_listings(apply_filters(store.all(), filters), sort_by)
+    return JSONResponse(results)
 
 
 @app.get("/api/properties/{property_id}", response_model=PropertyListing)
 async def get_property_by_id(property_id: str):
-    """Retrieve details for a single property by its ID."""
-    with db_lock:
-        for p in properties_db:
-            if p["id"] == property_id:
-                return p
-    raise HTTPException(status_code=404, detail="Property listing not found")
+    listing = store.get(property_id)
+    if listing is None:
+        raise HTTPException(status_code=404, detail="Property listing not found")
+    return listing
 
 
-@app.patch("/api/properties/{property_id}/note", response_model=PropertyListing)
+@app.patch("/api/properties/{property_id}/note", response_model=PropertyListing,
+           dependencies=[Depends(require_writable)])
 async def update_property_note(property_id: str, note_data: PropertyNoteUpdate):
-    """Updates user notes, star rating, and/or favorite status for a listing and persists to disk."""
-    with db_lock:
-        for p in properties_db:
-            if p["id"] == property_id:
-                if note_data.rating is not None:
-                    p["rating"] = note_data.rating
-                if note_data.user_notes is not None:
-                    p["user_notes"] = note_data.user_notes
-                if note_data.favorite is not None:
-                    p["favorite"] = note_data.favorite
-                
-                save_properties_to_disk_unlocked()
-                return p
-                
-    raise HTTPException(status_code=404, detail="Property not found")
+    """Update notes, rating, and/or favorite; persisted to ``data/user_state.json``."""
+    updated = await asyncio.to_thread(
+        store.update_user, property_id,
+        rating=note_data.rating, user_notes=note_data.user_notes, favorite=note_data.favorite,
+    )
+    if updated is None:
+        raise HTTPException(status_code=404, detail="Property not found")
+    return updated
 
 
-@app.post("/api/properties/{property_id}/favorite", response_model=PropertyListing)
+@app.post("/api/properties/{property_id}/favorite", response_model=PropertyListing,
+          dependencies=[Depends(require_writable)])
 async def toggle_property_favorite(property_id: str, toggle_data: Optional[FavoriteToggle] = None):
-    """Toggles or sets the favorite status of a property and persists to disk."""
-    with db_lock:
-        for p in properties_db:
-            if p["id"] == property_id:
-                if toggle_data is not None:
-                    p["favorite"] = toggle_data.favorite
-                else:
-                    p["favorite"] = not p.get("favorite", False)
-                
-                save_properties_to_disk_unlocked()
-                return p
-                
-    raise HTTPException(status_code=404, detail="Property not found")
+    """Set (or, with no body, toggle) the favorite flag."""
+    updated = await asyncio.to_thread(
+        store.toggle_favorite, property_id, toggle_data.favorite if toggle_data else None)
+    if updated is None:
+        raise HTTPException(status_code=404, detail="Property not found")
+    return updated
 
-
-# -----------------------------------------------------------------------------
-# Analytics & Stats Endpoint (Supports live filtered queries)
-# -----------------------------------------------------------------------------
 
 @app.get("/api/stats")
-async def get_properties_stats(
-    city: Optional[str] = None,
-    min_price: Optional[int] = None,
-    max_price: Optional[int] = None,
-    min_beds: Optional[int] = None,
-    min_baths: Optional[float] = None,
-    min_sqft: Optional[int] = None,
-    max_sqft: Optional[int] = None,
-    min_lot: Optional[int] = None,
-    min_garage: Optional[int] = None,
-    min_year: Optional[int] = None,
-    max_hoa: Optional[int] = None,
-    min_rating: Optional[int] = None,
-    favorites_only: bool = False,
-    search: Optional[str] = None,
-):
-    """Provides aggregated market analytics across all or filtered Washington listings."""
-    listings = await get_properties(
-        city=city,
-        min_price=min_price,
-        max_price=max_price,
-        min_beds=min_beds,
-        min_baths=min_baths,
-        min_sqft=min_sqft,
-        max_sqft=max_sqft,
-        min_lot=min_lot,
-        min_garage=min_garage,
-        min_year=min_year,
-        max_hoa=max_hoa,
-        min_rating=min_rating,
-        favorites_only=favorites_only,
-        search=search,
-    )
+async def get_properties_stats(filters: ListingFilter = Depends(listing_filters)):
+    """Market analytics across all or filtered listings (unknown specs excluded)."""
+    return compute_stats(apply_filters(store.all(), filters))
 
-    total = len(listings)
-    if total == 0:
-        return {
-            "total_listings": 0,
-            "favorites_count": 0,
-            "rated_count": 0,
-            "avg_price": 0,
-            "median_price": 0,
-            "min_price": 0,
-            "max_price": 0,
-            "avg_sqft": 0,
-            "median_sqft": 0,
-            "avg_price_per_sqft": 0,
-            "median_price_per_sqft": 0,
-            "avg_lot_sqft": 0,
-            "median_lot_sqft": 0,
-            "city_counts": {},
-            "price_ranges": {},
-            "garage_distribution": {},
-            "year_built_distribution": {},
-        }
-
-    prices = [p["price"] for p in listings]
-    sqfts = [p["sqft"] for p in listings if p["sqft"] > 0]
-    lots = [p["lot_sqft"] for p in listings if p["lot_sqft"] > 0]
-    prices_per_sqft = [p["price"] / p["sqft"] for p in listings if p["sqft"] > 0]
-
-    avg_price = int(statistics.mean(prices))
-    median_price = int(statistics.median(prices))
-    min_price = min(prices)
-    max_price = max(prices)
-    avg_sqft = int(statistics.mean(sqfts)) if sqfts else 0
-    median_sqft = int(statistics.median(sqfts)) if sqfts else 0
-    avg_lot_sqft = int(statistics.mean(lots)) if lots else 0
-    median_lot_sqft = int(statistics.median(lots)) if lots else 0
-    avg_ppsqft = int(statistics.mean(prices_per_sqft)) if prices_per_sqft else 0
-    median_ppsqft = int(statistics.median(prices_per_sqft)) if prices_per_sqft else 0
-
-    favorites_count = sum(1 for p in listings if p.get("favorite", False))
-    rated_count = sum(1 for p in listings if p.get("rating", 0) > 0)
-
-    # City counts
-    city_counts: Dict[str, int] = {}
-    for p in listings:
-        c = p.get("city") or "Other"
-        city_counts[c] = city_counts.get(c, 0) + 1
-
-    # Price bracket distribution
-    price_ranges = {
-        "< $375k": sum(1 for p in prices if p < 375000),
-        "$375k - $400k": sum(1 for p in prices if 375000 <= p < 400000),
-        "$400k - $425k": sum(1 for p in prices if 400000 <= p < 425000),
-        "$425k - $450k": sum(1 for p in prices if 425000 <= p < 450000),
-        "$450k - $475k": sum(1 for p in prices if 450000 <= p < 475000),
-        "$475k+": sum(1 for p in prices if p >= 475000),
-    }
-
-    # Garage distribution
-    garage_dist: Dict[str, int] = {}
-    for p in listings:
-        garage_val = p.get("garage", 0)
-        g = f"{garage_val} Car" if garage_val > 0 else "No Garage"
-        garage_dist[g] = garage_dist.get(g, 0) + 1
-
-    # Year built distribution
-    year_dist = {
-        "Pre-1980": sum(1 for p in listings if p.get("year_built", 0) < 1980 and p.get("year_built", 0) > 0),
-        "1980 - 1999": sum(1 for p in listings if 1980 <= p.get("year_built", 0) < 2000),
-        "2000 - 2015": sum(1 for p in listings if 2000 <= p.get("year_built", 0) < 2016),
-        "2016+": sum(1 for p in listings if p.get("year_built", 0) >= 2016),
-    }
-
-    return {
-        "total_listings": total,
-        "favorites_count": favorites_count,
-        "rated_count": rated_count,
-        "avg_price": avg_price,
-        "median_price": median_price,
-        "min_price": min_price,
-        "max_price": max_price,
-        "avg_sqft": avg_sqft,
-        "median_sqft": median_sqft,
-        "avg_lot_sqft": avg_lot_sqft,
-        "median_lot_sqft": median_lot_sqft,
-        "avg_price_per_sqft": avg_ppsqft,
-        "median_price_per_sqft": median_ppsqft,
-        "city_counts": dict(sorted(city_counts.items(), key=lambda item: item[1], reverse=True)),
-        "price_ranges": price_ranges,
-        "garage_distribution": garage_dist,
-        "year_built_distribution": year_dist,
-    }
-
-
-# -----------------------------------------------------------------------------
-# CSV Export Endpoint
-# -----------------------------------------------------------------------------
 
 @app.get("/api/export/csv")
-async def export_properties_csv(
-    city: Optional[str] = None,
-    min_price: Optional[int] = None,
-    max_price: Optional[int] = None,
-    min_beds: Optional[int] = None,
-    min_baths: Optional[float] = None,
-    min_sqft: Optional[int] = None,
-    max_sqft: Optional[int] = None,
-    min_lot: Optional[int] = None,
-    min_garage: Optional[int] = None,
-    min_year: Optional[int] = None,
-    max_hoa: Optional[int] = None,
-    min_rating: Optional[int] = None,
-    favorites_only: bool = False,
-    search: Optional[str] = None,
-):
-    """Exports matched listings to an Excel/Google Sheets compatible CSV file."""
-    filtered_listings = await get_properties(
-        city=city,
-        min_price=min_price,
-        max_price=max_price,
-        min_beds=min_beds,
-        min_baths=min_baths,
-        min_sqft=min_sqft,
-        max_sqft=max_sqft,
-        min_lot=min_lot,
-        min_garage=min_garage,
-        min_year=min_year,
-        max_hoa=max_hoa,
-        min_rating=min_rating,
-        favorites_only=favorites_only,
-        search=search,
-    )
-
-    output = io.StringIO()
-    writer = csv.writer(output, quoting=csv.QUOTE_MINIMAL)
-
-    writer.writerow([
-        "Property ID",
-        "Address",
-        "City",
-        "State",
-        "Zip Code",
-        "Price ($)",
-        "Bedrooms",
-        "Bathrooms",
-        "Living SqFt",
-        "Lot Size (sqft)",
-        "Lot Size (acres)",
-        "Price/SqFt ($)",
-        "Year Built",
-        "HOA Monthly ($)",
-        "Garage Spaces",
-        "User Rating (0-5)",
-        "Favorite",
-        "User Notes",
-        "Latitude",
-        "Longitude",
-        "Listing URL",
-    ])
-
-    for p in filtered_listings:
-        sqft = p.get("sqft", 0)
-        lot_sqft = p.get("lot_sqft", 0)
-        price = p.get("price", 0)
-        ppsqft = round(price / max(1, sqft), 2)
-        lot_acres = round(lot_sqft / 43560, 3)
-        writer.writerow([
-            p.get("id", ""),
-            p.get("address", ""),
-            p.get("city", ""),
-            p.get("state", ""),
-            p.get("zip", ""),
-            price,
-            p.get("beds", 0),
-            p.get("baths", 0),
-            sqft,
-            lot_sqft,
-            lot_acres,
-            ppsqft,
-            p.get("year_built", 0),
-            p.get("hoa", 0),
-            p.get("garage", 0),
-            p.get("rating", 0),
-            "Yes" if p.get("favorite") else "No",
-            str(p.get("user_notes", "")).replace("\n", " ").replace("\r", ""),
-            p.get("latitude", ""),
-            p.get("longitude", ""),
-            p.get("url", ""),
-        ])
-
-    output.seek(0)
-    return StreamingResponse(
-        iter([output.getvalue()]),
-        media_type="text/csv",
+async def export_properties_csv(filters: ListingFilter = Depends(listing_filters),
+                                sort_by: str = "default"):
+    """CSV of matched listings; unknown specifications export as blank cells."""
+    listings = sort_listings(apply_filters(store.all(), filters), sort_by)
+    # UTF-8 BOM so Excel decodes non-ASCII text correctly.
+    body = "\ufeff" + listings_to_csv(listings)
+    return Response(
+        body.encode("utf-8"), media_type="text/csv; charset=utf-8",
         headers={"Content-Disposition": 'attachment; filename="washington_properties_export.csv"'},
     )
 
 
 # -----------------------------------------------------------------------------
-# Live Scraper Execution & Progress Tracking
+# Live refresh
 # -----------------------------------------------------------------------------
 
-def append_scraper_log(msg: str):
-    logger.info(f"[Scraper] {msg}")
-    with scraper_lock:
-        scraper_state.logs.append(msg)
-        scraper_state.message = msg
-        if len(scraper_state.logs) > 200:
-            scraper_state.logs = scraper_state.logs[-200:]
-
-
-def update_scraper_progress(prog: int, message: str):
-    with scraper_lock:
-        scraper_state.progress = prog
-        scraper_state.message = message
-
-
-async def run_scraper_background(criteria_dict: Dict[str, Any]):
-    """Background task running live HomeHarvest scraper and updating in-memory DB."""
-    global properties_db
-    with scraper_lock:
-        scraper_state.is_active = True
-        scraper_state.progress = 5
-        scraper_state.message = "Initializing live scraper..."
-        scraper_state.logs = []
-        scraper_state.discovered_count = 0
-        scraper_state.processed_count = 0
-        scraper_state.matched_count = 0
-
+async def run_scraper_job(criteria: Dict[str, Any]) -> None:
+    """Collect listings, merge them into the store, and report progress."""
     try:
-        new_matched = await run_live_scraper(
-            criteria=criteria_dict,
-            log_callback=append_scraper_log,
-            progress_callback=update_scraper_progress,
-        )
-
-        with scraper_lock:
-            scraper_state.matched_count = len(new_matched)
-
-        if new_matched:
-            with db_lock:
-                existing_map = {p["url"]: p for p in properties_db}
-                for n in new_matched:
-                    normalized = normalize_property(n)
-                    if normalized["url"] in existing_map:
-                        old = existing_map[normalized["url"]]
-                        normalized["rating"] = old.get("rating", 0)
-                        normalized["user_notes"] = old.get("user_notes", "")
-                        normalized["favorite"] = old.get("favorite", False)
-                        existing_map[normalized["url"]] = normalized
-                    else:
-                        existing_map[normalized["url"]] = normalized
-
-                properties_db = list(existing_map.values())
-                save_properties_to_disk_unlocked()
-
-            append_scraper_log(f"Merged {len(new_matched)} listings into database. Total active: {len(properties_db)}")
-
-        with scraper_lock:
-            scraper_state.progress = 100
-            scraper_state.message = f"Scan complete! {len(new_matched)} properties processed."
-    except Exception as e:
-        logger.error(f"Live scraper error: {e}")
-        append_scraper_log(f"Error occurred during scraping: {e}")
-        with scraper_lock:
-            scraper_state.progress = 100
-            scraper_state.message = f"Scraper error: {e}"
-    finally:
-        with scraper_lock:
-            scraper_state.is_active = False
+        collected = await run_live_scraper(
+            criteria=criteria, log_callback=scrape_job.log, progress_callback=scrape_job.progress)
+        merged = await asyncio.to_thread(store.merge, collected) if collected else None
+        if merged:
+            scrape_job.log(f"Merged {merged.total} listings ({merged.added} new, "
+                           f"{merged.updated} updated). Total active: {len(store)}")
+        scrape_job.finish(f"Scan complete! {len(collected)} properties processed.", len(collected))
+    except ScrapeError as exc:
+        logger.warning("Live refresh stopped: %s", exc)
+        scrape_job.log(f"Error occurred during scraping: {exc}")
+        scrape_job.finish(f"Scraper error: {exc}")
+    except Exception as exc:  # Never leave the job slot claimed.
+        logger.exception("Live scraper crashed")
+        scrape_job.log(f"Error occurred during scraping: {exc}")
+        scrape_job.finish(f"Scraper error: {exc}")
 
 
-@app.post("/api/search")
+@app.post("/api/search", dependencies=[Depends(require_writable)])
 async def start_search(criteria: SearchCriteria):
-    """Starts live scraping job in background."""
-    with scraper_lock:
-        if scraper_state.is_active:
-            raise HTTPException(status_code=400, detail="A scraping job is already running.")
-
-    def run_worker():
-        if sys.platform == "win32":
-            asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        try:
-            loop.run_until_complete(run_scraper_background(criteria.model_dump()))
-        finally:
-            loop.close()
-
-    thread = threading.Thread(target=run_worker, daemon=True)
-    thread.start()
-
+    """Start the live refresh job in the background."""
+    if not scrape_job.try_start():
+        raise HTTPException(status_code=409, detail="A scraping job is already running.")
+    task = asyncio.create_task(run_scraper_job(criteria.model_dump()))
+    _background_tasks.add(task)
+    task.add_done_callback(_background_tasks.discard)
     return {"status": "Live scraping job started successfully in background."}
 
 
 @app.get("/api/status", response_model=ScrapeJobStatus)
 async def get_scrape_status():
-    """Returns current scraping job status and console logs."""
-    with scraper_lock:
-        return scraper_state
+    """Current refresh job status and console logs."""
+    return scrape_job.snapshot()
 
 
 if __name__ == "__main__":
     import uvicorn
+
     port = int(os.environ.get("PORT", 8000))
-    host = os.environ.get("HOST", "0.0.0.0")
-    logger.info(f"Starting Washington Home Search server on {host}:{port}")
-    uvicorn.run("app:app", host=host, port=port, reload=False)
+    host = os.environ.get("HOST", "127.0.0.1")
+    logger.info("Starting Washington Home Search server on %s:%s%s", host, port,
+                " (read-only)" if read_only() else "")
+    uvicorn.run(app, host=host, port=port, reload=False)

@@ -22,7 +22,7 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
 
     <!-- Application Stylesheet -->
-    <link rel="stylesheet" href="styles.css?v=4.5">
+    <link rel="stylesheet" href="styles.css?v=4.6">
 </head>
 <body class="density-comfortable">
 
@@ -201,15 +201,15 @@
                     <div class="filter-block">
                         <div class="filter-label-split">
                             <span class="filter-label">Price Range</span>
-                            <span class="filter-value-display mono" id="price-range-display">$250k – $750k</span>
+                            <span class="filter-value-display mono" id="price-range-display">$200k – $750k</span>
                         </div>
                         <div class="range-dual-container">
-                            <input type="range" id="price-min-slider" min="250000" max="750000" step="5000" value="250000" aria-label="Minimum Price">
-                            <input type="range" id="price-max-slider" min="250000" max="750000" step="5000" value="750000" aria-label="Maximum Price">
+                            <input type="range" id="price-min-slider" min="200000" max="750000" step="5000" value="200000" aria-label="Minimum Price">
+                            <input type="range" id="price-max-slider" min="200000" max="750000" step="5000" value="750000" aria-label="Maximum Price">
                         </div>
                         <div class="range-labels mono">
-                            <span>$250k</span>
-                            <span>$500k</span>
+                            <span>$200k</span>
+                            <span>$475k</span>
                             <span>$750k</span>
                         </div>
                     </div>
@@ -251,11 +251,11 @@
                     <div class="filter-block">
                         <div class="filter-label-split">
                             <span class="filter-label">Living Area (SqFt)</span>
-                            <span class="filter-value-display mono" id="sqft-range-display">800 – 4,000 sqft</span>
+                            <span class="filter-value-display mono" id="sqft-range-display">0 – 6,000+ sqft</span>
                         </div>
                         <div class="range-dual-container">
-                            <input type="range" id="sqft-min-slider" min="800" max="4000" step="50" value="800" aria-label="Minimum Living Area">
-                            <input type="range" id="sqft-max-slider" min="800" max="4000" step="50" value="4000" aria-label="Maximum Living Area">
+                            <input type="range" id="sqft-min-slider" min="0" max="6000" step="50" value="0" aria-label="Minimum Living Area">
+                            <input type="range" id="sqft-max-slider" min="0" max="6000" step="50" value="6000" aria-label="Maximum Living Area">
                         </div>
                     </div>
 
@@ -263,7 +263,7 @@
                     <div class="filter-block">
                         <div class="filter-label-split">
                             <span class="filter-label">Max HOA Fee</span>
-                            <span class="filter-value-display mono" id="hoa-display">&le; $300/mo</span>
+                            <span class="filter-value-display mono" id="hoa-display">No Limit</span>
                         </div>
                         <input type="range" id="hoa-slider" min="0" max="300" step="5" value="300" class="single-range" aria-label="Maximum Monthly HOA Fee">
                     </div>
@@ -282,9 +282,9 @@
                             <div class="filter-block sub-block">
                                 <div class="filter-label-split">
                                     <span class="filter-label">Min Lot Size</span>
-                                    <span class="filter-value-display mono" id="lot-display">2,000+ sqft</span>
+                                    <span class="filter-value-display mono" id="lot-display">Any Lot</span>
                                 </div>
-                                <input type="range" id="lot-slider" min="2000" max="35000" step="500" value="2000" class="single-range" aria-label="Minimum Lot Size">
+                                <input type="range" id="lot-slider" min="0" max="35000" step="500" value="0" class="single-range" aria-label="Minimum Lot Size">
                             </div>
 
                             <!-- Min Year Built -->

@@ -1,56 +1,39 @@
-# Washington Home Search
+# Washington Home Search — Property Research Workstation
 
-Personal property-research workstation for Washington state homes.
-Live site is a **static GitHub Pages deploy** — no server runs in production.
+A high-density residential property research workstation for analyzing, filtering, mapping, and comparing single-family listings across Washington State.
 
-## Data refresh and deployment
+## Live Deployment
+- **GitHub Pages (Static Workstation)**: `https://Timmytime12.github.io/washington-house-finder/`
 
-The site is a static GitHub Pages deploy; no live scraper runs there. The
-listing snapshot was refreshed October 28, 2026 and contains 4,225 distinct
-active single-family listings returned for 20 Washington markets in the
-$200,000–$750,000 range. This is a dated snapshot, not a complete MLS feed;
-verify current availability and price at the source. `data/listing_snapshot.json`
-records the markets, source counts, rejected records, and missing-field counts.
-Existing property IDs and saved research were retained where listing URLs matched.
+## Architecture Overview
 
-Missing numeric specifications are represented internally by zero plus an
-`unknown_fields` entry. The interface and CSV export distinguish these from
-reported zero garage spaces or HOA dues. No missing values are inferred from
-old listing records.
+### Frontend Workstation (Static-First)
+- **[`index.html`](index.html)**: Semantic workstation shell with split cards/map view, full-bleed GIS map, top value deals evaluation view, reactive analytics dashboard, side-by-side comparison matrix, and mortgage calculator.
+- **[`app.js`](app.js)**: Vanilla JavaScript client engine with O(1) property lookup (`Map`), lazy Leaflet popup binding, `unknown_fields`-aware filtering/scoring, FCC broadband city coverage integration, URL hash state sync, and local persistence (`localStorage`).
+- **[`styles.css`](styles.css)**: High-density workstation design system using CSS custom properties without external UI frameworks or glassmorphism.
+- **[`properties.json`](properties.json)** & **[`data.js`](data.js)**: Primary JSON dataset (4,225 Washington listings) and generated `window.INITIAL_PROPERTIES` fallback bundle for offline `file://` usage.
+- **[`data/fcc_wa_broadband_by_city.json`](data/fcc_wa_broadband_by_city.json)**: Derived FCC Broadband Data Collection (BDC) city-level fiber and cable coverage summary.
 
-Realtor.com's [terms](https://www.realtor.com/terms-of-service/) and
-[robots.txt](https://www.realtor.com/robots.txt) require express written
-permission for automated collection. Use a data feed licensed for the intended
-use and publication, then update `properties.json` and run
-`python build_data_js.py` to regenerate the local-preview fallback. Deploy
-both files together, and update the snapshot date in `index.html` to reflect
-the date of the new data.
+### Modular Python Backend & Data Pipeline
+- **[`app.py`](app.py)**: FastAPI backend with lifespan-managed `PropertyStore`, GZip compression, localhost-only CORS, whitelisted static asset serving, read-only deployment guard (`WHS_READ_ONLY=1`), and non-blocking user-state persistence.
+- **[`datastore.py`](datastore.py)**: Thread-safe `PropertyStore` separating publishable listing data (`properties.json`) from personal research state (`data/user_state.json`), with atomic file writes, WA coordinate bounds checking, and URL-based merge deduplication.
+- **[`analytics.py`](analytics.py)**: Pure filtering (`ListingFilter`, `apply_filters`), sorting (`sort_listings` with unknown-metric-last ordering), market statistics (`compute_stats`), and CSV export (`listings_to_csv` with spreadsheet formula-injection protection).
+- **[`models.py`](models.py)**: Pydantic v2 schemas for `PropertyListing`, `SearchCriteria`, `PropertyNoteUpdate`, and `ScrapeStatus`.
+- **[`scraper_service.py`](scraper_service.py)** & **[`scraper.py`](scraper.py)**: Permission-gated CLI and service (`REALTOR_SCRAPING_AUTHORIZED=yes`) that merges refreshed listings into `PropertyStore` without overwriting saved IDs or user notes/ratings.
+- **[`build_data_js.py`](build_data_js.py)**: Atomic generator for `data.js` with `--check` verification mode.
+- **[`validate_data.py`](validate_data.py)**: Dataset & static bundle integrity validator (`--strict`, `--json`).
+- **[`tests/`](tests/)**: Automated `pytest` suite (71 tests) covering datastore, analytics, API routes, scraper normalization, and live dataset integrity.
 
-The legacy HomeHarvest scraper is disabled unless
-`REALTOR_SCRAPING_AUTHORIZED=yes` is set after obtaining express written
-permission. Even then, HomeHarvest controls its own requests and retries; the
-wrapper cannot guarantee a request rate or prevent a block. Stop after access
-errors or challenges. A failed refresh leaves the existing data unchanged.
+## Common Commands
 
-## File layout
+```powershell
+# Run the local FastAPI workstation server (http://127.0.0.1:8000)
+python app.py
 
-| File(s) | Role |
-|---|---|
-| `index.html`, `styles.css`, `app.js` | Production site (Pages serves these) |
-| `properties.json` | Listing database — source of truth, fetched async |
-| `data.js` | Generated fallback, loaded only when primary JSON fails — do not hand-edit |
-| `data/listing_snapshot.json` | Listing snapshot provenance and refresh validation summary |
-| `build_data_js.py` | Regenerates `data.js` from `properties.json` |
-| `app.py`, `models.py`, `scraper_service.py` | Local-dev backend only (`start_online.bat`: FastAPI + Cloudflare tunnel). Never runs on Pages |
-| `scraper.py` | Local-only MLS scraper |
-| `Dockerfile`, `render.yaml`, `Procfile`, `requirements.txt` | Backend deploy leftovers — unused by the Pages site, kept for local use |
-| `data/fcc_wa_broadband_by_city.json` | Derived broadband reference (192 KB, tracked) |
-| `data/fcc/*.csv`, `data/fcc/*.zip` | Raw FCC source files (~9 MB) — local only, **not tracked** (re-download from the FCC BDC if needed) |
-| `wa-boundary.js` | Unused legacy geometry — nothing references it |
+# Validate dataset, unknown_fields invariants, and data.js synchronization
+python validate_data.py
+python build_data_js.py --check
 
-## Browser data loading order (`app.js`)
-
-1. `fetch('properties.json')` — primary, async, non-blocking
-2. Load `data.js` on demand and use `window.WASHINGTON_PROPERTIES` — fallback (file preview)
-3. `/api/*` — local backend only; on Pages these calls fail silently and
-   favorites/notes persist to `localStorage` instead
+# Run the automated test suite
+python -m pytest -q
+```
