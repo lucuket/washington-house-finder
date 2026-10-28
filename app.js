@@ -1043,9 +1043,14 @@ document.addEventListener('DOMContentLoaded', () => {
     // (legacy fallback), backend API last (local dev only, never on Pages).
     // -------------------------------------------------------------------------
     let cityBroadband = {};
+    let nearbyBroadband = {};
+    let nearbyBroadbandMeta = {};
 
     async function loadProperties() {
         const broadbandRequest = fetch("data/fcc_wa_broadband_by_city.json")
+            .then(res => res.ok ? res.json() : {})
+            .catch(() => ({}));
+        const nearbyRequest = fetch("data/ispmap_top_deals.json")
             .then(res => res.ok ? res.json() : {})
             .catch(() => ({}));
         try {
@@ -1125,6 +1130,8 @@ document.addEventListener('DOMContentLoaded', () => {
             });
 
             cityBroadband = await broadbandRequest;
+            nearbyBroadbandMeta = await nearbyRequest;
+            nearbyBroadband = nearbyBroadbandMeta.listings || {};
             computeMarketMedians();
             populateCityDropdown();
             loadStateFromUrl();
@@ -1408,13 +1415,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div class="card-broadband-block ${bbSummary.isCableOnly ? 'cable-only-block' : 'fiber-ready-block'}">
                         <div class="bb-card-top-row">
                             <span class="bb-type-pill ${bbSummary.badgeClass}" title="${bbSummary.badgeTitle}">
-                                ${bbSummary.badgeText}
+                                ${escapeHtml(bbSummary.badgeText)}
                             </span>
-                            <span class="bb-speed-tag mono" title="FCC city-level coverage: ${bbSummary.speedText}">${bbSummary.speedText}</span>
+                            <span class="bb-speed-tag mono" title="${escapeHtml(bbSummary.badgeTitle)}">${escapeHtml(bbSummary.speedText)}</span>
                         </div>
                         <div class="bb-card-providers-row">
                             <span class="bb-prov-prefix">Service:</span>
-                            <span class="bb-prov-names" title="${bbSummary.providersText}">${bbSummary.providersText}</span>
+                            <span class="bb-prov-names" title="${escapeHtml(bbSummary.providersText)}">${escapeHtml(bbSummary.providersText)}</span>
                         </div>
                     </div>
 
@@ -1770,8 +1777,47 @@ document.addEventListener('DOMContentLoaded', () => {
         };
     }
 
+    // Results are tied to the listing identity and coordinates used for the lookup.
+    function getNearbyBroadband(prop) {
+        const data = nearbyBroadband[prop.id];
+        if (!data || data.address !== prop.address || data.city !== prop.city ||
+            data.zip !== prop.zip || (data.latitude ?? null) !== (prop.latitude ?? null) ||
+            (data.longitude ?? null) !== (prop.longitude ?? null) ||
+            !Array.isArray(data.providers)) return null;
+        return data;
+    }
+
+    function nearbyProviders(data, technology) {
+        return data.providers.filter(p => typeof p.technology === 'string' &&
+            p.technology.toLowerCase().includes(technology));
+    }
+
+    function nearbySpeed(providers, direction) {
+        // A combined technology row does not identify which technology has its speed.
+        if (providers.some(p => p.technology.includes(','))) return 'Varies by technology';
+        const speeds = providers.map(p => p[direction]).filter(n => Number.isFinite(n) && n > 0);
+        return speeds.length ? `${Math.max(...speeds).toLocaleString()} Mbps` : 'Not reported';
+    }
+
     function getCardBroadbandSummary(prop) {
         const regional = getRegionalBroadbandDetails(prop);
+        const nearby = getNearbyBroadband(prop);
+        if (nearby) {
+            const fiber = nearbyProviders(nearby, 'fiber');
+            const cable = nearbyProviders(nearby, 'cable');
+            const wireline = [...fiber, ...cable];
+            const speed = nearbySpeed(wireline, 'download_mbps');
+            return {
+                isCableOnly: !fiber.length && !!cable.length,
+                badgeClass: fiber.length ? 'badge-fiber-ready' : 'badge-cable-only',
+                badgeText: fiber.length ? 'Fiber reported nearby' : cable.length ? 'Cable reported nearby' : 'Nearby wireline unverified',
+                badgeTitle: 'ISPMap neighborhood cell; service at this address is unverified',
+                speedText: !wireline.length ? 'No wireline reported nearby' : speed.endsWith(' Mbps') ? `Up to ${speed} nearby` : `${speed} nearby`,
+                providersText: wireline.length ? [...new Set(wireline.map(p => p.name))].join(', ') : 'Verify at address',
+                chipLabel: 'Nearby broadband', chipTitle: 'ISPMap neighborhood coverage',
+                fccUrl: safeUrl(regional.fccMapUrl)
+            };
+        }
         const city = regional.city;
         const coverage = city ? `${city.fiber_100mbps_pct}% of city homes` : 'City data unavailable';
         return {
@@ -1902,6 +1948,29 @@ document.addEventListener('DOMContentLoaded', () => {
             };
         }
         if (drawerCableProviders) drawerCableProviders.textContent = 'Verify at address';
+
+        const nearby = getNearbyBroadband(prop);
+        const notice = document.getElementById('drawer-broadband-notice');
+        const fiberLabels = drawerFiberCell?.querySelectorAll('.speed-lbl');
+        const cableLabels = drawerCableCell?.querySelectorAll('.speed-lbl');
+        if (nearby) {
+            const setNearby = (providers, avail, down, up, names, labels) => {
+                if (avail) avail.textContent = providers.length ? 'Reported nearby' : 'None reported nearby';
+                if (down) down.textContent = nearbySpeed(providers, 'download_mbps');
+                if (up) up.textContent = nearbySpeed(providers, 'upload_mbps');
+                if (names) names.textContent = providers.length ? [...new Set(providers.map(p => p.name))].join(', ') : 'None reported in cell';
+                if (labels?.length >= 2) { labels[0].textContent = 'Max download nearby:'; labels[1].textContent = 'Max upload nearby:'; }
+            };
+            setNearby(nearbyProviders(nearby, 'fiber'), drawerFiberAvail, drawerFiberDown, drawerFiberUp, drawerFiberProviders, fiberLabels);
+            setNearby(nearbyProviders(nearby, 'cable'), drawerCableAvail, drawerCableDown, drawerCableUp, drawerCableProviders, cableLabels);
+            if (drawerBbMainStatus) drawerBbMainStatus.textContent = 'Nearby coverage · address unverified';
+            if (notice) notice.textContent = `ISPMap reports service somewhere in the surrounding map cell, not necessarily at this property. ${nearby.location_method ? 'ISPMap matched this address; its map position is not independently verified. ' : ''}FCC data as of ${nearbyBroadbandMeta.fcc_data_as_of || 'unknown'}; retrieved ${nearbyBroadbandMeta.retrieved_on || 'unknown'}. Maximum download and upload can come from different providers. Confirm service and speeds with the FCC and provider.`;
+        } else {
+            for (const labels of [fiberLabels, cableLabels]) {
+                if (labels?.length >= 2) { labels[0].textContent = '100 Mbps+ coverage:'; labels[1].textContent = 'Gigabit coverage:'; }
+            }
+            if (notice) notice.textContent = 'FCC percentages describe residential coverage across the city, not this property. Check the address with the FCC map and provider; availability and speeds can vary by location.';
+        }
 
         // Gallery Stage
         const photoIdx = activePhotoIndices[prop.id] || 0;
@@ -3079,6 +3148,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
 
                     <p class="deal-narrative-text">${escapeHtml(ev.narrative)}</p>
+                    ${getNearbyBroadband(p) ? `<p class="deal-narrative-text"><strong>${escapeHtml(getCardBroadbandSummary(p).badgeText)}:</strong> ${escapeHtml(getCardBroadbandSummary(p).providersText)} · ${escapeHtml(getCardBroadbandSummary(p).speedText)}. Address unverified.</p>` : ''}
                 </div>
 
                 <div class="deal-card-footer">

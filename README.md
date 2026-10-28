@@ -37,3 +37,18 @@ python build_data_js.py --check
 # Run the automated test suite
 python -m pytest -q
 ```
+
+## Neighborhood broadband snapshot
+
+`data/ispmap_top_deals.json` contains ISPMap residential provider data for the
+24 default Top Deals and 532 North Sound listings in the October 28, 2026
+snapshot: Everett, Marysville, Lake Stevens, Lynnwood, Snohomish, Bothell,
+Edmonds, and Hat Island. The data was retrieved October 28, 2026 with the
+user's stated permission; the source reported FCC data as of December 31,
+2025. Results describe an H3 resolution-8 cell around a listing: providers and
+speeds can be reported elsewhere in that cell. Confirm service at the address
+with the FCC and provider. One Marysville listing has no coordinates in the
+listing data; its cell comes from ISPMap's address search and the map position
+is not independently verified. Entries are shown only while listing ID,
+address, ZIP, and coordinates match the snapshot. The city broadband filter
+still filters city coverage, not address or neighborhood service.

@@ -52,6 +52,8 @@ STATIC_FILES: Dict[str, tuple] = {
     "/data.js": ("data.js", "application/javascript"),
     "/data/fcc_wa_broadband_by_city.json": (
         os.path.join("data", "fcc_wa_broadband_by_city.json"), "application/json"),
+    "/data/ispmap_top_deals.json": (
+        os.path.join("data", "ispmap_top_deals.json"), "application/json"),
     "/data/listing_snapshot.json": (
         os.path.join("data", "listing_snapshot.json"), "application/json"),
 }
