@@ -27,7 +27,7 @@ from models import (
     ScrapeJobStatus,
     SearchCriteria,
 )
-from scraper_service import get_approx_coordinates, run_live_scraper
+from scraper_service import run_live_scraper
 
 # Setup logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
@@ -76,8 +76,6 @@ def normalize_property(item: Dict[str, Any]) -> Dict[str, Any]:
 
     lat = item.get("latitude")
     lng = item.get("longitude")
-    if lat is None or lng is None:
-        lat, lng = get_approx_coordinates(city, address)
 
     # Clean photos list
     photos = item.get("photos", [])
@@ -95,12 +93,6 @@ def normalize_property(item: Dict[str, Any]) -> Dict[str, Any]:
             seen.add(p_str)
             clean_photos.append(p_str)
 
-    if not clean_photos:
-        clean_photos = [
-            "https://images.unsplash.com/photo-1570129477492-45c003edd2be?auto=format&fit=crop&w=1200&q=80",
-            "https://images.unsplash.com/photo-1568605114967-8130f3a36994?auto=format&fit=crop&w=1200&q=80",
-        ]
-
     res = {
         "id": prop_id,
         "address": address,
@@ -114,9 +106,9 @@ def normalize_property(item: Dict[str, Any]) -> Dict[str, Any]:
         "lot_sqft": int(item.get("lot_sqft", 0)),
         "year_built": int(item.get("year_built", 0)),
         "hoa": int(item.get("hoa", 0)),
-        "garage": max(0, int(item.get("garage", 2))),
-        "description": str(item.get("description", "Washington real estate listing")),
-        "url": str(item.get("url", "https://www.realtor.com")),
+        "garage": max(0, int(item.get("garage") or 0)),
+        "description": str(item.get("description", "")),
+        "url": str(item.get("url") or ""),
         "photos": clean_photos,
         "latitude": lat,
         "longitude": lng,

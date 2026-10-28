@@ -3,23 +3,23 @@
 Personal property-research workstation for Washington state homes.
 Live site is a **static GitHub Pages deploy** — no server runs in production.
 
-## How deployment works
+## Data refresh and deployment
 
-1. The scraper (`scraper.py`, HomeHarvest) runs **locally only** — it cannot
-   work on GitHub's servers. It writes `properties.json`.
-2. `python3 build_data_js.py` regenerates `data.js` from `properties.json`
-   (single source of truth — never edit `data.js` by hand).
-3. Commit and `git push origin master`. Pages rebuilds automatically.
+The site is a static GitHub Pages deploy; no live scraper runs there. The
+existing listing snapshot is historical and must not be assumed current.
+Realtor.com's [terms](https://www.realtor.com/terms-of-service/) and
+[robots.txt](https://www.realtor.com/robots.txt) require express written
+permission for automated collection. Use a data feed licensed for the intended
+use and publication, then update `properties.json` and run
+`python build_data_js.py` to regenerate the local-preview fallback. Deploy
+both files together, and update the snapshot date in `index.html` to reflect
+the date of the new data.
 
-Full refresh workflow:
-
-```bash
-python scraper.py          # scrape locally -> properties.json
-python3 build_data_js.py   # rebuild data.js (must match, verified below)
-git add properties.json data.js
-git commit -m "Refresh listings"
-git push origin master
-```
+The legacy HomeHarvest scraper is disabled unless
+`REALTOR_SCRAPING_AUTHORIZED=yes` is set after obtaining express written
+permission. Even then, HomeHarvest controls its own requests and retries; the
+wrapper cannot guarantee a request rate or prevent a block. Stop after access
+errors or challenges. A failed refresh leaves the existing data unchanged.
 
 ## File layout
 

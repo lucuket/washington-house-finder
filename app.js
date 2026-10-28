@@ -549,7 +549,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const marker = L.marker([p.latitude, p.longitude], { icon: customIcon });
                 const bbSummary = getCardBroadbandSummary(p);
                 const safeAddr = escapeHtml(p.address);
-                const safeFcc = safeUrl(p.broadband ? p.broadband.fcc_url : 'https://broadbandmap.fcc.gov');
+                const safeFcc = safeUrl(getRegionalBroadbandDetails(p).fccMapUrl);
                 const safePhoto = safeUrl(thumbUrl(p.photos && p.photos[0] ? p.photos[0] : '', 600));
 
                 const popupContent = `
@@ -602,7 +602,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const safeAddr = escapeHtml(p.address);
         const safeCity = escapeHtml(p.city);
         const safePhoto = safeUrl(photo);
-        const safeFcc = safeUrl(p.broadband ? p.broadband.fcc_url : 'https://broadbandmap.fcc.gov');
+        const safeFcc = safeUrl(getRegionalBroadbandDetails(p).fccMapUrl);
         
         mobilePreviewContent.innerHTML = `
             <img src="${safePhoto}" alt="${safeAddr}" class="mob-prev-img" loading="lazy" onerror="this.onerror=null;this.src='${PHOTO_PLACEHOLDER}'">
@@ -772,9 +772,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // Low / No HOA
-        if (p.hoa === 0) {
-            signals.push({ label: '★ No HOA ($0)', type: 'good' });
-        } else if (p.hoa <= 35) {
+        if (p.hoa > 0 && p.hoa <= 35) {
             signals.push({ label: `★ Low HOA ($${p.hoa}/mo)`, type: 'good' });
         }
 
@@ -812,7 +810,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const scoreYear = Math.max(0, Math.min(100, Math.round(100 - (age / 50) * 100)));
 
         // 6. Low HOA score (0 - 100)
-        const scoreHoa = p.hoa === 0 ? 100 : Math.max(0, Math.min(100, Math.round(100 - (p.hoa / 100) * 100)));
+        const scoreHoa = !p.hoa ? 50 : Math.max(0, Math.min(100, Math.round(100 - (p.hoa / 100) * 100)));
 
         // 7. Rating score (0 - 100)
         const scoreRating = (p.rating || 0) > 0 ? (p.rating / 5) * 100 : 50;
@@ -896,7 +894,7 @@ document.addEventListener('DOMContentLoaded', () => {
         lotScore = Math.min(100, lotScore);
 
         // 3. Carrying Cost (HOA) Score (0-100)
-        let hoaScore = 100;
+        let hoaScore = 50;
         if (p.hoa > 0) {
             if (p.hoa <= 35) hoaScore = 85;
             else if (p.hoa <= 75) hoaScore = 70;
@@ -941,14 +939,14 @@ document.addEventListener('DOMContentLoaded', () => {
             ? `priced ${ppsqftPct}% below the ${p.city} median ($${cityMedPpsqft}/sqft)` 
             : `priced at $${ppsqft}/sqft in ${p.city}`;
         const lotText = acres >= 0.2 ? `a substantial ${acres.toFixed(2)}-acre (${p.lot_sqft.toLocaleString()} sqft) parcel` : `a ${p.lot_sqft.toLocaleString()} sqft lot`;
-        const hoaText = p.hoa === 0 ? `zero monthly HOA dues ($0)` : `low $${p.hoa}/mo HOA`;
+        const hoaText = p.hoa > 0 ? `$${p.hoa}/mo in reported HOA dues` : `unverified HOA dues`;
         const garageText = p.garage >= 2 ? `a ${p.garage}-car garage` : `${p.garage} garage space`;
 
-        const narrative = `This ${p.city} property offers ${p.sqft.toLocaleString()} sqft ${ppsqftText}, paired with ${lotText}, ${hoaText}, and ${garageText}. It yields an estimated market value advantage of ~$${Math.abs(estDollarSavings).toLocaleString()}.`;
+        const narrative = `This ${p.city} property offers ${p.sqft.toLocaleString()} sqft ${ppsqftText}, paired with ${lotText}, ${hoaText}, and ${garageText}. The price-per-square-foot comparison is based on the listings in this snapshot.`;
 
         let grade = "C";
         let gradeLabel = "Fair Value";
-        if (dealScore >= 90) { grade = "A+"; gradeLabel = "Exceptional Value (Top 5% in WA)"; }
+        if (dealScore >= 90) { grade = "A+"; gradeLabel = "Exceptional Value Score"; }
         else if (dealScore >= 82) { grade = "A"; gradeLabel = "Strong Value Find"; }
         else if (dealScore >= 74) { grade = "B+"; gradeLabel = "Above Average Value"; }
         else if (dealScore >= 65) { grade = "B"; gradeLabel = "Market Parity"; }
@@ -966,7 +964,7 @@ document.addEventListener('DOMContentLoaded', () => {
             factors: {
                 price: { label: "$/SqFt Advantage", score: priceScore, desc: `${ppsqftPct > 0 ? '-' + ppsqftPct + '%' : '+' + Math.abs(ppsqftPct) + '%'} vs median` },
                 lot: { label: "Lot & Acreage Space", score: lotScore, desc: `${acres.toFixed(2)} Acres (${p.lot_sqft.toLocaleString()} sf)` },
-                hoa: { label: "Carrying Cost Efficiency", score: hoaScore, desc: p.hoa === 0 ? '$0 HOA' : `$${p.hoa}/mo` },
+                hoa: { label: "Carrying Cost Efficiency", score: hoaScore, desc: p.hoa > 0 ? `$${p.hoa}/mo` : 'HOA unknown' },
                 space: { label: "Living Area Usability", score: spaceScore, desc: `${p.sqft.toLocaleString()} SqFt` },
                 garage: { label: "Garage & Workshop", score: garageScore, desc: `${p.garage}-Car Garage` },
                 age: { label: "Construction & Era", score: ageScore, desc: `Built ${p.year_built}` }
@@ -1030,7 +1028,12 @@ document.addEventListener('DOMContentLoaded', () => {
     // Order: async fetch first (non-blocking paint), embedded bundle second
     // (legacy fallback), backend API last (local dev only, never on Pages).
     // -------------------------------------------------------------------------
+    let cityBroadband = {};
+
     async function loadProperties() {
+        const broadbandRequest = fetch("data/fcc_wa_broadband_by_city.json")
+            .then(res => res.ok ? res.json() : {})
+            .catch(() => ({}));
         try {
             if (resultsCountLabel) resultsCountLabel.textContent = "Loading Washington listings...";
             
@@ -1105,6 +1108,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 p._searchCorpus = `${p.address} ${p.city} ${p.zip || ''} ${p.description || ''} ${p.user_notes || ''}`.toLowerCase();
             });
 
+            cityBroadband = await broadbandRequest;
             computeMarketMedians();
             populateCityDropdown();
             loadStateFromUrl();
@@ -1158,7 +1162,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (p.sqft < filterState.minSqft || p.sqft > filterState.maxSqft) return false;
 
             // HOA Fee
-            if (p.hoa > filterState.maxHoa) return false;
+            if (p.hoa > filterState.maxHoa || (!p.hoa && filterState.maxHoa < 300)) return false;
 
             // Lot Size
             if (p.lot_sqft < filterState.minLot) return false;
@@ -1184,7 +1188,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (!regional.hasFiber) return false;
             } else if (filterState.broadbandType === 'gigabit') {
                 const regional = getRegionalBroadbandDetails(p);
-                if (!regional.hasCable && !regional.hasFiber) return false;
+                if (!regional.hasGigabit) return false;
             }
 
             // Map Bounds Filter
@@ -1316,7 +1320,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const safeAddr = escapeHtml(p.address);
             const safeCity = escapeHtml(p.city);
             const safeZip = escapeHtml(p.zip || '');
-            const safeFccUrl = safeUrl(p.broadband ? p.broadband.fcc_url : 'https://broadbandmap.fcc.gov');
+            const safeFccUrl = safeUrl(getRegionalBroadbandDetails(p).fccMapUrl);
             const safePhotoUrl = safeUrl(currentPhoto);
 
             card.innerHTML = `
@@ -1346,7 +1350,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div class="card-body">
                     <div class="card-price-row">
                         <span class="card-price mono">$${p.price.toLocaleString()}</span>
-                        <span class="card-mortgage-badge mono" data-id="${p.id}" title="Click to view Mortgage Breakdown">Est. $${estMonthly.total.toLocaleString()}/mo</span>
+                        <span class="card-mortgage-badge mono" data-id="${p.id}" title="${p.hoa > 0 ? 'Click to view mortgage breakdown' : 'Estimate assumes $0 HOA because dues are unknown'}">Est. $${estMonthly.total.toLocaleString()}/mo${p.hoa > 0 ? "" : "*"}</span>
                     </div>
 
                     <div class="card-address-block">
@@ -1377,20 +1381,20 @@ document.addEventListener('DOMContentLoaded', () => {
                         <span class="chip mono">$${ppsqft}/sqft</span>
                         <span class="chip mono">${acres} Ac Lot</span>
                         <span class="chip">Built ${p.year_built}</span>
-                        <span class="chip">${p.hoa > 0 ? `$${p.hoa}/mo HOA` : 'No HOA'}</span>
+                        <span class="chip">${p.hoa > 0 ? `$${p.hoa}/mo HOA` : 'HOA unknown'}</span>
                         ${signalsHtml}
                     </div>
 
-                    <!-- Verified Broadband Speeds & Providers (FCC) -->
+                    <!-- FCC city coverage, not address-level availability -->
                     <div class="card-broadband-block ${bbSummary.isCableOnly ? 'cable-only-block' : 'fiber-ready-block'}">
                         <div class="bb-card-top-row">
                             <span class="bb-type-pill ${bbSummary.badgeClass}" title="${bbSummary.badgeTitle}">
                                 ${bbSummary.badgeText}
                             </span>
-                            <span class="bb-speed-tag mono" title="Verified Wireline Speeds: ${bbSummary.speedText}">${bbSummary.speedText}</span>
+                            <span class="bb-speed-tag mono" title="FCC city-level coverage: ${bbSummary.speedText}">${bbSummary.speedText}</span>
                         </div>
                         <div class="bb-card-providers-row">
-                            <span class="bb-prov-prefix">ISP:</span>
+                            <span class="bb-prov-prefix">Service:</span>
                             <span class="bb-prov-names" title="${bbSummary.providersText}">${bbSummary.providersText}</span>
                         </div>
                     </div>
@@ -1642,14 +1646,14 @@ document.addEventListener('DOMContentLoaded', () => {
             }});
         }
         if (filterState.fiberOnly || filterState.broadbandType === 'fiber') {
-            tags.push({ label: '🌐 Fiber', key: 'fiber', reset: () => {
+            tags.push({ label: 'City fiber coverage', key: 'fiber', reset: () => {
                 filterState.fiberOnly = false;
                 filterState.broadbandType = 'all';
                 if (filterFiberToggle) filterFiberToggle.checked = false;
                 if (broadbandFilter) broadbandFilter.value = 'all';
             }});
         } else if (filterState.broadbandType === 'gigabit') {
-            tags.push({ label: '⚡ Gigabit+ Wireline', key: 'broadband', reset: () => {
+            tags.push({ label: 'City gigabit coverage', key: 'broadband', reset: () => {
                 filterState.broadbandType = 'all';
                 if (broadbandFilter) broadbandFilter.value = 'all';
             }});
@@ -1727,173 +1731,18 @@ document.addEventListener('DOMContentLoaded', () => {
         renderAnalyticsView(filteredProperties, stats);
     }
 
-    // -------------------------------------------------------------------------
-    // Regional Broadband & Internet Data (FCC National Broadband Map)
-    // -------------------------------------------------------------------------
-    // -------------------------------------------------------------------------
-    // Regional Broadband & Internet Data (FCC National Broadband Map)
-    // -------------------------------------------------------------------------
-    // -------------------------------------------------------------------------
-    // Regional Broadband & Internet Data (FCC National Broadband Map)
-    // -------------------------------------------------------------------------
+    // FCC city-level summaries are coverage statistics, not address-level service.
+    // Verify individual properties using the FCC map or a provider.
     function getRegionalBroadbandDetails(prop) {
-        const city = (prop.city || '').toLowerCase();
-        let hasFiber = false;
-        let hasCable = true;
-        let cableDown = '1,200 Mbps';
-        let cableUp = '35 Mbps';
-        let cableProviders = 'Xfinity (Comcast)';
-        let fiberProviders = 'None';
-        let fiberDown = 'N/A';
-        let fiberUp = 'N/A';
-
-        if (city.includes('hat island')) {
-            hasFiber = false;
-            hasCable = false;
-            cableDown = 'N/A';
-            cableUp = 'N/A';
-            cableProviders = 'Satellite / Wireless Only';
-            fiberProviders = 'None';
-            fiberDown = 'N/A';
-            fiberUp = 'N/A';
-        } else if (city.includes('everett') || city.includes('marysville') || city.includes('snohomish') || city.includes('lynnwood') || city.includes('edmonds') || city.includes('lake stevens') || city.includes('bothell') || city.includes('mill creek')) {
-            // Snohomish County: 60%–86% FTTH Fiber Footprint (Ziply Fiber / Quantum)
-            hasFiber = true;
-            hasCable = true;
-            fiberProviders = 'Ziply Fiber, Quantum Fiber';
-            cableProviders = 'Xfinity (Comcast)';
-            fiberDown = '6,000 Mbps';
-            fiberUp = '6,000 Mbps';
-            cableDown = '1,200 Mbps';
-            cableUp = '35 Mbps';
-        } else if (city.includes('spokane') && !city.includes('spokane valley')) {
-            // Spokane: 58% FTTH Fiber Footprint (Quantum Fiber / Ziply)
-            hasFiber = true;
-            hasCable = true;
-            fiberProviders = 'Quantum Fiber, Ziply Fiber';
-            cableProviders = 'Xfinity (Comcast)';
-            fiberDown = '6,000 Mbps';
-            fiberUp = '6,000 Mbps';
-            cableDown = '1,200 Mbps';
-            cableUp = '35 Mbps';
-        } else if (city.includes('camas')) {
-            // Camas: 87% FTTH Fiber Footprint
-            hasFiber = true;
-            hasCable = true;
-            fiberProviders = 'CenturyLink / Quantum Fiber';
-            cableProviders = 'Xfinity (Comcast)';
-            fiberDown = '5,000 Mbps';
-            fiberUp = '5,000 Mbps';
-            cableDown = '1,200 Mbps';
-            cableUp = '35 Mbps';
-        } else if (city.includes('kennewick') || city.includes('richland') || city.includes('west richland')) {
-            // Tri-Cities (Kennewick/Richland): 45%–50% FTTH Fiber Footprint (Ziply Fiber)
-            hasFiber = true;
-            hasCable = true;
-            fiberProviders = 'Ziply Fiber, CenturyLink Fiber';
-            cableProviders = 'Spectrum (Charter)';
-            fiberDown = '5,000 Mbps';
-            fiberUp = '5,000 Mbps';
-            cableDown = '1,000 Mbps';
-            cableUp = '35 Mbps';
-        } else if (city.includes('wenatchee')) {
-            // Wenatchee: Chelan County PUD Fiber Network
-            hasFiber = true;
-            hasCable = true;
-            fiberProviders = 'Chelan County PUD Fiber';
-            cableProviders = 'Spectrum (Charter)';
-            fiberDown = '1,000 Mbps';
-            fiberUp = '1,000 Mbps';
-            cableDown = '1,000 Mbps';
-            cableUp = '35 Mbps';
-        } else if (city.includes('olympia')) {
-            // Olympia: 3.4% Fiber (Only 3 in 100 homes). Wireline is Xfinity Cable & CenturyLink DSL.
-            hasFiber = false;
-            hasCable = true;
-            fiberProviders = 'CenturyLink (Copper/DSL 10 Mbps) — Fiber not detected';
-            cableProviders = 'Xfinity (Comcast 1,200–2,000 Mbps), Astound';
-            fiberDown = '10 Mbps (DSL)';
-            fiberUp = '1 Mbps (DSL)';
-            cableDown = '1,200 – 2,000 Mbps';
-            cableUp = '35 – 250 Mbps';
-        } else if (city.includes('vancouver') || city.includes('ridgefield') || city.includes('battle ground')) {
-            // Vancouver / Clark County: 26.8% Fiber (Select subdivisions have Quantum, 73% is Cable only).
-            hasFiber = false;
-            hasCable = true;
-            fiberProviders = 'Quantum Fiber in select subdivisions — Check FCC / Quantum';
-            cableProviders = 'Xfinity (Comcast 1,200/35 Mbps)';
-            fiberDown = '1,000 – 5,000 Mbps (Where Deployed)';
-            fiberUp = '1,000 – 5,000 Mbps (Where Deployed)';
-            cableDown = '1,200 Mbps';
-            cableUp = '35 Mbps';
-        } else if (city.includes('spokane valley')) {
-            // Spokane Valley: 13.3% Fiber | 78.9% Cable (Xfinity)
-            hasFiber = false;
-            hasCable = true;
-            fiberProviders = 'Quantum Fiber in select pockets — Check FCC';
-            cableProviders = 'Xfinity (Comcast 1,200/35 Mbps)';
-            fiberDown = '1,000 Mbps (Where Deployed)';
-            fiberUp = '1,000 Mbps (Where Deployed)';
-            cableDown = '1,200 Mbps';
-            cableUp = '35 Mbps';
-        } else if (city.includes('pasco')) {
-            // Pasco: 22.1% Fiber | Spectrum Cable
-            hasFiber = false;
-            hasCable = true;
-            fiberProviders = 'Ziply Fiber in select pockets — Check FCC';
-            cableProviders = 'Spectrum (Charter 1,000/35 Mbps)';
-            fiberDown = '1,000 Mbps (Where Deployed)';
-            fiberUp = '1,000 Mbps (Where Deployed)';
-            cableDown = '1,000 Mbps';
-            cableUp = '35 Mbps';
-        } else if (city.includes('tacoma')) {
-            // Tacoma: 35.8% Fiber | 67.3% Cable
-            hasFiber = false;
-            hasCable = true;
-            fiberProviders = 'CenturyLink Fiber / Lightcurve in select pockets';
-            cableProviders = 'Xfinity (Comcast), Lightcurve';
-            fiberDown = '1,000 Mbps (Where Deployed)';
-            fiberUp = '1,000 Mbps (Where Deployed)';
-            cableDown = '1,200 Mbps';
-            cableUp = '35 Mbps';
-        } else if (city.includes('yakima')) {
-            // Yakima: 32.9% Fiber | Spectrum Cable
-            hasFiber = false;
-            hasCable = true;
-            fiberProviders = 'CenturyLink Fiber in select pockets';
-            cableProviders = 'Spectrum (Charter 1,000/35 Mbps)';
-            fiberDown = '1,000 Mbps (Where Deployed)';
-            fiberUp = '1,000 Mbps (Where Deployed)';
-            cableDown = '1,000 Mbps';
-            cableUp = '35 Mbps';
-        } else {
-            hasFiber = false;
-            hasCable = true;
-            fiberProviders = 'CenturyLink / Quantum (Select Pockets)';
-            cableProviders = 'Xfinity (Comcast 1,200 Mbps)';
-            fiberDown = '1,000 Mbps (Where Deployed)';
-            fiberUp = '1,000 Mbps (Where Deployed)';
-            cableDown = '1,200 Mbps';
-            cableUp = '35 Mbps';
-        }
-
+        const city = cityBroadband[(prop.city || '').trim().toLowerCase()];
         const fullAddress = `${prop.address}, ${prop.city}, WA ${prop.zip || ''}`.trim();
-        let fccMapUrl = 'https://broadbandmap.fcc.gov/home';
-        if (prop.latitude && prop.longitude) {
-            fccMapUrl = `https://broadbandmap.fcc.gov/location-summary/fixed?version=dec2025&zoom=17.5&vlat=${prop.latitude}&vlon=${prop.longitude}&br=r&speed=100_20&tech=1_2_3_6_7`;
-        } else {
-            fccMapUrl = `https://broadbandmap.fcc.gov/home?addr=${encodeURIComponent(fullAddress)}`;
-        }
-
+        const fccMapUrl = prop.latitude && prop.longitude
+            ? `https://broadbandmap.fcc.gov/location-summary/fixed?zoom=17.5&vlat=${prop.latitude}&vlon=${prop.longitude}`
+            : `https://broadbandmap.fcc.gov/home?addr=${encodeURIComponent(fullAddress)}`;
         return {
-            hasFiber,
-            hasCable,
-            fiberDown,
-            fiberUp,
-            cableDown,
-            cableUp,
-            fiberProviders,
-            cableProviders,
+            city,
+            hasFiber: !!city && city.fiber_100mbps_pct > 0,
+            hasGigabit: !!city && city.wired_gigabit_pct > 0,
             fccMapUrl,
             fullAddress
         };
@@ -1901,32 +1750,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function getCardBroadbandSummary(prop) {
         const regional = getRegionalBroadbandDetails(prop);
-
-        if (regional.hasFiber) {
-            const shortFiber = regional.fiberProviders.split(',')[0].replace(/\(.*?\)/g, '').trim();
-            const shortCable = regional.cableProviders.split('(')[0].trim();
-            return {
-                isCableOnly: false,
-                badgeClass: 'badge-fiber-ready',
-                badgeText: '🌐 Fiber',
-                badgeTitle: `Fiber FTTP (${regional.fiberDown}) + Cable DOCSIS (${regional.cableDown})`,
-                speedText: `Fiber: ${regional.fiberDown} • Cable: ${regional.cableDown}`,
-                providersText: `${shortFiber} • ${shortCable}`,
-                chipLabel: '🌐 Fiber',
-                chipTitle: `Fiber: ${regional.fiberDown} via ${regional.fiberProviders}`
-            };
-        } else {
-            return {
-                isCableOnly: true,
-                badgeClass: 'badge-cable-only',
-                badgeText: '⚡ Cable Gigabit',
-                badgeTitle: `Cable DOCSIS Gigabit (${regional.cableProviders})`,
-                speedText: `Cable: ${regional.cableDown} • Up: ${regional.cableUp}`,
-                providersText: regional.cableProviders,
-                chipLabel: '⚡ Cable Gigabit',
-                chipTitle: `Cable: ${regional.cableDown} Down / ${regional.cableUp} Up via ${regional.cableProviders}`
-            };
-        }
+        const city = regional.city;
+        const coverage = city ? `${city.fiber_100mbps_pct}% of city homes` : 'City data unavailable';
+        return {
+            isCableOnly: false,
+            badgeClass: 'badge-fiber-ready',
+            badgeText: 'City fiber coverage',
+            badgeTitle: 'FCC city-level residential coverage at 100 Mbps or faster; not address verification',
+            speedText: coverage,
+            providersText: 'Address service unverified',
+            chipLabel: 'City fiber coverage',
+            chipTitle: coverage,
+            fccUrl: safeUrl(regional.fccMapUrl)
+        };
     }
 
     // -------------------------------------------------------------------------
@@ -1958,6 +1794,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const bbInfo = getRegionalBroadbandDetails(prop);
         if (drawerFccBroadbandLink) drawerFccBroadbandLink.href = bbInfo.fccMapUrl;
         if (btnDrawerFccHeader) btnDrawerFccHeader.href = bbInfo.fccMapUrl;
+        const drawerFccBottom = document.getElementById('drawer-fcc-btn-bottom');
+        if (drawerFccBottom) drawerFccBottom.href = bbInfo.fccMapUrl;
 
         const drawerBbMainStatus = document.getElementById('drawer-bb-main-status');
         const drawerFiberAvail = document.getElementById('drawer-fiber-avail');
@@ -1972,31 +1810,19 @@ document.addEventListener('DOMContentLoaded', () => {
         const drawerCableCell = document.getElementById('drawer-cable-cell');
 
         if (drawerBbMainStatus) {
-            if (bbInfo.hasFiber) {
-                drawerBbMainStatus.textContent = '🌐 Fiber & Cable Available';
-                drawerBbMainStatus.className = 'drawer-bb-status-pill status-both';
-            } else {
-                drawerBbMainStatus.textContent = '⚡ Cable Gigabit Available';
-                drawerBbMainStatus.className = 'drawer-bb-status-pill status-cable-only';
-            }
+            drawerBbMainStatus.textContent = 'Address availability unverified';
+            drawerBbMainStatus.className = 'drawer-bb-status-pill';
         }
-
-        if (drawerFiberCell) drawerFiberCell.classList.toggle('cell-unavailable', !bbInfo.hasFiber);
-        if (drawerFiberAvail) {
-            drawerFiberAvail.textContent = bbInfo.hasFiber ? 'Available' : 'Not Available';
-            drawerFiberAvail.className = `tech-avail-badge ${bbInfo.hasFiber ? 'avail-yes' : 'avail-no'}`;
-        }
-        if (drawerFiberDown) drawerFiberDown.textContent = bbInfo.hasFiber ? bbInfo.fiberDown : 'N/A';
-        if (drawerFiberUp) drawerFiberUp.textContent = bbInfo.hasFiber ? bbInfo.fiberUp : 'N/A';
-        if (drawerFiberProviders) drawerFiberProviders.textContent = bbInfo.hasFiber ? bbInfo.fiberProviders : 'None';
-
-        if (drawerCableCell) drawerCableCell.classList.toggle('cell-unavailable', false);
-        if (drawerCableAvail) {
-            drawerCableAvail.textContent = 'Available';
-            drawerCableAvail.className = 'tech-avail-badge avail-yes';
-        }
-        if (drawerCableDown) drawerCableDown.textContent = bbInfo.cableDown;
-        if (drawerCableUp) drawerCableUp.textContent = bbInfo.cableUp;
+        if (drawerFiberCell) drawerFiberCell.classList.remove('cell-unavailable');
+        if (drawerCableCell) drawerCableCell.classList.remove('cell-unavailable');
+        if (drawerFiberAvail) { drawerFiberAvail.textContent = 'City coverage'; drawerFiberAvail.className = 'tech-avail-badge'; }
+        if (drawerCableAvail) { drawerCableAvail.textContent = 'City coverage'; drawerCableAvail.className = 'tech-avail-badge'; }
+        const city = bbInfo.city;
+        if (drawerFiberDown) drawerFiberDown.textContent = city ? `${city.fiber_100mbps_pct}%` : 'Unknown';
+        if (drawerFiberUp) drawerFiberUp.textContent = city ? `${city.fiber_gigabit_pct}%` : 'Unknown';
+        if (drawerFiberProviders) drawerFiberProviders.textContent = 'Verify at address';
+        if (drawerCableDown) drawerCableDown.textContent = city ? `${city.cable_100mbps_pct}%` : 'Unknown';
+        if (drawerCableUp) drawerCableUp.textContent = city ? `${city.cable_gigabit_pct}%` : 'Unknown';
 
         // Carrier Verification Action Hub
         const btnVerifyFcc = document.getElementById('btn-verify-fcc');
@@ -2053,7 +1879,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
             };
         }
-        if (drawerCableProviders) drawerCableProviders.textContent = bbInfo.cableProviders;
+        if (drawerCableProviders) drawerCableProviders.textContent = 'Verify at address';
 
         // Gallery Stage
         const photoIdx = activePhotoIndices[prop.id] || 0;
@@ -2115,7 +1941,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
                     <div class="deal-metric-cell">
                         <span class="dmc-label">Carrying Dues</span>
-                        <strong class="dmc-val good mono">${prop.hoa === 0 ? '$0 HOA' : '$' + prop.hoa + '/mo'}</strong>
+                        <strong class="dmc-val good mono">${prop.hoa > 0 ? '$' + prop.hoa + '/mo' : 'HOA unknown'}</strong>
                     </div>
                 `;
             }
@@ -2144,7 +1970,7 @@ document.addEventListener('DOMContentLoaded', () => {
         dSpecLot.textContent = `${prop.lot_sqft.toLocaleString()} sqft (${(prop.lot_sqft/43560).toFixed(2)} ac)`;
         dSpecGarage.textContent = `${prop.garage} Car`;
         dSpecYear.textContent = prop.year_built;
-        dSpecHoa.textContent = prop.hoa > 0 ? `$${prop.hoa}/mo` : 'No HOA ($0)';
+        dSpecHoa.textContent = prop.hoa > 0 ? `$${prop.hoa}/mo` : 'Unknown';
 
         // Description
         drawerDescription.textContent = prop.description || "Washington residential listing.";
@@ -2377,7 +2203,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const maxSqft = Math.max(...props.map(p => p.sqft));
         const maxLot = Math.max(...props.map(p => p.lot_sqft));
         const maxYear = Math.max(...props.map(p => p.year_built));
-        const minHoa = Math.min(...props.map(p => p.hoa));
+        const minHoa = Math.min(...props.filter(p => p.hoa > 0).map(p => p.hoa));
         const maxRating = Math.max(...props.map(p => p.rating || 0));
 
         let tableHtml = `
@@ -2425,11 +2251,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     </tr>
                     <tr>
                         <th>Garage Spaces</th>
-                        ${props.map(p => `<td>${p.garage} Car Workshop/Attached</td>`).join('')}
+                        ${props.map(p => `<td>${p.garage} Car</td>`).join('')}
                     </tr>
                     <tr>
                         <th>HOA Monthly</th>
-                        ${props.map(p => `<td class="${p.hoa === minHoa ? 'best-metric-cell' : ''}">${p.hoa > 0 ? `$${p.hoa}/mo` : 'No HOA ($0)'}</td>`).join('')}
+                        ${props.map(p => `<td class="${p.hoa > 0 && p.hoa === minHoa ? 'best-metric-cell' : ''}">${p.hoa > 0 ? `$${p.hoa}/mo` : 'Unknown'}</td>`).join('')}
                     </tr>
                     <tr>
                         <th>Year Built</th>
@@ -2759,7 +2585,7 @@ document.addEventListener('DOMContentLoaded', () => {
             { category: 'Navigation', title: 'Switch to Full Map View', action: () => setViewMode('map'), badge: '3' },
             { category: 'Navigation', title: 'Open Market Analytics Dashboard', action: () => setViewMode('analytics'), badge: '4' },
             { category: 'Filters', title: 'Show Saved Shortlist Properties Only', action: () => { filterState.favoritesOnly = true; filterFavoritesToggle.checked = true; applyFilters(); }, badge: 'F' },
-            { category: 'Filters', title: 'Filter for Fiber Properties (Ziply / Quantum)', action: () => { filterState.fiberOnly = true; if (filterFiberToggle) filterFiberToggle.checked = true; if (broadbandFilter) broadbandFilter.value = 'fiber'; applyFilters(); }, badge: '🌐' },
+            { category: 'Filters', title: 'Filter for Cities with Fiber Coverage', action: () => { filterState.fiberOnly = true; if (filterFiberToggle) filterFiberToggle.checked = true; if (broadbandFilter) broadbandFilter.value = 'fiber'; applyFilters(); }, badge: '🌐' },
             { category: 'Filters', title: 'Reset All Search Filters to Default', action: () => resetAllFilters(), badge: 'R' },
             { category: 'Sorting', title: 'Sort by Smart Shortlist Score', action: () => { filterState.sortBy = 'smart_score'; sortDropdown.value = 'smart_score'; applyFilters(); } },
             { category: 'Sorting', title: 'Sort by Price: Low to High', action: () => { filterState.sortBy = 'price_asc'; sortDropdown.value = 'price_asc'; applyFilters(); } },
@@ -2895,7 +2721,7 @@ document.addEventListener('DOMContentLoaded', () => {
         sqftMaxSlider.value = filterState.maxSqft;
         sqftRangeDisplay.textContent = `${filterState.minSqft.toLocaleString()} – ${filterState.maxSqft.toLocaleString()} sqft`;
         hoaSlider.value = filterState.maxHoa;
-        hoaDisplay.textContent = filterState.maxHoa === 0 ? '$0/mo (No HOA)' : `≤ $${filterState.maxHoa}/mo`;
+        hoaDisplay.textContent = filterState.maxHoa === 0 ? '$0/mo (known dues only)' : `≤ $${filterState.maxHoa}/mo`;
         lotSlider.value = filterState.minLot;
         lotDisplay.textContent = `${filterState.minLot.toLocaleString()}+ sqft`;
         yearSelect.value = String(filterState.minYear || 0);
@@ -3170,7 +2996,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         </div>
                         <div class="deal-bar-row">
                             <div class="deal-bar-labels">
-                                <span>Carrying Cost Savings (${p.hoa === 0 ? '$0 HOA' : '$' + p.hoa + '/mo'})</span>
+                                <span>Carrying Cost Savings (${p.hoa > 0 ? '$' + p.hoa + '/mo' : 'HOA unknown'})</span>
                                 <span class="mono">${ev.factors.hoa.score}/100</span>
                             </div>
                             <div class="deal-bar-track">
@@ -3402,8 +3228,8 @@ document.addEventListener('DOMContentLoaded', () => {
             if (scraperPctText) scraperPctText.textContent = "STATIC";
             if (scraperTerminal) {
                 scraperTerminal.innerHTML = `
-                    <div class="term-line info">&gt; GitHub Pages is serving the cached Washington listing dataset.</div>
-                    <div class="term-line">&gt; Run the included Python backend to enable live HomeHarvest scans.</div>
+                    <div class="term-line info">&gt; GitHub Pages is serving a historical listing snapshot; verify availability at the source.</div>
+                    <div class="term-line">&gt; Automated refresh requires express written permission from the data provider.</div>
                 `;
             }
         } else if (btnStartLiveScrape) {
@@ -3452,7 +3278,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (e) {
             console.warn("Scraper backend message:", e);
             scraperStatusText.textContent = "Live scraper runs via local Python backend (python app.py).";
-            scraperTerminal.innerHTML += `<div class="term-line info">&gt; Note: Live scraping queries Realtor/Zillow directly via the local Python server. Currently displaying ${allProperties.length} active cached Washington listings.</div>`;
+            scraperTerminal.innerHTML += `<div class="term-line info">&gt; Live refresh requires permission from the data provider. Currently displaying ${allProperties.length} saved listings; verify current availability.</div>`;
             btnStartLiveScrape.disabled = false;
         }
     }
@@ -3642,7 +3468,7 @@ document.addEventListener('DOMContentLoaded', () => {
             hoaSlider.addEventListener('input', () => {
                 const val = parseInt(hoaSlider.value, 10);
                 filterState.maxHoa = val;
-                if (hoaDisplay) hoaDisplay.textContent = val === 0 ? '$0/mo (No HOA)' : `≤ $${val}/mo`;
+                if (hoaDisplay) hoaDisplay.textContent = val === 0 ? '$0/mo (known dues only)' : `≤ $${val}/mo`;
                 triggerFilterDebounced(40);
             });
             hoaSlider.addEventListener('change', applyFilters);

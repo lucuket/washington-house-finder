@@ -22,7 +22,7 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
 
     <!-- Application Stylesheet -->
-    <link rel="stylesheet" href="styles.css?v=4.4">
+    <link rel="stylesheet" href="styles.css?v=4.5">
 </head>
 <body class="density-comfortable">
 
@@ -48,9 +48,9 @@
 
                 <!-- Live Header Stat Badges -->
                 <div class="topbar-stats" aria-label="Dataset Statistics">
-                    <div class="stat-pill" title="Total active properties in database">
+                    <div class="stat-pill" title="Total properties in the saved snapshot">
                         <span class="stat-dot active"></span>
-                        <span class="stat-label">Active:</span>
+                        <span class="stat-label">Listings:</span>
                         <strong id="total-count-badge">0</strong>
                     </div>
                     <div class="stat-pill" title="Properties matching active filters">
@@ -325,11 +325,11 @@
 
                             <!-- Broadband Internet Filter -->
                             <div class="filter-block sub-block">
-                                <label for="broadband-filter" class="filter-label">Internet / Wireline Tech</label>
+                                <label for="broadband-filter" class="filter-label" title="Filters cities with reported coverage; does not verify individual addresses">City Broadband Coverage</label>
                                 <select id="broadband-filter" class="form-select">
-                                    <option value="all">All Wireline (Cable &amp; Fiber)</option>
-                                    <option value="fiber">🌐 Fiber Internet Only</option>
-                                    <option value="gigabit">⚡ Gigabit+ Wireline Only</option>
+                                    <option value="all">All Cities</option>
+                                    <option value="fiber">Cities with Fiber (100 Mbps+)</option>
+                                    <option value="gigabit">Cities with Wired Gigabit</option>
                                 </select>
                             </div>
                         </div>
@@ -349,7 +349,7 @@
                         <label class="switch-control" for="filter-fiber-toggle">
                             <input type="checkbox" id="filter-fiber-toggle">
                             <span class="switch-track"></span>
-                            <span class="switch-text">🌐 Fiber Only</span>
+                            <span class="switch-text">Cities with Fiber Coverage</span>
                         </label>
                     </div>
 
@@ -459,6 +459,8 @@
                         </div>
                     </div>
                 </div>
+
+                <p class="dataset-notice">Historical listing snapshot last saved August 23, 2026. Verify current price and availability at the source. *Payment estimates assume $0 when HOA dues are unknown.</p>
 
                 <!-- Workspace Viewport Container -->
                 <div class="workspace-viewport view-split" id="workspace-viewport">
@@ -843,7 +845,7 @@
                 <div class="drawer-section-card internet-broadband-card" id="drawer-internet-card">
                     <div class="internet-card-header">
                         <div class="internet-title-group">
-                            <span class="drawer-bb-status-pill" id="drawer-bb-main-status">🌐 Fiber &amp; Cable Available</span>
+                            <span class="drawer-bb-status-pill" id="drawer-bb-main-status">Address availability unverified</span>
                             <h4>Wireline Internet Availability</h4>
                         </div>
                         <a href="#" target="_blank" rel="noopener noreferrer" class="btn btn-secondary btn-sm btn-fcc-link" id="drawer-fcc-broadband-link" title="Open exact property coordinates on broadbandmap.fcc.gov">
@@ -856,37 +858,37 @@
                         <div class="internet-tech-cell" id="drawer-fiber-cell">
                             <div class="tech-cell-top">
                                 <span class="tech-tag tag-fiber">FIBER (FTTP / FTTH)</span>
-                                <span class="tech-avail-badge avail-yes" id="drawer-fiber-avail">Available</span>
+                                <span class="tech-avail-badge avail-yes" id="drawer-fiber-avail">City coverage</span>
                             </div>
                             <div class="tech-speed-specs">
-                                <div class="speed-row"><span class="speed-lbl">Max Down:</span> <strong class="speed-val mono" id="drawer-fiber-down">6,000 Mbps</strong></div>
-                                <div class="speed-row"><span class="speed-lbl">Max Up:</span> <strong class="speed-val mono" id="drawer-fiber-up">6,000 Mbps</strong></div>
+                                <div class="speed-row"><span class="speed-lbl">100 Mbps+ coverage:</span> <strong class="speed-val mono" id="drawer-fiber-down">Unknown</strong></div>
+                                <div class="speed-row"><span class="speed-lbl">Gigabit coverage:</span> <strong class="speed-val mono" id="drawer-fiber-up">Unknown</strong></div>
                             </div>
                             <div class="tech-provider-row">
                                 <span class="tech-provider-lbl">Providers:</span>
-                                <strong class="tech-provider-name" id="drawer-fiber-providers">Ziply Fiber, Quantum Fiber</strong>
+                                <strong class="tech-provider-name" id="drawer-fiber-providers">Verify at address</strong>
                             </div>
                         </div>
 
                         <div class="internet-tech-cell" id="drawer-cable-cell">
                             <div class="tech-cell-top">
                                 <span class="tech-tag tag-cable">CABLE (DOCSIS 3.1)</span>
-                                <span class="tech-avail-badge avail-yes" id="drawer-cable-avail">Available</span>
+                                <span class="tech-avail-badge avail-yes" id="drawer-cable-avail">City coverage</span>
                             </div>
                             <div class="tech-speed-specs">
-                                <div class="speed-row"><span class="speed-lbl">Max Down:</span> <strong class="speed-val mono" id="drawer-cable-down">1,200 Mbps</strong></div>
-                                <div class="speed-row"><span class="speed-lbl">Max Up:</span> <strong class="speed-val mono" id="drawer-cable-up">35 Mbps</strong></div>
+                                <div class="speed-row"><span class="speed-lbl">100 Mbps+ coverage:</span> <strong class="speed-val mono" id="drawer-cable-down">Unknown</strong></div>
+                                <div class="speed-row"><span class="speed-lbl">Gigabit coverage:</span> <strong class="speed-val mono" id="drawer-cable-up">Unknown</strong></div>
                             </div>
                             <div class="tech-provider-row">
                                 <span class="tech-provider-lbl">Providers:</span>
-                                <strong class="tech-provider-name" id="drawer-cable-providers">Xfinity (Comcast)</strong>
+                                <strong class="tech-provider-name" id="drawer-cable-providers">Verify at address</strong>
                             </div>
                         </div>
                     </div>
 
                     <div class="carrier-verify-hub">
                         <div class="verify-hub-header">
-                            <span class="verify-hub-title">🎯 100% Address Verification Hub (Zero Rate-Limit)</span>
+                            <span class="verify-hub-title">Address verification links</span>
                         </div>
                         <div class="verify-action-buttons">
                             <a href="#" target="_blank" rel="noopener noreferrer" class="btn-verify btn-fcc" id="btn-verify-fcc" title="Open exact property coordinates on official FCC map">
@@ -913,7 +915,7 @@
                             <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
                         </div>
                         <div class="fcc-notice-text">
-                            <span>⚡ <strong>Parcel-Level Accuracy</strong>: Wireline coverage (FTTH Fiber, DOCSIS 4.0/3.1 Cable) is location-specific. Use the buttons above to verify official registered providers and inspect exterior optical network terminals without rate limits.</span>
+                            <span>FCC percentages describe residential coverage across the city, not this property. Check the address with the FCC map and provider; availability and speeds can vary by location.</span>
                         </div>
                     </div>
                 </div>
@@ -1359,6 +1361,6 @@
     <script defer src="data.js?v=4.4"></script>
     
     <!-- Application Logic (deferred; executes in order after data.js, before DOMContentLoaded handlers fire) -->
-    <script defer src="app.js?v=4.4"></script>
+    <script defer src="app.js?v=4.5"></script>
 </body>
 </html>

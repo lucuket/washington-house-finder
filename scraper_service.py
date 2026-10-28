@@ -3,9 +3,7 @@ import hashlib
 import json
 import logging
 import os
-import random
 import re
-import time
 from typing import Any, Callable, Dict, List, Optional
 import pandas as pd
 
@@ -16,103 +14,6 @@ except ImportError:
     scrape_property = None
 
 logger = logging.getLogger(__name__)
-
-# -----------------------------------------------------------------------------
-# Anti-Ban / Stealth Scraping Configuration
-# -----------------------------------------------------------------------------
-
-# Rotating pool of realistic modern browser User-Agents
-USER_AGENTS = [
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:123.0) Gecko/20100101 Firefox/123.0",
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_3_1) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.3.1 Safari/605.1.15",
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36 Edg/122.0.0.0",
-]
-
-def get_random_headers() -> Dict[str, str]:
-    """Generates randomized, realistic browser request headers."""
-    ua = random.choice(USER_AGENTS)
-    return {
-        "User-Agent": ua,
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
-        "Accept-Language": "en-US,en;q=0.9",
-        "Accept-Encoding": "gzip, deflate, br",
-        "DNT": "1",
-        "Connection": "keep-alive",
-        "Upgrade-Insecure-Requests": "1",
-        "Sec-Fetch-Dest": "document",
-        "Sec-Fetch-Mode": "navigate",
-        "Sec-Fetch-Site": "none",
-        "Sec-Fetch-User": "?1",
-        "Cache-Control": "max-age=0",
-    }
-
-def get_configured_proxy() -> Optional[str]:
-    """Retrieves proxy URL from environment variables if configured."""
-    return (
-        os.environ.get("SCRAPER_PROXY")
-        or os.environ.get("HTTP_PROXY")
-        or os.environ.get("HTTPS_PROXY")
-        or None
-    )
-
-# Washington State City Geocoordinates (latitude, longitude)
-WA_CITY_COORDINATES = {
-    "spokane": (47.6588, -117.4260),
-    "spokane valley": (47.6732, -117.2394),
-    "olympia": (47.0379, -122.9007),
-    "vancouver": (45.6257, -122.6761),
-    "tacoma": (47.2529, -122.4443),
-    "seattle": (47.6062, -122.3321),
-    "bellevue": (47.6101, -122.2015),
-    "everett": (47.9789, -122.2021),
-    "bellingham": (48.7519, -122.4787),
-    "yakima": (46.6021, -120.5059),
-    "kennewick": (46.2112, -119.1372),
-    "pasco": (46.2396, -119.1006),
-    "richland": (46.2804, -119.2752),
-    "bremerton": (47.5673, -122.6326),
-    "renton": (47.4829, -122.2171),
-    "kent": (47.3809, -122.2348),
-    "federal way": (47.3223, -122.3126),
-    "auburn": (47.3073, -122.2285),
-    "wenatchee": (47.4235, -120.3103),
-    "longview": (46.1382, -122.9382),
-    "lacey": (47.0343, -122.8232),
-    "edmonds": (47.8107, -122.3774),
-    "puyallup": (47.1854, -122.2929),
-    "port angeles": (48.1181, -123.4307),
-    "redmond": (47.6740, -122.1215),
-    "kirkland": (47.6815, -122.2087),
-    "lynnwood": (47.8209, -122.3151),
-    "marysville": (48.0518, -122.1771),
-    "lakewood": (47.1718, -122.5185),
-    "bothell": (47.7601, -122.2054),
-    "chehalis": (46.6620, -122.9640),
-    "centralia": (46.7162, -122.9543),
-    "ellensburg": (46.9965, -120.5479),
-    "moses lake": (47.1301, -119.2781),
-    "mount vernon": (48.4212, -122.3340),
-    "oak harbor": (48.2932, -122.6432),
-    "pullman": (46.7313, -117.1796),
-    "silverdale": (47.6445, -122.6949)
-}
-
-def get_approx_coordinates(city: str, address: str) -> tuple[float, float]:
-    """
-    Computes deterministic approximate geocoordinates for mapping Washington properties.
-    Uses city center coordinates plus a deterministic pseudo-random offset based on the address hash.
-    """
-    normalized_city = city.lower().strip()
-    center = WA_CITY_COORDINATES.get(normalized_city, (47.4000, -120.5000))
-    
-    # Generate deterministic offset from address string
-    addr_hash = hashlib.md5(address.encode("utf-8", errors="ignore")).hexdigest()
-    lat_offset = ((int(addr_hash[:4], 16) / 65535.0) - 0.5) * 0.08
-    lng_offset = ((int(addr_hash[4:8], 16) / 65535.0) - 0.5) * 0.08
-    
-    return round(center[0] + lat_offset, 5), round(center[1] + lng_offset, 5)
 
 def get_val(row: pd.Series, keys: List[str], default: Any = 0) -> Any:
     """Helper to safely extract candidate column values from pandas row"""
@@ -179,14 +80,15 @@ def clean_property_row(row: pd.Series, criteria: Dict[str, Any]) -> Optional[Dic
 
         # 7. HOA fee check
         hoa = get_val(row, hoa_keys, None)
-        hoa_amount = 0
-        if hoa is not None:
-            try:
-                hoa_amount = float(hoa)
-                if hoa_amount > criteria.get('hoa_max', float('inf')):
-                    return None
-            except ValueError:
-                pass
+        # Unknown HOA is not evidence of a zero fee or a qualifying fee.
+        if hoa is None:
+            return None
+        try:
+            hoa_amount = float(hoa)
+        except (TypeError, ValueError):
+            return None
+        if hoa_amount > criteria.get('hoa_max', float('inf')):
+            return None
 
         # 8. Garage check & NLP extraction
         garage = get_val(row, garage_keys, None)
@@ -196,38 +98,24 @@ def clean_property_row(row: pd.Series, criteria: Dict[str, Any]) -> Optional[Dic
         if 'text' in row and pd.notna(row['text']):
             desc += str(row['text']).lower()
 
-        has_garage = True
-        garage_amount = 0
+        garage_amount = None
         if garage is not None:
             try:
                 garage_amount = float(garage)
-                if garage_amount < criteria.get('garage_min', 2):
-                    has_garage = False
-            except ValueError:
+            except (TypeError, ValueError):
                 pass
-
-        if has_garage and desc:
-            if re.search(r'\b1\s*car\b', desc) or re.search(r'\bsingle\s*car\b', desc) or re.search(r'\b1\s*-\s*car\b', desc):
-                has_garage = False
-            else:
-                garage_patterns = [
-                    r'2\s*-\s*car', r'2\s*car', r'two\s*car', r'double\s*garage',
-                    r'3\s*-\s*car', r'3\s*car', r'three\s*car', r'triple\s*garage',
-                    r'garage\s*spaces:\s*[2-9]', r'parking\s*spaces:\s*[2-9]'
-                ]
-                if not (garage and float(garage) >= criteria.get('garage_min', 2)):
-                    for pattern in garage_patterns:
-                        if re.search(pattern, desc):
-                            garage_amount = max(garage_amount, 2)
-                            break
+        # Description phrases establish a lower bound, not an exact count.
+        if garage_amount is None and re.search(r'\b(?:2\s*-?\s*car|two\s*car|double\s*garage)\b', desc):
+            garage_amount = 2
+        if garage_amount is None and re.search(r'\b(?:3\s*-?\s*car|three\s*car|triple\s*garage)\b', desc):
+            garage_amount = 3
+        if garage_amount is None or garage_amount < criteria.get('garage_min', 2):
+            return None
 
         # 9. Strict Property Type & Style Check: Single-Family Traditional Houses ONLY
         property_style = str(get_val(row, ['style', 'property_type', 'prop_type'], '')).lower()
         full_text = f"{property_style} {desc} {str(get_val(row, ['address', 'formatted_address'], '')).lower()}"
         if re.search(r'(mobile|manufactured|modular|trailer|park model|chattel|townhome|townhouse|town home|town house|row home|row house|townhouses|condo|condominium|apartment|apt\b|duplex|triplex|fourplex|multi-family|multifamily)', full_text):
-            return None
-
-        if not has_garage:
             return None
 
         # Resolve Photos
@@ -236,7 +124,7 @@ def clean_property_row(row: pd.Series, criteria: Dict[str, Any]) -> Optional[Dic
             photos.append(str(row['primary_photo']))
 
         for p_key in ['alt_photos', 'photos']:
-            if p_key in row and pd.notna(row[p_key]):
+            if p_key in row and (isinstance(row[p_key], list) or pd.notna(row[p_key])):
                 val = row[p_key]
                 if isinstance(val, list):
                     photos.extend([str(x) for x in val])
@@ -253,13 +141,6 @@ def clean_property_row(row: pd.Series, criteria: Dict[str, Any]) -> Optional[Dic
             if p and p not in seen_photos and str(p).startswith("http"):
                 seen_photos.add(p)
                 clean_photos.append(p)
-
-        if not clean_photos:
-            clean_photos = [
-                "https://images.unsplash.com/photo-1570129477492-45c003edd2be?auto=format&fit=crop&w=1200&q=80",
-                "https://images.unsplash.com/photo-1568605114967-8130f3a36994?auto=format&fit=crop&w=1200&q=80",
-                "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=1200&q=80"
-            ]
 
         # Extract address details
         full_address = ""
@@ -284,9 +165,6 @@ def clean_property_row(row: pd.Series, criteria: Dict[str, Any]) -> Optional[Dic
             except ValueError:
                 pass
 
-        if not lat or not lng:
-            lat, lng = get_approx_coordinates(city, full_address)
-
         # Unique stable ID
         id_hash = hashlib.md5(f"{full_address}_{city}_{price}".encode()).hexdigest()[:12]
 
@@ -303,8 +181,8 @@ def clean_property_row(row: pd.Series, criteria: Dict[str, Any]) -> Optional[Dic
             "lot_sqft": int(lot),
             "year_built": int(year),
             "hoa": int(hoa_amount),
-            "garage": max(2, int(garage_amount)),
-            "description": str(row['description']) if 'description' in row and pd.notna(row['description']) else "Beautiful home in Washington matching all custom criteria.",
+            "garage": int(garage_amount),
+            "description": str(row['description']) if 'description' in row and pd.notna(row['description']) else "",
             "url": url,
             "photos": clean_photos,
             "latitude": lat,
@@ -322,93 +200,49 @@ async def run_live_scraper(
     log_callback: Callable[[str], None],
     progress_callback: Callable[[int, str], None]
 ) -> List[Dict[str, Any]]:
-    """
-    Executes an asynchronous, anti-ban resilient scrape workflow across Washington locations.
-    Features:
-    - Jittered exponential delay between queries (2.5s - 5.5s) to mimic organic human browsing.
-    - Automatic User-Agent / header randomization.
-    - Optional proxy support via SCRAPER_PROXY / HTTP_PROXY env vars.
-    - Circuit breaker pattern to avoid burning IP addresses if upstream blocks occur.
-    - Exponential backoff on rate-limits (HTTP 429 / 403).
-    """
-    location = criteria.get("location", "Washington")
-    proxy = get_configured_proxy()
-    
-    proxy_msg = f" (via proxy {proxy[:15]}...)" if proxy else " (direct connection)"
-    log_callback(f"Initializing stealth scrape for '{location}'{proxy_msg}...")
-    progress_callback(10, "Setting up anti-ban request pipeline...")
+    """Query the configured source only when its operator has granted access.
 
+    HomeHarvest controls its own internal requests and retries; this wrapper
+    cannot guarantee a request rate or prevent a block.
+    """
+    if os.environ.get("REALTOR_SCRAPING_AUTHORIZED") != "yes":
+        raise RuntimeError(
+            "Live refresh disabled: Realtor.com requires express written permission "
+            "for automated access. Use an authorized feed or set "
+            "REALTOR_SCRAPING_AUTHORIZED=yes only after obtaining permission."
+        )
+
+    location = criteria.get("location", "Washington")
     target_locations = [location]
     if location.lower() in ["washington", "wa", "all"]:
-        # Sequential targeted Washington regional markets
         target_locations = ["Spokane, WA", "Olympia, WA", "Vancouver, WA", "Tacoma, WA", "Kennewick, WA", "Bellingham, WA"]
 
     all_dfs: List[pd.DataFrame] = []
-    consecutive_failures = 0
-    max_consecutive_failures = 3
-
     if scrape_property is not None:
         loop = asyncio.get_running_loop()
-        
         for idx, loc in enumerate(target_locations):
-            # Check circuit breaker
-            if consecutive_failures >= max_consecutive_failures:
-                log_callback("[WARNING] Circuit breaker tripped: Multiple rate limits detected. Halting further external requests to prevent IP ban.")
-                break
-
-            log_callback(f"[{idx + 1}/{len(target_locations)}] Querying MLS listings for {loc}...")
-            
-            # Execute with exponential backoff & retry
-            max_retries = 2
-            success = False
-            
-            for attempt in range(1, max_retries + 1):
-                try:
-                    scrape_kwargs = {
-                        "location": loc,
-                        "listing_type": "for_sale",
-                        "past_days": 30
-                    }
-                    if proxy:
-                        scrape_kwargs["proxy"] = proxy
-
-                    df = await loop.run_in_executor(
-                        None,
-                        lambda kwargs=scrape_kwargs: scrape_property(**kwargs)
-                    )
-
-                    if df is not None and not df.empty:
-                        all_dfs.append(df)
-                        log_callback(f"✓ Found {len(df)} listings in {loc}.")
-                        consecutive_failures = 0
-                    else:
-                        log_callback(f"• No active listings found in {loc}.")
-                    
-                    success = True
-                    break
-
-                except Exception as e:
-                    err_str = str(e).lower()
-                    if "429" in err_str or "rate limit" in err_str or "403" in err_str or "captcha" in err_str:
-                        consecutive_failures += 1
-                        cooldown_sec = 6 * attempt + random.uniform(1.5, 3.5)
-                        log_callback(f"[RATE-LIMIT] Backing off for {cooldown_sec:.1f}s (attempt {attempt}/{max_retries})...")
-                        await asyncio.sleep(cooldown_sec)
-                    else:
-                        log_callback(f"[NOTICE] {loc} query note: {e}")
-                        break
-
-            # Anti-ban delay / humanized jitter between location batches
+            log_callback(f"[{idx + 1}/{len(target_locations)}] Querying listings for {loc}...")
+            try:
+                df = await loop.run_in_executor(
+                    None,
+                    lambda loc=loc: scrape_property(location=loc, listing_type="for_sale", past_days=30,
+                                                    parallel=False, extra_property_data=False, limit=200),
+                )
+                if df is not None and not df.empty:
+                    all_dfs.append(df)
+                    log_callback(f"Found {len(df)} listings in {loc}.")
+                else:
+                    log_callback(f"No listings returned for {loc}.")
+            except Exception as exc:
+                # Stop all collection on any upstream failure, including rate limits,
+                # access denials, or challenges. Never retry or rotate identity here.
+                raise RuntimeError(f"Stopped refresh after upstream error for {loc}: {exc}") from exc
+            progress_callback(15 + int(((idx + 1) / len(target_locations)) * 55),
+                              f"Queried {idx + 1}/{len(target_locations)} markets.")
             if idx < len(target_locations) - 1:
-                jitter_sleep = round(random.uniform(2.5, 4.5), 2)
-                log_callback(f"Pacing requests: Pausing {jitter_sleep}s to respect upstream rate limits...")
-                await asyncio.sleep(jitter_sleep)
-
-            prog = 15 + int(((idx + 1) / len(target_locations)) * 55)
-            progress_callback(prog, f"Scraped {idx + 1}/{len(target_locations)} markets with stealth pacing...")
-
+                await asyncio.sleep(10)
     else:
-        log_callback("HomeHarvest library not installed. Using verified persistent listings database.")
+        raise RuntimeError("HomeHarvest is not installed; existing listings were retained.")
 
     if not all_dfs:
         log_callback("Search completed. Maintained existing dataset continuity.")
