@@ -3,7 +3,7 @@
 A high-density residential property research workstation for analyzing, filtering, mapping, and comparing single-family listings across Washington State.
 
 ## Live Deployment
-- **GitHub Pages (Static Workstation)**: `https://Timmytime12.github.io/washington-house-finder/`
+- **GitHub Pages (Static Workstation)**: `https://lucuket.github.io/washington-house-finder/`
 
 ## Architecture Overview
 
