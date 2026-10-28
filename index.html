@@ -22,7 +22,7 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
 
     <!-- Application Stylesheet -->
-    <link rel="stylesheet" href="styles.css?v=4.6">
+    <link rel="stylesheet" href="styles.css?v=4.7">
 </head>
 <body class="density-comfortable">
 
@@ -397,33 +397,33 @@
                         </div>
                     </div>
 
-                    <div class="toolbar-right">
-                        <!-- Sorting Dropdown -->
-                        <div class="sort-wrapper">
-                            <label for="sort-dropdown">Sort:</label>
-                            <select id="sort-dropdown" class="form-select-sm" aria-label="Sort listings">
-                                <option value="smart_score">Smart Shortlist Score</option>
-                                <option value="default">Default Discovery</option>
-                                <option value="price_asc">Price: Low to High</option>
-                                <option value="price_desc">Price: High to Low</option>
-                                <option value="price_per_sqft_asc">Price/SqFt: Low to High</option>
-                                <option value="sqft_desc">Living Area: Largest</option>
-                                <option value="lot_desc">Lot Size: Largest</option>
-                                <option value="year_desc">Year: Newest Built</option>
-                                <option value="rating_desc">Personal Rating: Highest</option>
-                            </select>
-                        </div>
+                    <!-- Sorting Dropdown -->
+                    <div class="sort-wrapper">
+                        <label for="sort-dropdown">Sort listings:</label>
+                        <select id="sort-dropdown" class="form-select-sm" aria-label="Sort listings">
+                            <option value="smart_score">Smart Shortlist Score</option>
+                            <option value="default">Default Discovery</option>
+                            <option value="price_asc">Price: Low to High</option>
+                            <option value="price_desc">Price: High to Low</option>
+                            <option value="price_per_sqft_asc">Price/SqFt: Low to High</option>
+                            <option value="sqft_desc">Living Area: Largest</option>
+                            <option value="lot_desc">Lot Size: Largest</option>
+                            <option value="year_desc">Year: Newest Built</option>
+                            <option value="rating_desc">Personal Rating: Highest</option>
+                        </select>
+                    </div>
 
+                    <div class="toolbar-right">
                         <!-- View Mode Switcher -->
                         <div class="view-mode-tabs" role="tablist" aria-label="View Modes">
-                            <button class="view-tab-btn active" data-view="split" title="Split Map &amp; Cards View (1)" id="view-tab-split" role="tab" aria-selected="true">
+                            <button class="view-tab-btn" data-view="split" title="Show listings with an optional, resizable map (1)" id="view-tab-split" role="tab" aria-selected="false">
                                 <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2">
                                     <rect x="3" y="3" width="8" height="18" rx="1"></rect>
                                     <rect x="13" y="3" width="8" height="18" rx="1"></rect>
                                 </svg>
-                                <span>Split</span>
+                                <span>Listings + map</span>
                             </button>
-                            <button class="view-tab-btn" data-view="grid" title="Cards Grid Only (2)" id="view-tab-grid" role="tab" aria-selected="false">
+                            <button class="view-tab-btn active" data-view="grid" title="Cards Grid Only (2)" id="view-tab-grid" role="tab" aria-selected="true">
                                 <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2">
                                     <rect x="3" y="3" width="7" height="7" rx="1"></rect>
                                     <rect x="14" y="3" width="7" height="7" rx="1"></rect>
@@ -463,7 +463,7 @@
                 <p class="dataset-notice">Listing snapshot refreshed October 28, 2026: 20 Washington markets, $200k–$750k single-family homes. Verify current price and availability at the source. Unreported specifications are marked Unknown. *Payment estimates assume $0 when HOA dues are unknown.</p>
 
                 <!-- Workspace Viewport Container -->
-                <div class="workspace-viewport view-split" id="workspace-viewport">
+                <div class="workspace-viewport view-grid" id="workspace-viewport">
                     <!-- Cards Column -->
                     <div class="cards-container-wrapper" id="cards-container-wrapper">
                         <!-- Empty State Notice -->
@@ -485,8 +485,14 @@
                         </div>
                     </div>
 
+                    <div class="map-resize-handle" id="map-resize-handle" role="separator" tabindex="0" aria-label="Resize listings and map" aria-controls="cards-container-wrapper map-container-wrapper" aria-orientation="vertical" aria-valuemin="30" aria-valuemax="75" aria-valuenow="60" aria-valuetext="Listings 60%, map 40%" title="Drag to resize listings and map, or use arrow keys"></div>
+
                     <!-- Map Column -->
                     <div class="map-container-wrapper" id="map-container-wrapper">
+                        <div class="map-panel-header">
+                            <span>Washington map</span>
+                            <button class="btn btn-secondary btn-sm" id="btn-close-map" aria-label="Close map and show more listings">Close map &times;</button>
+                        </div>
                         <div id="leaflet-map" class="leaflet-map-view" role="application" aria-label="Interactive Washington Map"></div>
                         
                         <!-- Map Overlay Controls Toolbar -->
@@ -668,11 +674,11 @@
 
         <!-- Mobile Bottom Navigation Bar (iPhones & Small Screens) -->
         <nav class="mobile-bottom-nav" id="mobile-bottom-nav" aria-label="Mobile Navigation">
-            <button class="mobile-nav-item active" data-mobile-view="split" id="mob-nav-split">
+            <button class="mobile-nav-item" data-mobile-view="split" id="mob-nav-split">
                 <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"></rect><line x1="12" y1="3" x2="12" y2="21"></line></svg>
-                <span>Split</span>
+                <span>+ Map</span>
             </button>
-            <button class="mobile-nav-item" data-mobile-view="grid" id="mob-nav-grid">
+            <button class="mobile-nav-item active" data-mobile-view="grid" id="mob-nav-grid">
                 <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"></rect><rect x="14" y="3" width="7" height="7" rx="1"></rect><rect x="14" y="14" width="7" height="7" rx="1"></rect><rect x="3" y="14" width="7" height="7" rx="1"></rect></svg>
                 <span>Listings</span>
             </button>
@@ -715,6 +721,10 @@
                     <div class="drawer-title-block">
                         <h3 id="drawer-address">Property Address</h3>
                         <span id="drawer-city-zip" class="drawer-subtitle">City, WA ZIP</span>
+                        <a href="#" target="_blank" rel="noopener noreferrer" class="listing-source-link" id="drawer-external-link">
+                            <span>View home on Realtor.com</span>
+                            <svg aria-hidden="true" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
+                        </a>
                     </div>
                 </div>
 
@@ -981,10 +991,7 @@
                         <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
                         <span>Open on FCC Broadband Map ↗</span>
                     </a>
-                    <a href="#" target="_blank" rel="noopener noreferrer" class="btn btn-primary" id="drawer-external-link">
-                        <span>View Source on Realtor.com</span>
-                        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
-                    </a>
+
                 </div>
             </div>
         </div>
@@ -1358,6 +1365,6 @@
     
     <!-- Primary data loads asynchronously. The generated bundle is loaded only
          if JSON loading fails, including offline file:// previews. -->
-    <script defer src="app.js?v=20261028b" data-listings-fallback="data.js?v=20261028"></script>
+    <script defer src="app.js?v=20261028c" data-listings-fallback="data.js?v=20261028"></script>
 </body>
 </html>

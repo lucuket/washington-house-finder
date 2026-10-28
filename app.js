@@ -25,7 +25,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let filteredProperties = [];
     let activePhotoIndices = {}; // propId -> current image index
     let comparisonSet = new Set(); // Set of propIds (max 4)
-    let activeView = 'split'; // 'split' | 'grid' | 'map' | 'deals' | 'analytics'
+    let activeView = 'grid'; // 'split' | 'grid' | 'map' | 'deals' | 'analytics'
     let selectedPropId = null; // currently selected property in drawer
     let currentDrawerIndex = 0;
     let recentPropertyIds = [];
@@ -99,7 +99,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function listingMetric(property, field, suffix = '') {
-        return hasListingMetric(property, field) ? `${property[field].toLocaleString()}${suffix}` : 'Unknown';
+        if (!hasListingMetric(property, field)) return 'Unknown';
+        const value = field === 'year_built' ? String(property[field]) : property[field].toLocaleString();
+        return `${value}${suffix}`;
     }
 
     function listingHoa(property) {
@@ -1382,6 +1384,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div class="card-address-block">
                         <strong class="card-street" title="${safeAddr}">${safeAddr}</strong>
                         <span class="card-city-zip">${safeCity}, WA ${safeZip}</span>
+                        <a class="listing-source-link" href="${safeUrl(p.url)}" target="_blank" rel="noopener noreferrer" aria-label="View ${safeAddr} on Realtor.com (opens in a new tab)">View home on Realtor.com ↗</a>
                     </div>
 
                     <div class="card-specs-grid">
@@ -2915,7 +2918,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (filterState.fiberOnly) params.set('fiber', '1');
         if (filterState.broadbandType && filterState.broadbandType !== 'all') params.set('broadband', filterState.broadbandType);
         if (filterState.sortBy !== 'smart_score') params.set('sort', filterState.sortBy);
-        if (activeView !== 'split') params.set('view', activeView);
+        if (activeView !== 'grid') params.set('view', activeView);
         if (filterState.search) params.set('q', filterState.search);
 
         const hash = params.toString();
@@ -3087,6 +3090,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         </div>
                         <span class="deal-card-addr" title="${safeAddr}">${safeAddr}</span>
                         <span class="deal-card-sub">${safeCity}, WA ${safeZip}</span>
+                        <a class="listing-source-link" href="${safeUrl(p.url)}" target="_blank" rel="noopener noreferrer" aria-label="View ${safeAddr} on Realtor.com (opens in a new tab)">View home on Realtor.com ↗</a>
                         <div class="deal-card-specs-row mono">
                             <span>${listingMetric(p, 'beds')}b / ${listingMetric(p, 'baths')}ba</span>
                             <span>•</span>
@@ -3193,7 +3197,15 @@ document.addEventListener('DOMContentLoaded', () => {
     // View Switcher
     // -------------------------------------------------------------------------
     function setViewMode(mode) {
+        if (!['split', 'grid', 'map', 'deals', 'analytics'].includes(mode)) return;
         activeView = mode;
+        // Hidden map bounds must not silently restrict a listings-only search.
+        const clearMapBounds = !isMapVisible() && filterState.mapBoundsOnly;
+        if (clearMapBounds) {
+            clearTimeout(mapBoundsDebounceTimer);
+            filterState.mapBoundsOnly = false;
+            if (mapBoundsFilterToggle) mapBoundsFilterToggle.checked = false;
+        }
         [viewTabSplit, viewTabGrid, viewTabMap, viewTabDeals, viewTabAnalytics].filter(Boolean).forEach(btn => {
             const isActive = btn.dataset.view === mode;
             btn.classList.toggle('active', isActive);
@@ -3225,8 +3237,9 @@ document.addEventListener('DOMContentLoaded', () => {
             if (b.el) b.el.classList.toggle('active', b.id === mode);
         });
 
-        if (map && (mode === 'split' || mode === 'map')) {
-            setTimeout(() => map.invalidateSize(), 150);
+        if (isMapVisible()) {
+            initMap();
+            if (map) requestAnimationFrame(() => map.invalidateSize({ pan: false }));
             // Flush marker updates that were skipped while the map was hidden.
             if (mapMarkersDirty) {
                 mapMarkersDirty = false;
@@ -3234,7 +3247,63 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
+        if (clearMapBounds) applyFilters();
         syncStateToUrl();
+    }
+
+    function setupMapResize() {
+        const divider = document.getElementById('map-resize-handle');
+        const mapPanel = document.getElementById('map-container-wrapper');
+        const stacked = window.matchMedia('(max-width: 768px)');
+        let dragPointer = null;
+        let resizeFrame = null;
+        let listingShare = 60;
+        const updateShare = (value) => {
+            listingShare = Math.max(30, Math.min(75, value));
+            workspaceViewport.style.setProperty('--listing-share', `${listingShare}%`);
+            divider.setAttribute('aria-valuenow', String(Math.round(listingShare)));
+            divider.setAttribute('aria-valuetext', `Listings ${Math.round(listingShare)}%, map ${100 - Math.round(listingShare)}%`);
+        };
+        const updateOrientation = () => divider.setAttribute('aria-orientation', stacked.matches ? 'horizontal' : 'vertical');
+        updateOrientation();
+        stacked.addEventListener('change', updateOrientation);
+        divider.addEventListener('pointerdown', (event) => {
+            if (event.button !== 0 || activeView !== 'split') return;
+            event.preventDefault();
+            divider.focus();
+            dragPointer = event.pointerId;
+            divider.setPointerCapture(dragPointer);
+            workspaceViewport.classList.add('resizing-map');
+        });
+        divider.addEventListener('pointermove', (event) => {
+            if (event.pointerId !== dragPointer) return;
+            const bounds = workspaceViewport.getBoundingClientRect();
+            const position = stacked.matches ? event.clientY - bounds.top : event.clientX - bounds.left;
+            const size = stacked.matches ? bounds.height : bounds.width;
+            if (size > 0) updateShare(position / size * 100);
+        });
+        const stopDrag = () => {
+            dragPointer = null;
+            workspaceViewport.classList.remove('resizing-map');
+        };
+        divider.addEventListener('pointerup', stopDrag);
+        divider.addEventListener('pointercancel', stopDrag);
+        divider.addEventListener('lostpointercapture', stopDrag);
+        divider.addEventListener('keydown', (event) => {
+            const decrease = stacked.matches ? 'ArrowUp' : 'ArrowLeft';
+            const increase = stacked.matches ? 'ArrowDown' : 'ArrowRight';
+            if (![decrease, increase, 'Home', 'End'].includes(event.key)) return;
+            event.preventDefault();
+            updateShare(event.key === 'Home' ? 30 : event.key === 'End' ? 75 : listingShare + (event.key === increase ? 5 : -5));
+        });
+        // Leaflet needs its viewport updated when the divider changes either pane.
+        new ResizeObserver(() => {
+            if (!map || !isMapVisible() || resizeFrame !== null) return;
+            resizeFrame = requestAnimationFrame(() => {
+                resizeFrame = null;
+                map.invalidateSize({ pan: false });
+            });
+        }).observe(mapPanel);
     }
 
     // -------------------------------------------------------------------------
@@ -3832,6 +3901,10 @@ document.addEventListener('DOMContentLoaded', () => {
         if (viewTabMap) viewTabMap.addEventListener('click', () => setViewMode('map'));
         if (viewTabDeals) viewTabDeals.addEventListener('click', () => setViewMode('deals'));
         if (viewTabAnalytics) viewTabAnalytics.addEventListener('click', () => setViewMode('analytics'));
+        document.getElementById('btn-close-map').addEventListener('click', () => {
+            setViewMode('grid');
+            (window.innerWidth <= 768 ? mobNavSplit : viewTabSplit).focus();
+        });
 
         // Deals Area Filter Pills
         if (dealsFilterPills) {
@@ -4074,10 +4147,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (savedMortgage) mortgageAssumptions = JSON.parse(savedMortgage);
     } catch (e) {}
 
-    initMap();
     setupEventListeners();
-    if (window.innerWidth <= 768) {
-        setViewMode('grid');
-    }
+    setupMapResize();
     loadProperties();
 });
