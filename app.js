@@ -16,9 +16,40 @@ document.addEventListener('DOMContentLoaded', () => {
     const STORAGE_DENSITY_KEY = 'wa_home_search_density_v1';
     const STORAGE_USER_DATA_KEY = 'wa_home_search_userdata_v1';
     const isLocalHost = ['localhost', '127.0.0.1'].includes(window.location.hostname);
-    const API_WRITES_ENABLED = window.location.protocol.startsWith('http')
+    const API_CANDIDATE = window.location.protocol.startsWith('http')
         && !window.location.hostname.endsWith('.github.io')
         && (!isLocalHost || ['', '5000', '8000'].includes(window.location.port));
+    let API_WRITES_ENABLED = false;
+    let scraperAvailable = false;
+    const STORAGE_THEME_KEY = 'wa_home_search_theme_v1';
+
+    function applyTheme(theme) {
+        const dark = theme === 'dark';
+        document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+        const button = document.getElementById('btn-theme-toggle');
+        button?.setAttribute('aria-pressed', String(dark));
+        button?.setAttribute('title', `Switch to ${dark ? 'light' : 'dark'} mode`);
+        document.querySelector('meta[name="theme-color"]')?.setAttribute('content', dark ? '#17212b' : '#ffffff');
+    }
+
+    function toggleTheme() {
+        const theme = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+        try { localStorage.setItem(STORAGE_THEME_KEY, theme); } catch (_) {}
+        applyTheme(theme);
+    }
+
+    async function detectBackendCapabilities() {
+        if (!API_CANDIDATE) return;
+        try {
+            const response = await fetch('/api/health', { signal: AbortSignal.timeout(3000) });
+            if (!response.ok) return;
+            const health = await response.json();
+            if (health.status !== 'ok' || typeof health.read_only !== 'boolean') return;
+            API_WRITES_ENABLED = !health.read_only;
+            scraperAvailable = API_WRITES_ENABLED && health.scraping_authorized === true;
+            document.getElementById('btn-open-scraper')?.classList.toggle('hidden', !scraperAvailable);
+        } catch (_) { /* Static hosting keeps personal research in local storage. */ }
+    }
 
     let allProperties = [];
     let propertyById = new Map();
@@ -438,10 +469,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Add clean zoom controls at bottom-right (Realtor standard, avoids header overlap)
         L.control.zoom({ position: 'bottomright' }).addTo(map);
+        L.control.attribution({ position: 'bottomleft', prefix: false }).addTo(map);
 
         // Keyless, zero-watermark, high-performance GIS basemap layers
         const basemapLayers = {
             'streets': L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {
+                className: 'theme-street-tiles',
                 maxZoom: 19,
                 attribution: '&copy; Esri, HERE, Garmin, USGS'
             }),
@@ -455,6 +488,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 })
             ]),
             'topo': L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}', {
+                className: 'theme-street-tiles',
                 maxZoom: 19,
                 attribution: '&copy; Esri, Intermap, USGS'
             })
@@ -561,7 +595,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <strong class="popup-address">${safeAddr}</strong>
                     <span class="popup-specs">${listingMetric(p, 'beds')} Beds • ${listingMetric(p, 'baths')} Baths • ${p.sqft.toLocaleString()} sqft</span>
                     <div style="margin-top: 5px; display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--border-subtle); padding-top: 4px;">
-                        <span style="font-size: 9.5px; color: #0284c7; font-weight: 700;">${escapeHtml(bbSummary.badgeText)}</span>
+                        <span style="font-size: 9.5px; color: var(--info-ink); font-weight: 700;">${escapeHtml(bbSummary.badgeText)}</span>
                         <a href="${safeFcc}" target="_blank" rel="noopener noreferrer" style="font-size: 10px; color: var(--brand-primary); font-weight: 700; text-decoration: underline;" onclick="event.stopPropagation();">FCC Map ↗</a>
                     </div>
                 </div>
@@ -633,11 +667,11 @@ document.addEventListener('DOMContentLoaded', () => {
             <div class="mob-prev-details">
                 <div class="mob-prev-price mono">$${p.price.toLocaleString()} <span class="mob-prev-mo">~$${estMonthly.total.toLocaleString()}/mo</span></div>
                 <strong class="mob-prev-addr" title="${safeAddr}">${safeAddr}</strong>
-                <span class="mob-prev-city">${safeCity}, WA • <strong style="color: ${bbSummary.isCableOnly ? '#b45309' : '#0284c7'}; font-size: 10px;">${bbSummary.badgeText}</strong></span>
+                <span class="mob-prev-city">${safeCity}, WA • <strong style="color: ${bbSummary.isCableOnly ? 'var(--warning-ink)' : 'var(--info-ink)'}; font-size: 10px;">${bbSummary.badgeText}</strong></span>
                 <div class="mob-prev-specs mono">${listingMetric(p, 'beds')}b • ${listingMetric(p, 'baths')}ba • ${p.sqft.toLocaleString()} sf</div>
                 <div style="display: flex; gap: 6px; margin-top: 6px;">
                     <button class="btn btn-primary btn-sm mob-prev-open-btn" data-id="${p.id}" style="flex: 1;">Details &rarr;</button>
-                    <a href="${safeFcc}" target="_blank" rel="noopener noreferrer" class="btn btn-secondary btn-sm" style="font-size: 10.5px; padding: 4px 8px; font-weight: 700; color: #0284c7;" onclick="event.stopPropagation();">FCC Map ↗</a>
+                    <a href="${safeFcc}" target="_blank" rel="noopener noreferrer" class="btn btn-secondary btn-sm" style="font-size: 10.5px; padding: 4px 8px; font-weight: 700; color: var(--info-ink);" onclick="event.stopPropagation();">FCC Map ↗</a>
                 </div>
             </div>
         `;
@@ -673,10 +707,7 @@ document.addEventListener('DOMContentLoaded', () => {
         document.querySelectorAll('.map-region-pill').forEach(b => {
             b.classList.toggle('active', b.getAttribute('data-region') === 'all');
         });
-        const bounds = (markersLayer && markersLayer.getBounds && markersLayer.getBounds().isValid && markersLayer.getBounds().isValid()) 
-            ? markersLayer.getBounds() 
-            : WA_BOUNDS;
-        map.fitBounds(bounds, { padding: [25, 25], maxZoom: 12 });
+        map.fitBounds(WA_BOUNDS, { padding: [25, 25] });
         setTimeout(() => { if (map) map.invalidateSize(); }, 100);
     }
 
@@ -1240,9 +1271,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             // Map Bounds Filter
-            if (mapBounds && p.latitude && p.longitude) {
-                if (!mapBounds.contains([p.latitude, p.longitude])) return false;
-            }
+            if (mapBounds && (!p.latitude || !p.longitude || !mapBounds.contains([p.latitude, p.longitude]))) return false;
 
             // Keyword Search (multi-term matching on pre-indexed corpus)
             if (searchTerms.length > 0) {
@@ -1255,9 +1284,15 @@ document.addEventListener('DOMContentLoaded', () => {
             return true;
         });
 
-        // Compute Smart Score for each filtered property
+        // Filters do not change score inputs. Reuse scores until assumptions,
+        // the calendar year, the listing snapshot, or the personal rating changes.
+        const scoreVersion = `${Object.values(scoreWeights).join(',')}:${new Date().getFullYear()}`;
         filteredProperties.forEach(p => {
-            p._score = computeSmartScore(p);
+            if (!p._score || p._scoreVersion !== scoreVersion || p._scoreRating !== p.rating) {
+                p._score = computeSmartScore(p);
+                p._scoreVersion = scoreVersion;
+                p._scoreRating = p.rating;
+            }
         });
 
         // Sort Properties
@@ -1316,7 +1351,10 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentCardLimit = 28;
 
     function renderGalleryCards(resetLimit = false) {
-        if (resetLimit) currentCardLimit = 28;
+        if (resetLimit) {
+            currentCardLimit = 28;
+            if (cardsGrid.parentElement) cardsGrid.parentElement.scrollTop = 0;
+        }
         cardsGrid.innerHTML = '';
 
         if (filteredProperties.length === 0) {
@@ -1354,7 +1392,7 @@ document.addEventListener('DOMContentLoaded', () => {
             let starsHtml = '';
             for (let i = 1; i <= 5; i++) {
                 const filledClass = i <= (p.rating || 0) ? 'filled' : '';
-                starsHtml += `<span class="star ${filledClass}" data-rate="${i}" title="Rate ${i} stars">★</span>`;
+                starsHtml += `<button class="star ${filledClass}" data-rate="${i}" title="Rate ${i} stars" aria-label="Rate ${i} stars" aria-pressed="${i <= (p.rating || 0)}">★</button>`;
             }
 
             // On cards, show distinctive differential value signals (e.g. $/sqft vs median) without repeating basic specs
@@ -1502,7 +1540,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Enter key opens drawer
             card.addEventListener('keydown', (e) => {
-                if (e.key === 'Enter') {
+                if (e.target === card && (e.key === 'Enter' || e.key === ' ')) {
+                    e.preventDefault();
                     openPropertyDrawer(p.id);
                 }
             });
@@ -2053,7 +2092,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         <strong class="dmc-val ${dealEval.ppsqftPct > 0 ? 'good' : ''} mono">${dealEval.ppsqftPct > 0 ? '↓ ' + dealEval.ppsqftPct + '% vs median' : 'At median'}</strong>
                     </div>
                     <div class="deal-metric-cell">
-                        <span class="dmc-label">Est. Value Advantage</span>
+                        <span class="dmc-label">Gap at City Median $/SqFt</span>
                         <strong class="dmc-val ${dealEval.estDollarSavings > 0 ? 'good' : ''} mono">${dealEval.estDollarSavings > 0 ? '+$' + dealEval.estDollarSavings.toLocaleString() : 'Parity'}</strong>
                     </div>
                     <div class="deal-metric-cell">
@@ -2136,6 +2175,7 @@ document.addEventListener('DOMContentLoaded', () => {
         stars.forEach(s => {
             const val = parseInt(s.getAttribute('data-val'), 10);
             s.classList.toggle('active', val <= currentRating);
+            s.setAttribute('aria-pressed', String(val <= currentRating));
         });
 
         const labels = ["Not rated", "1 Star - Basic Match", "2 Stars - Fair Option", "3 Stars - Good Contender", "4 Stars - High Priority", "5 Stars - Top Pick"];
@@ -2231,6 +2271,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const prop = getPropertyById(propId);
         if (!prop) return;
 
+        if (prop.rating === rating) rating = 0;
         prop.rating = rating;
         persistUserData(propId, { rating: rating });
 
@@ -2241,7 +2282,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 body: JSON.stringify({ rating: rating })
             }).catch(() => {});
 
-            showToast(`Rated ${rating} ★ for ${prop.address}`);
+            showToast(rating ? `Rated ${rating} ★ for ${prop.address}` : `Rating cleared for ${prop.address}`);
             applyFilters(false);
 
             if (selectedPropId === propId) {
@@ -2259,12 +2300,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const val = drawerNotesTextarea.value.trim();
         prop.user_notes = val;
+        // Persist immediately so closing the page or typing in another home's
+        // notes cannot cancel the local save; only the optional API is debounced.
+        persistUserData(prop.id, { user_notes: val });
         prop._searchCorpus = `${prop.address || ''} ${prop.city || ''} ${prop.zip || ''} ${prop.description || ''} ${prop.user_notes || ''}`.toLowerCase();
         drawerNoteStatus.textContent = API_WRITES_ENABLED ? "Saving..." : "Saved locally";
 
         clearTimeout(noteSaveDebounceTimer);
         noteSaveDebounceTimer = setTimeout(async () => {
-            persistUserData(prop.id, { user_notes: val });
             if (!API_WRITES_ENABLED) return;
             try {
                 const response = await fetch(`/api/properties/${prop.id}/note`, {
@@ -2410,7 +2453,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         ${props.map(p => {
                             const bbSummary = getCardBroadbandSummary(p);
                             return `<td>
-                                <strong style="color: ${bbSummary.isCableOnly ? '#b45309' : '#0369a1'}; font-size: 11.5px;">${escapeHtml(bbSummary.badgeText)}</strong><br>
+                                <strong style="color: ${bbSummary.isCableOnly ? 'var(--warning-ink)' : 'var(--info-ink)'}; font-size: 11.5px;">${escapeHtml(bbSummary.badgeText)}</strong><br>
                                 <span style="font-size: 10.5px; font-weight: 700; color: var(--text-primary);" class="mono">${escapeHtml(bbSummary.speedText)}</span><br>
                                 <span style="font-size: 10.5px; color: var(--text-secondary);">${escapeHtml(bbSummary.providersText)}</span><br>
                                 <a href="${safeUrl(bbSummary.fccUrl)}" target="_blank" rel="noopener noreferrer" style="font-size: 10.5px; color: var(--brand-primary); font-weight: 700; text-decoration: underline;">
@@ -2736,7 +2779,9 @@ document.addEventListener('DOMContentLoaded', () => {
             { category: 'Sorting', title: 'Sort by Price: Low to High', action: () => { filterState.sortBy = 'price_asc'; sortDropdown.value = 'price_asc'; applyFilters(); } },
             { category: 'Sorting', title: 'Sort by Price/SqFt: Low to High', action: () => { filterState.sortBy = 'price_per_sqft_asc'; sortDropdown.value = 'price_per_sqft_asc'; applyFilters(); } },
             { category: 'Tools', title: 'Tune Smart Score Factor Weights', action: () => openScoringModal() },
-            { category: 'Tools', title: 'Open Live MLS Scraper Utility', action: () => openScraperModal() },
+            ...(scraperAvailable ? [{ category: 'Tools', title: 'Open Live MLS Scraper Utility', action: () => openScraperModal() }] : []),
+            { category: 'Appearance', title: 'Toggle Dark / Light Mode', action: () => toggleTheme() },
+            { category: 'Filters', title: 'Open Saved Searches and Presets', action: () => setPresetMenuOpen(true) },
             { category: 'Tools', title: 'Export Matching Listings to CSV', action: () => exportCsv() },
             { category: 'Tools', title: 'Toggle Layout Density (Compact/Comfortable)', action: () => toggleDensity() },
         ];
@@ -2793,6 +2838,26 @@ document.addEventListener('DOMContentLoaded', () => {
     // -------------------------------------------------------------------------
     // Saved Search Presets Manager
     // -------------------------------------------------------------------------
+    function setPresetMenuOpen(open, restoreFocus = false) {
+        if (!presetDropdownMenu || !btnPresetsMenu) return;
+        presetDropdownMenu.classList.toggle('hidden', !open);
+        btnPresetsMenu.setAttribute('aria-expanded', String(open));
+        if (open) {
+            const rect = btnPresetsMenu.getBoundingClientRect();
+            const width = Math.min(320, window.innerWidth - 16);
+            const left = Math.max(8, Math.min(rect.right - width, window.innerWidth - width - 8));
+            const top = Math.max(8, Math.min(rect.bottom + 8, window.innerHeight - 80));
+            presetDropdownMenu.style.left = `${left}px`;
+            presetDropdownMenu.style.top = `${top}px`;
+            presetDropdownMenu.style.maxHeight = `${window.innerHeight - top - 12}px`;
+            presetDropdownMenu.querySelector('button')?.focus();
+        } else if (restoreFocus) btnPresetsMenu.focus();
+        if (!open) {
+            document.getElementById('preset-save-form')?.classList.add('hidden');
+            btnSaveCurrentPreset?.classList.remove('hidden');
+        }
+    }
+
     function loadSavedPresets() {
         try {
             const raw = localStorage.getItem(STORAGE_PRESETS_KEY);
@@ -2809,8 +2874,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 item.className = 'dropdown-item';
                 const safeName = escapeHtml(p.name);
                 item.innerHTML = `
-                    <span>${safeName}</span>
-                    <button class="filter-tag-remove" data-idx="${idx}" title="Delete preset">✕</button>
+                    <button class="saved-preset-load">${safeName}</button>
+                    <button class="filter-tag-remove" data-idx="${idx}" title="Delete preset" aria-label="Delete ${safeName}">✕</button>
                 `;
                 item.addEventListener('click', (e) => {
                     if (e.target.classList.contains('filter-tag-remove')) {
@@ -2820,7 +2885,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                     applyPresetState(p.state);
                     activePresetLabel.textContent = p.name;
-                    presetDropdownMenu.classList.add('hidden');
+                    setPresetMenuOpen(false, true);
                 });
                 customPresetsList.appendChild(item);
             });
@@ -2828,7 +2893,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function saveCurrentPreset() {
-        const name = prompt("Enter a name for this search preset (e.g., 'Spokane 3-Car Large Lot'):");
+        const nameInput = document.getElementById('preset-name');
+        const name = nameInput?.value.trim().slice(0, 80);
         if (!name || !name.trim()) return;
 
         try {
@@ -2838,6 +2904,8 @@ document.addEventListener('DOMContentLoaded', () => {
             localStorage.setItem(STORAGE_PRESETS_KEY, JSON.stringify(presets));
             showToast(`Preset "${name.trim()}" saved!`);
             loadSavedPresets();
+            nameInput.value = '';
+            setPresetMenuOpen(false, true);
         } catch (e) {
             showToast("Could not save preset.", "error");
         }
@@ -3140,7 +3208,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             <span class="savings-val mono">${ev.ppsqftPct > 0 ? '↓ ' + ev.ppsqftPct + '% below median' : 'At median'} ($${ev.ppsqft}/sf)</span>
                         </div>
                         <div class="savings-block">
-                            <span class="savings-label">Est. Value Advantage</span>
+                            <span class="savings-label">Gap at City Median $/SqFt</span>
                             <span class="savings-val mono">${ev.estDollarSavings > 0 ? '+$' + ev.estDollarSavings.toLocaleString() + ' Value' : 'Parity'}</span>
                         </div>
                     </div>
@@ -3302,12 +3370,21 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function openMobileSidebar() {
-        if (appSidebar) appSidebar.classList.add('mobile-open');
+        if (appSidebar) {
+            appSidebar.inert = false;
+            appSidebar.classList.add('mobile-open');
+            btnMobileSidebarClose?.focus();
+        }
         if (sidebarBackdrop) sidebarBackdrop.classList.remove('hidden');
     }
 
     function closeMobileSidebar() {
-        if (appSidebar) appSidebar.classList.remove('mobile-open');
+        if (appSidebar) {
+            const mobile = window.matchMedia('(max-width: 768px)').matches;
+            if (mobile && appSidebar.contains(document.activeElement)) btnMobileFilters?.focus();
+            appSidebar.classList.remove('mobile-open');
+            appSidebar.inert = mobile;
+        }
         if (sidebarBackdrop) sidebarBackdrop.classList.add('hidden');
     }
 
@@ -3454,7 +3531,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (broadbandFilter) broadbandFilter.value = 'all';
         if (mapBoundsFilterToggle) mapBoundsFilterToggle.checked = false;
         sortDropdown.value = 'smart_score';
-        activePresetLabel.textContent = 'Presets';
+        activePresetLabel.textContent = 'Saved searches';
 
         bedsPillGroup.querySelectorAll('.pill-btn').forEach(b => b.classList.toggle('active', b.getAttribute('data-beds') === '0'));
         bathsPillGroup.querySelectorAll('.pill-btn').forEach(b => b.classList.toggle('active', b.getAttribute('data-baths') === '0'));
@@ -3543,7 +3620,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        if (!API_WRITES_ENABLED) {
+        if (!scraperAvailable) {
             if (btnStartLiveScrape) btnStartLiveScrape.disabled = true;
             if (scraperStatusText) scraperStatusText.textContent = "Python backend required for live scans";
             if (scraperPctText) scraperPctText.textContent = "STATIC";
@@ -3561,7 +3638,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function startLiveScrapingJob() {
-        if (!API_WRITES_ENABLED) {
+        if (!scraperAvailable) {
             openScraperModal();
             return;
         }
@@ -3644,6 +3721,51 @@ document.addEventListener('DOMContentLoaded', () => {
     // -------------------------------------------------------------------------
     // Event Listeners Binding
     // -------------------------------------------------------------------------
+    function setupDialogFocus() {
+        const layers = [...document.querySelectorAll('.modal-backdrop'), propertyDetailDrawer, appSidebar];
+        const opened = [];
+        const returnFocus = new WeakMap();
+        const focusables = layer => [...layer.querySelectorAll('button, a[href], input, select, textarea, [tabindex="0"]')]
+            .filter(el => !el.disabled && el.getClientRects().length);
+        const observer = new MutationObserver(records => {
+            for (const { target } of records) {
+                const index = opened.indexOf(target);
+                const visible = target === appSidebar ? target.classList.contains('mobile-open')
+                    && window.matchMedia('(max-width: 768px)').matches : !target.classList.contains('hidden');
+                if (visible && index < 0) {
+                    returnFocus.set(target, document.activeElement);
+                    opened.push(target);
+                    if (!target.contains(document.activeElement)) (focusables(target)[0] || target).focus();
+                } else if (!visible && index >= 0) {
+                    opened.splice(index, 1);
+                    const previous = returnFocus.get(target);
+                    if (previous?.isConnected && previous.getClientRects().length) previous.focus();
+                }
+            }
+        });
+        layers.filter(Boolean).forEach(layer => observer.observe(layer, { attributes: true, attributeFilter: ['class'] }));
+        document.addEventListener('keydown', event => {
+            const top = opened.at(-1);
+            if (!top) return;
+            if (event.key === 'Tab') {
+                const items = focusables(top);
+                if (!items.length) return;
+                if (!top.contains(document.activeElement) || (event.shiftKey && document.activeElement === items[0])
+                    || (!event.shiftKey && document.activeElement === items.at(-1))) {
+                    event.preventDefault();
+                    (event.shiftKey ? items.at(-1) : items[0]).focus();
+                }
+            } else if (event.key === 'Escape') {
+                event.preventDefault();
+                event.stopImmediatePropagation();
+                if (top === propertyDetailDrawer) closePropertyDrawer();
+                else if (top === appSidebar) closeMobileSidebar();
+                else if (top === cmdPaletteModal) closeCommandPalette();
+                else top.classList.add('hidden');
+            }
+        }, true);
+    }
+
     function setupEventListeners() {
         // Search Input
         if (searchInput) {
@@ -3899,17 +4021,34 @@ document.addEventListener('DOMContentLoaded', () => {
         if (btnPresetsMenu && presetDropdownMenu) {
             btnPresetsMenu.addEventListener('click', (e) => {
                 e.stopPropagation();
-                const isHidden = presetDropdownMenu.classList.contains('hidden');
-                presetDropdownMenu.classList.toggle('hidden', !isHidden);
-                btnPresetsMenu.setAttribute('aria-expanded', String(isHidden));
+                setPresetMenuOpen(presetDropdownMenu.classList.contains('hidden'));
             });
-            document.addEventListener('click', () => presetDropdownMenu.classList.add('hidden'));
+            document.addEventListener('click', (e) => {
+                if (!presetDropdownMenu.contains(e.target)) setPresetMenuOpen(false);
+            });
+            window.addEventListener('resize', () => setPresetMenuOpen(false));
+            presetDropdownMenu.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') {
+                    e.stopPropagation();
+                    setPresetMenuOpen(false, true);
+                } else if (e.target.tagName !== 'INPUT' && ['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(e.key)) {
+                    e.preventDefault();
+                    const buttons = [...presetDropdownMenu.querySelectorAll('button')].filter(button => button.getClientRects().length);
+                    const index = buttons.indexOf(document.activeElement);
+                    const next = e.key === 'Home' ? 0 : e.key === 'End' ? buttons.length - 1
+                        : (index + (e.key === 'ArrowDown' ? 1 : -1) + buttons.length) % buttons.length;
+                    buttons[next]?.focus();
+                } else if (e.key === 'Tab') {
+                    setTimeout(() => {
+                        if (!presetDropdownMenu.contains(document.activeElement)) setPresetMenuOpen(false);
+                    }, 0);
+                }
+            });
 
             presetDropdownMenu.querySelectorAll('.dropdown-item[data-preset]').forEach(item => {
                 item.addEventListener('click', () => {
                     const presetKey = item.getAttribute('data-preset');
-                    presetDropdownMenu.classList.add('hidden');
-                    if (activePresetLabel) activePresetLabel.textContent = item.textContent;
+                    setPresetMenuOpen(false, true);
 
                     switch (presetKey) {
                         case 'all':
@@ -3957,6 +4096,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             applyFilters();
                             break;
                     }
+                    if (activePresetLabel && presetKey !== 'all') activePresetLabel.textContent = item.textContent;
                 });
             });
         }
@@ -3964,12 +4104,23 @@ document.addEventListener('DOMContentLoaded', () => {
         if (btnSaveCurrentPreset) {
             btnSaveCurrentPreset.addEventListener('click', (e) => {
                 e.stopPropagation();
-                if (presetDropdownMenu) presetDropdownMenu.classList.add('hidden');
-                saveCurrentPreset();
+                document.getElementById('preset-save-form')?.classList.remove('hidden');
+                btnSaveCurrentPreset.classList.add('hidden');
+                document.getElementById('preset-name')?.focus();
             });
         }
+        document.getElementById('preset-save-form')?.addEventListener('submit', (event) => {
+            event.preventDefault();
+            saveCurrentPreset();
+        });
+        document.getElementById('btn-cancel-preset-save')?.addEventListener('click', () => {
+            document.getElementById('preset-save-form').classList.add('hidden');
+            btnSaveCurrentPreset.classList.remove('hidden');
+            btnSaveCurrentPreset.focus();
+        });
 
         // Density Switcher
+        document.getElementById('btn-theme-toggle')?.addEventListener('click', toggleTheme);
         if (btnDensityToggle) btnDensityToggle.addEventListener('click', toggleDensity);
 
         // Command Palette Trigger & Input
@@ -4178,6 +4329,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Escape key closes modals / drawers
             if (e.key === 'Escape') {
+                setPresetMenuOpen(false);
+                closeMobileSidebar();
                 closePropertyDrawer();
                 closeCommandPalette();
                 [comparisonModal, mortgageModal, photoLightboxModal, scraperModal, scoringModal]
@@ -4229,6 +4382,15 @@ document.addEventListener('DOMContentLoaded', () => {
                     toggleFavorite(selectedPropId);
                     return;
                 }
+                if (e.key === 'c' && selectedPropId) {
+                    toggleComparison(selectedPropId, !comparisonSet.has(selectedPropId));
+                    return;
+                }
+                return;
+            }
+
+            if (e.key === 'f') {
+                favoritesBadgeBtn?.click();
                 return;
             }
 
@@ -4281,6 +4443,26 @@ document.addEventListener('DOMContentLoaded', () => {
     } catch (e) {}
 
     setupEventListeners();
+    setupDialogFocus();
+    const mobileLayout = matchMedia('(max-width: 768px)');
+    const syncSidebarAccess = () => {
+        if (!mobileLayout.matches && appSidebar?.classList.contains('mobile-open')) closeMobileSidebar();
+        if (appSidebar) appSidebar.inert = mobileLayout.matches && !appSidebar.classList.contains('mobile-open');
+    };
+    mobileLayout.addEventListener('change', syncSidebarAccess);
+    syncSidebarAccess();
+    applyTheme(document.documentElement.dataset.theme);
+    const systemTheme = matchMedia('(prefers-color-scheme: dark)');
+    systemTheme.addEventListener('change', (event) => {
+        let saved;
+        try { saved = localStorage.getItem(STORAGE_THEME_KEY); } catch (_) {}
+        if (saved !== 'light' && saved !== 'dark') applyTheme(event.matches ? 'dark' : 'light');
+    });
+    window.addEventListener('storage', (event) => {
+        if (event.key === STORAGE_THEME_KEY) applyTheme(event.newValue === 'light' || event.newValue === 'dark'
+            ? event.newValue : (systemTheme.matches ? 'dark' : 'light'));
+    });
+    detectBackendCapabilities();
     setupMapResize();
     loadProperties();
 });

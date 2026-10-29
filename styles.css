@@ -205,12 +205,12 @@ html, body {
     width: 6px;
     height: 6px;
     border-radius: 50%;
-    background-color: var(--accent-emerald);
+    background-color: var(--positive-solid);
 }
 
 .stat-pill.favorite-pill {
     background-color: var(--brand-primary-subtle);
-    border-color: #fecaca;
+    border-color: var(--negative-border);
     color: var(--brand-primary);
     cursor: pointer;
     transition: all 0.15s ease;
@@ -251,7 +251,7 @@ html, body {
 }
 
 .btn-primary {
-    background-color: var(--brand-primary);
+    background-color: var(--action-primary);
     color: #ffffff;
     border-color: var(--brand-primary);
     box-shadow: 0 1px 3px rgba(200, 32, 38, 0.2);
@@ -277,7 +277,7 @@ html, body {
 }
 
 .btn-emerald {
-    background-color: var(--accent-emerald);
+    background-color: var(--positive-solid);
     color: #ffffff;
 }
 
@@ -474,7 +474,7 @@ html, body {
 }
 
 .search-input-wrapper input:focus {
-    background-color: #ffffff;
+    background-color: var(--bg-surface);
     border-color: var(--brand-primary);
     box-shadow: 0 0 0 2px var(--brand-primary-light);
     outline: none;
@@ -535,8 +535,8 @@ html, body {
     height: 5px;
     background: linear-gradient(to right,
         var(--bg-surface-tertiary) var(--range-start, 0%),
-        var(--brand-primary) var(--range-start, 0%),
-        var(--brand-primary) var(--range-end, 100%),
+        var(--action-primary) var(--range-start, 0%),
+        var(--action-primary) var(--range-end, 100%),
         var(--bg-surface-tertiary) var(--range-end, 100%));
     border-radius: 4px;
     z-index: 1;
@@ -581,8 +581,8 @@ html, body {
     width: 16px;
     height: 16px;
     border-radius: 50%;
-    background-color: var(--brand-primary);
-    border: 2.5px solid #ffffff;
+    background-color: var(--action-primary);
+    border: 2.5px solid var(--bg-surface);
     box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
     cursor: pointer;
     pointer-events: auto;
@@ -594,8 +594,8 @@ html, body {
     width: 16px;
     height: 16px;
     border-radius: 50%;
-    background-color: var(--brand-primary);
-    border: 2.5px solid #ffffff;
+    background-color: var(--action-primary);
+    border: 2.5px solid var(--bg-surface);
     box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
     cursor: pointer;
     pointer-events: auto;
@@ -614,7 +614,7 @@ html, body {
     border-radius: 4px;
     accent-color: var(--brand-primary);
     cursor: pointer;
-    background: #e2e8f0;
+    background: var(--bg-surface-tertiary);
     margin: 6px 0;
 }
 
@@ -656,7 +656,7 @@ html, body {
 }
 
 .pill-btn.active {
-    background-color: var(--brand-primary);
+    background-color: var(--action-primary);
     color: #ffffff;
     box-shadow: 0 1px 2px rgba(200, 32, 38, 0.2);
 }
@@ -1104,14 +1104,14 @@ html, body {
     min-width: 0;
     overflow-y: auto;
     padding: 20px;
-    background: #faf9f6;
+    background: var(--odd-page);
 }
-.odd-tab { color: #6d4a18; }
-.odd-finds-header { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; border-bottom: 1px solid #ded8ca; padding-bottom: 16px; }
-.odd-eyebrow { color: #775416; font-size: 11px; font-weight: 700; margin-bottom: 4px; }
+.odd-tab { color: var(--odd-ink); }
+.odd-finds-header { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; border-bottom: 1px solid var(--odd-border); padding-bottom: 16px; }
+.odd-eyebrow { color: var(--odd-ink); font-size: 11px; font-weight: 700; margin-bottom: 4px; }
 .odd-finds-header h2 { font-size: 23px; line-height: 1.3; margin-bottom: 4px; }
 .odd-finds-header p:last-child { font-size: 12px; color: var(--text-secondary); }
-#btn-odd-surprise { min-height: 44px; border-color: #c2a46b; background: #fff9e9; color: #61431a; }
+#btn-odd-surprise { min-height: 44px; border-color: var(--odd-border); background: var(--odd-bg); color: var(--odd-ink); }
 .odd-finds-intro { display: flex; align-items: baseline; gap: 8px 16px; flex-wrap: wrap; padding-top: 14px; font-size: 12px; }
 .odd-finds-intro p { font-weight: 700; }
 .odd-finds-intro span { color: var(--text-muted); font-size: 11px; }
@@ -1119,10 +1119,10 @@ html, body {
 .odd-method summary { cursor: pointer; width: fit-content; padding: 5px 0; }
 .odd-method p { max-width: 85ch; padding: 4px 0; }
 .odd-finds-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); gap: 18px; }
-.odd-find-card { min-width: 0; display: flex; flex-direction: column; border: 1px solid #ded8ca; border-radius: 6px; background: var(--bg-surface); overflow: hidden; }
+.odd-find-card { min-width: 0; display: flex; flex-direction: column; border: 1px solid var(--odd-border); border-radius: 6px; background: var(--bg-surface); overflow: hidden; }
 .odd-photo { position: relative; flex-shrink: 0; aspect-ratio: 3 / 2; overflow: hidden; background: var(--bg-surface-secondary); }
 .odd-photo img { position: absolute; inset: 0; display: block; width: 100%; height: 100%; object-fit: cover; }
-.odd-feature-label { position: absolute; bottom: 10px; left: 10px; right: 10px; width: fit-content; max-width: calc(100% - 20px); background: #fff8e5; border: 1px solid #d8be8a; border-radius: 3px; padding: 4px 8px; font-size: 11px; font-weight: 700; color: #61431a; }
+.odd-feature-label { position: absolute; bottom: 10px; left: 10px; right: 10px; width: fit-content; max-width: calc(100% - 20px); background: var(--odd-bg); border: 1px solid var(--odd-border); border-radius: 3px; padding: 4px 8px; font-size: 11px; font-weight: 700; color: var(--odd-ink); }
 .odd-card-body { display: flex; flex-direction: column; flex: 1; padding: 14px; }
 .odd-card-body h3 { font-size: 16px; line-height: 1.4; margin-bottom: 8px; }
 .odd-price { font-size: 20px; font-weight: 700; }
@@ -1130,13 +1130,13 @@ html, body {
 .odd-monthly { font-size: 11px; color: var(--text-secondary); margin-top: 3px; }
 .odd-address { font-size: 12px; line-height: 1.7; margin-top: 6px; overflow-wrap: anywhere; }
 .odd-specs { font-size: 11px; line-height: 1.8; color: var(--text-secondary); margin: 6px 0 12px; }
-.odd-evidence { border-left: 3px solid #c2a46b; padding: 0 0 0 10px; margin-bottom: 12px; }
-.odd-evidence > span { display: block; font-size: 10px; font-weight: 700; color: #775416; margin-bottom: 4px; }
+.odd-evidence { border-left: 3px solid var(--odd-border); padding: 0 0 0 10px; margin-bottom: 12px; }
+.odd-evidence > span { display: block; font-size: 10px; font-weight: 700; color: var(--odd-ink); margin-bottom: 4px; }
 .odd-evidence blockquote { font-size: 12px; line-height: 1.7; color: var(--text-secondary); overflow-wrap: anywhere; }
-.odd-feature-note { font-size: 11px; line-height: 1.6; background: #fff8e5; padding: 8px; margin-bottom: 12px; color: #61431a; }
+.odd-feature-note { font-size: 11px; line-height: 1.6; background: var(--odd-bg); padding: 8px; margin-bottom: 12px; color: var(--odd-ink); }
 .odd-card-actions { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: auto; padding-top: 10px; border-top: 1px solid var(--border-subtle); }
 .odd-card-actions button, .odd-card-actions label { min-height: 44px; }
-.odd-finds-empty { border: 1px dashed #c2a46b; padding: 24px; font-size: 12px; line-height: 1.8; }
+.odd-finds-empty { border: 1px dashed var(--odd-border); padding: 24px; font-size: 12px; line-height: 1.8; }
 .odd-finds-empty h3 { font-size: 16px; }
 .odd-finds-empty button { margin-top: 12px; }
 .mobile-nav-item .odd-mobile-icon { font-size: 20px; line-height: 20px; }
@@ -1181,7 +1181,7 @@ html, body {
     position: relative;
     width: 100%;
     aspect-ratio: 16 / 10;
-    background-color: #e2e8f0;
+    background-color: var(--bg-surface-tertiary);
     overflow: hidden;
 }
 
@@ -1223,7 +1223,7 @@ html, body {
     bottom: 10px;
     left: 10px;
     padding: 3px 8px;
-    background: #ffffff;
+    background: var(--bg-surface);
     color: var(--text-primary);
     font-size: 11px;
     font-weight: 800;
@@ -1239,7 +1239,7 @@ html, body {
     width: 32px;
     height: 32px;
     border-radius: 50%;
-    background-color: rgba(255, 255, 255, 0.95);
+    background-color: var(--bg-surface);
     border: none;
     color: var(--text-muted);
     display: flex;
@@ -1258,7 +1258,7 @@ html, body {
 
 .card-favorite-btn.favorited {
     color: var(--accent-rose);
-    background-color: #ffffff;
+    background-color: var(--bg-surface);
 }
 
 /* Photo Navigation Arrows */
@@ -1269,7 +1269,7 @@ html, body {
     width: 28px;
     height: 28px;
     border-radius: 50%;
-    background-color: rgba(255, 255, 255, 0.92);
+    background-color: var(--bg-surface);
     border: none;
     color: var(--text-primary);
     font-size: 18px;
@@ -1290,7 +1290,7 @@ html, body {
 
 .card-nav-arrow.prev { left: 8px; }
 .card-nav-arrow.next { right: 8px; }
-.card-nav-arrow:hover { background-color: #ffffff; }
+.card-nav-arrow:hover { background-color: var(--bg-surface); }
 
 .card-photo-counter {
     position: absolute;
@@ -1340,7 +1340,7 @@ html, body {
 }
 
 .card-mortgage-badge:hover {
-    background-color: #dcfce7;
+    background-color: var(--positive-bg);
 }
 
 .card-address-block {
@@ -1425,16 +1425,16 @@ html, body {
 }
 
 .chip-broadband {
-    background-color: #f0f9ff;
-    color: #0369a1;
-    border-color: #bae6fd;
+    background-color: var(--info-bg);
+    color: var(--info-ink);
+    border-color: var(--info-border);
     font-weight: 600;
 }
 
 .chip-broadband.chip-cable-only {
-    background-color: #fffbeb;
-    color: #b45309;
-    border-color: #fde68a;
+    background-color: var(--warning-bg);
+    color: var(--warning-ink);
+    border-color: var(--warning-border);
 }
 
 /* Card Broadband Summary Block (Wireline Speeds & Providers) */
@@ -1451,13 +1451,13 @@ html, body {
 }
 
 .card-broadband-block.fiber-ready-block {
-    background-color: #f0f9ff;
-    border-color: #bae6fd;
+    background-color: var(--info-bg);
+    border-color: var(--info-border);
 }
 
 .card-broadband-block.cable-only-block {
-    background-color: #fffbeb;
-    border-color: #fde68a;
+    background-color: var(--warning-bg);
+    border-color: var(--warning-border);
 }
 
 .bb-card-top-row {
@@ -1479,12 +1479,12 @@ html, body {
 }
 
 .bb-type-pill.badge-fiber-ready {
-    background-color: #0284c7;
+    background-color: #076b9e;
     color: #ffffff;
 }
 
 .bb-type-pill.badge-cable-only {
-    background-color: #d97706;
+    background-color: #925109;
     color: #ffffff;
 }
 
@@ -1498,11 +1498,11 @@ html, body {
 }
 
 .card-broadband-block.fiber-ready-block .bb-speed-tag {
-    color: #0369a1;
+    color: var(--info-ink);
 }
 
 .card-broadband-block.cable-only-block .bb-speed-tag {
-    color: #92400e;
+    color: var(--warning-ink);
 }
 
 .bb-card-providers-row {
@@ -1531,7 +1531,7 @@ html, body {
 }
 
 .card-broadband-block.cable-only-block .bb-prov-names {
-    color: #78350f;
+    color: var(--warning-ink);
 }
 
 /* Star Rating & Notes */
@@ -1607,7 +1607,7 @@ html, body {
     font-size: 11.5px;
     font-weight: 700;
     border-radius: var(--radius-md);
-    background: linear-gradient(135deg, var(--brand-primary) 0%, #b91c1c 100%);
+    background: linear-gradient(135deg, var(--action-primary) 0%, #b91c1c 100%);
     box-shadow: 0 1px 4px rgba(200, 32, 38, 0.25);
     transition: all 0.15s ease;
     display: inline-flex;
@@ -1618,7 +1618,7 @@ html, body {
 }
 
 .card-view-drawer-btn:hover {
-    background: linear-gradient(135deg, var(--brand-primary-hover) 0%, #991b1b 100%);
+    background: linear-gradient(135deg, var(--brand-primary-hover) 0%, var(--negative-ink) 100%);
     box-shadow: 0 3px 8px rgba(200, 32, 38, 0.35);
     transform: translateY(-1px);
 }
@@ -1657,7 +1657,7 @@ html, body {
     position: relative;
     height: 100%;
     width: 100%;
-    background-color: #f4f1ea;
+    background-color: var(--odd-bg);
 }
 
 #leaflet-map {
@@ -1669,7 +1669,7 @@ html, body {
     right: 0;
     bottom: 0;
     z-index: 1;
-    background-color: #f4f1ea;
+    background-color: var(--odd-bg);
 }
 
 /* Map Top Overlay Controls */
@@ -1721,7 +1721,7 @@ html, body {
 }
 
 .map-region-pill.active {
-    background-color: var(--brand-primary);
+    background-color: var(--action-primary);
     color: #ffffff;
     box-shadow: 0 1px 4px rgba(200, 32, 38, 0.35);
 }
@@ -1785,7 +1785,7 @@ html, body {
 }
 
 .leaflet-control-zoom a {
-    background-color: #ffffff !important;
+    background-color: var(--bg-surface) !important;
     color: var(--text-primary) !important;
     font-weight: 700 !important;
     width: 32px !important;
@@ -1854,7 +1854,7 @@ html, body {
 
 .realtor-price-pin {
     display: inline-block;
-    background-color: #ffffff;
+    background-color: var(--bg-surface);
     border: 1.5px solid var(--brand-primary);
     color: var(--brand-primary);
     font-weight: 700;
@@ -1871,7 +1871,7 @@ html, body {
 
 .realtor-price-pin:hover,
 .realtor-price-pin.selected {
-    background-color: var(--brand-primary);
+    background-color: var(--action-primary);
     color: #ffffff;
     transform: scale(1.12);
     z-index: 1000 !important;
@@ -1879,7 +1879,7 @@ html, body {
 
 .realtor-price-pin.favorited-pin {
     border-color: var(--accent-rose);
-    background-color: #fff1f2;
+    background-color: var(--negative-bg);
     color: var(--accent-rose);
 }
 
@@ -1895,7 +1895,7 @@ html, body {
     display: flex;
     align-items: center;
     justify-content: center;
-    border: 2.5px solid #ffffff;
+    border: 2.5px solid var(--bg-surface);
     box-shadow: 0 3px 10px rgba(200, 32, 38, 0.45);
     transition: transform 0.15s ease;
     cursor: pointer;
@@ -2088,7 +2088,7 @@ html, body {
     position: relative;
     width: 100%;
     aspect-ratio: 16 / 10;
-    background-color: #e2e8f0;
+    background-color: var(--bg-surface-tertiary);
     border-radius: var(--radius-lg);
     overflow: hidden;
 }
@@ -2118,7 +2118,7 @@ html, body {
     width: 30px;
     height: 30px;
     border-radius: var(--radius-md);
-    background-color: rgba(255, 255, 255, 0.92);
+    background-color: var(--bg-surface);
     border: none;
     color: var(--text-primary);
     display: flex;
@@ -2135,7 +2135,7 @@ html, body {
     width: 32px;
     height: 32px;
     border-radius: 50%;
-    background-color: rgba(255, 255, 255, 0.92);
+    background-color: var(--bg-surface);
     border: none;
     color: var(--text-primary);
     font-size: 20px;
@@ -2230,7 +2230,7 @@ html, body {
     font-size: 22px;
     font-weight: 800;
     color: var(--brand-primary);
-    background-color: #ffffff;
+    background-color: var(--bg-surface);
     border: 1px solid var(--border-medium);
     padding: 6px 12px;
     border-radius: var(--radius-md);
@@ -2271,7 +2271,7 @@ html, body {
     align-items: center;
     justify-content: space-between;
     padding: 7px 10px;
-    background-color: #ffffff;
+    background-color: var(--bg-surface);
     border: 1px solid var(--border-subtle);
     border-radius: var(--radius-md);
 }
@@ -2323,7 +2323,7 @@ html, body {
     padding: 8px 10px;
     font-size: 12.5px;
     font-family: inherit;
-    background-color: #ffffff;
+    background-color: var(--bg-surface);
     border: 1px solid var(--border-medium);
     border-radius: var(--radius-md);
     color: var(--text-primary);
@@ -2358,7 +2358,7 @@ html, body {
 }
 
 .d-seg { height: 100%; }
-.d-seg-pi { background-color: var(--brand-primary); }
+.d-seg-pi { background-color: var(--action-primary); }
 .d-seg-tax { background-color: #f59e0b; }
 .d-seg-ins { background-color: #3b82f6; }
 .d-seg-hoa { background-color: #8b5cf6; }
@@ -2384,22 +2384,22 @@ html, body {
     margin-right: 4px;
 }
 
-.dot-pi { background-color: var(--brand-primary); }
+.dot-pi { background-color: var(--action-primary); }
 .dot-tax { background-color: #f59e0b; }
 .dot-ins { background-color: #3b82f6; }
 .dot-hoa { background-color: #8b5cf6; }
 
 /* Broadband & High-Speed Internet (FCC National Broadband Map) */
 .internet-broadband-card {
-    background-color: #ffffff;
+    background-color: var(--bg-surface);
     border: 1px solid var(--border-medium);
     border-radius: var(--radius-lg);
     padding: 14px;
     display: flex;
     flex-direction: column;
     gap: 12px;
-    border-color: #bae6fd;
-    background: linear-gradient(to bottom, #ffffff, #f8fafc);
+    border-color: var(--info-border);
+    background: linear-gradient(to bottom, var(--bg-surface), var(--bg-page));
 }
 
 .internet-card-header {
@@ -2427,21 +2427,21 @@ html, body {
 }
 
 .drawer-bb-status-pill.status-both {
-    background-color: #e0f2fe;
-    color: #0369a1;
-    border: 1px solid #bae6fd;
+    background-color: var(--info-bg);
+    color: var(--info-ink);
+    border: 1px solid var(--info-border);
 }
 
 .drawer-bb-status-pill.status-cable-only {
-    background-color: #fef3c7;
-    color: #92400e;
-    border: 1px solid #fde68a;
+    background-color: var(--warning-bg);
+    color: var(--warning-ink);
+    border: 1px solid var(--warning-border);
 }
 
 .drawer-bb-status-pill.status-fiber-only {
-    background-color: #dcfce7;
-    color: #166534;
-    border: 1px solid #bbf7d0;
+    background-color: var(--positive-bg);
+    color: var(--positive-ink);
+    border: 1px solid var(--positive-border);
 }
 
 .internet-card-header h4 {
@@ -2460,16 +2460,16 @@ html, body {
     padding: 5px 10px;
     text-decoration: none;
     border-radius: var(--radius-md);
-    background-color: #f0f9ff;
-    color: #0284c7;
-    border: 1px solid #bae6fd;
+    background-color: var(--info-bg);
+    color: var(--info-ink);
+    border: 1px solid var(--info-border);
     transition: all 0.15s ease;
 }
 
 .btn-fcc-link:hover {
-    background-color: #0284c7;
+    background-color: #076b9e;
     color: #ffffff;
-    border-color: #0284c7;
+    border-color: var(--info-ink);
     text-decoration: none;
 }
 
@@ -2480,7 +2480,7 @@ html, body {
 }
 
 .internet-tech-cell {
-    background-color: #ffffff;
+    background-color: var(--bg-surface);
     border: 1px solid var(--border-subtle);
     border-radius: var(--radius-md);
     padding: 10px 12px;
@@ -2492,7 +2492,7 @@ html, body {
 
 .internet-tech-cell.cell-unavailable {
     opacity: 0.6;
-    background-color: #f8fafc;
+    background-color: var(--bg-page);
 }
 
 .tech-cell-top {
@@ -2511,13 +2511,13 @@ html, body {
 }
 
 .tech-tag.tag-fiber {
-    background-color: #dcfce7;
-    color: #15803d;
+    background-color: var(--positive-bg);
+    color: var(--positive-ink);
 }
 
 .tech-tag.tag-cable {
-    background-color: #e0e7ff;
-    color: #4338ca;
+    background-color: var(--violet-bg);
+    color: var(--violet-ink);
 }
 
 .tech-avail-badge {
@@ -2528,13 +2528,13 @@ html, body {
 }
 
 .tech-avail-badge.avail-yes {
-    background-color: #dcfce7;
-    color: #166534;
+    background-color: var(--positive-bg);
+    color: var(--positive-ink);
 }
 
 .tech-avail-badge.avail-no {
-    background-color: #f1f5f9;
-    color: #64748b;
+    background-color: var(--bg-surface-secondary);
+    color: var(--text-muted);
 }
 
 .tech-speed-specs {
@@ -2589,22 +2589,22 @@ html, body {
 }
 
 .tech-status-badge.status-fiber {
-    background-color: #f0fdf4;
-    color: #166534;
-    border: 1px solid #bbf7d0;
+    background-color: var(--positive-bg);
+    color: var(--positive-ink);
+    border: 1px solid var(--positive-border);
 }
 
 .tech-status-badge.status-cable {
-    background-color: #eef2ff;
-    color: #3730a3;
-    border: 1px solid #c7d2fe;
+    background-color: var(--violet-bg);
+    color: var(--violet-ink);
+    border: 1px solid var(--violet-border);
 }
 
 .internet-fcc-notice {
     display: flex;
     align-items: center;
     gap: 8px;
-    background-color: #f1f5f9;
+    background-color: var(--bg-surface-secondary);
     border-radius: var(--radius-sm);
     padding: 6px 10px;
     font-size: 10.5px;
@@ -2614,7 +2614,7 @@ html, body {
 
 .fcc-notice-icon {
     flex-shrink: 0;
-    color: #64748b;
+    color: var(--text-muted);
     margin-top: 1px;
 }
 
@@ -2627,7 +2627,7 @@ html, body {
     display: flex;
     flex-direction: column;
     gap: 8px;
-    background-color: #f8fafc;
+    background-color: var(--bg-page);
     border: 1px solid var(--border-subtle);
     border-radius: var(--radius-md);
     padding: 12px;
@@ -2675,57 +2675,57 @@ html, body {
 }
 
 .btn-verify.btn-fcc {
-    background-color: #e0f2fe;
-    color: #0369a1;
-    border-color: #bae6fd;
+    background-color: var(--info-bg);
+    color: var(--info-ink);
+    border-color: var(--info-border);
 }
 
 .btn-verify.btn-fcc:hover {
-    background-color: #0284c7;
+    background-color: #076b9e;
     color: #ffffff;
-    border-color: #0284c7;
+    border-color: var(--info-ink);
 }
 
 .btn-verify.btn-carrier {
-    background-color: #f0fdf4;
-    color: #15803d;
-    border-color: #bbf7d0;
+    background-color: var(--positive-bg);
+    color: var(--positive-ink);
+    border-color: var(--positive-border);
 }
 
 .btn-verify.btn-carrier:hover {
-    background-color: #16a34a;
+    background-color: var(--positive-solid);
     color: #ffffff;
     border-color: #16a34a;
 }
 
 .btn-verify.btn-streetview {
-    background-color: #fef3c7;
-    color: #92400e;
-    border-color: #fde68a;
+    background-color: var(--warning-bg);
+    color: var(--warning-ink);
+    border-color: var(--warning-border);
 }
 
 .btn-verify.btn-streetview:hover {
-    background-color: #d97706;
+    background-color: #925109;
     color: #ffffff;
     border-color: #d97706;
 }
 
 .btn-verify.btn-copy-addr {
-    background-color: #f1f5f9;
-    color: #334155;
-    border-color: #cbd5e1;
+    background-color: var(--bg-surface-secondary);
+    color: var(--text-secondary);
+    border-color: var(--border-medium);
 }
 
 .btn-verify.btn-copy-addr:hover {
-    background-color: #e2e8f0;
-    color: #0f172a;
-    border-color: #94a3b8;
+    background-color: var(--bg-surface-tertiary);
+    color: var(--text-primary);
+    border-color: var(--border-strong);
 }
 
 .btn-verify.btn-copy-addr.copied {
-    background-color: #dcfce7;
-    color: #15803d;
-    border-color: #86efac;
+    background-color: var(--positive-bg);
+    color: var(--positive-ink);
+    border-color: var(--positive-border);
 }
 
 /* Official FCC Statistics Tiles Grid */
@@ -2736,7 +2736,7 @@ html, body {
 }
 
 .fcc-stat-tile {
-    background-color: #f8fafc;
+    background-color: var(--bg-page);
     border: 1px solid var(--border-subtle);
     border-radius: var(--radius-md);
     padding: 8px 10px;
@@ -2746,8 +2746,8 @@ html, body {
 }
 
 .fcc-stat-tile.highlight {
-    background-color: #f0f9ff;
-    border-color: #bae6fd;
+    background-color: var(--info-bg);
+    border-color: var(--info-border);
 }
 
 .fcc-stat-lbl {
@@ -2759,7 +2759,7 @@ html, body {
 .fcc-stat-val {
     font-size: 16px;
     font-weight: 800;
-    color: #0369a1;
+    color: var(--info-ink);
 }
 
 .fcc-stat-sub {
@@ -2776,17 +2776,17 @@ html, body {
     font-weight: 700;
     padding: 5px 10px;
     border-radius: var(--radius-sm);
-    background-color: #e0f2fe;
-    color: #0369a1;
-    border: 1px solid #bae6fd;
+    background-color: var(--info-bg);
+    color: var(--info-ink);
+    border: 1px solid var(--info-border);
     text-decoration: none;
     transition: all 0.15s ease;
 }
 
 .btn-drawer-fcc-header:hover {
-    background-color: #0284c7;
+    background-color: #076b9e;
     color: #ffffff;
-    border-color: #0284c7;
+    border-color: var(--info-ink);
     text-decoration: none;
 }
 
@@ -2799,28 +2799,28 @@ html, body {
     font-weight: 700;
     padding: 3px 8px;
     border-radius: var(--radius-sm);
-    background-color: #f0f9ff;
-    color: #0369a1;
-    border: 1px solid #bae6fd;
+    background-color: var(--info-bg);
+    color: var(--info-ink);
+    border: 1px solid var(--info-border);
     text-decoration: none;
     transition: all 0.12s ease;
 }
 
 .card-fcc-action-btn:hover {
-    background-color: #0284c7;
+    background-color: #076b9e;
     color: #ffffff;
-    border-color: #0284c7;
+    border-color: var(--info-ink);
     text-decoration: none;
 }
 
 .card-sv-action-btn {
-    background-color: #fefce8;
-    color: #854d0e;
-    border-color: #fef08a;
+    background-color: var(--warning-bg);
+    color: var(--warning-ink);
+    border-color: var(--warning-border);
 }
 
 .card-sv-action-btn:hover {
-    background-color: #ca8a04;
+    background-color: #805300;
     color: #ffffff;
     border-color: #ca8a04;
 }
@@ -2848,7 +2848,7 @@ html, body {
     display: flex;
     gap: 10px;
     padding: 8px;
-    background-color: #ffffff;
+    background-color: var(--bg-surface);
     border: 1px solid var(--border-subtle);
     border-radius: var(--radius-md);
     cursor: pointer;
@@ -3163,7 +3163,7 @@ html, body {
     transition: width 0.2s ease;
 }
 
-.seg-principal { background-color: var(--brand-primary); }
+.seg-principal { background-color: var(--action-primary); }
 .seg-tax { background-color: var(--accent-amber); }
 .seg-ins { background-color: var(--accent-blue); }
 .seg-hoa { background-color: #8b5cf6; }
@@ -3189,7 +3189,7 @@ html, body {
     display: inline-block;
 }
 
-.dot-principal { background-color: var(--brand-primary); }
+.dot-principal { background-color: var(--action-primary); }
 .dot-tax { background-color: var(--accent-amber); }
 .dot-ins { background-color: var(--accent-blue); }
 .dot-hoa { background-color: #8b5cf6; }
@@ -3298,7 +3298,7 @@ html, body {
 
 .progress-bar-fill {
     height: 100%;
-    background: linear-gradient(90deg, var(--brand-primary), #ef4444);
+    background: linear-gradient(90deg, var(--action-primary), #ef4444);
     transition: width 0.3s ease;
 }
 
@@ -3313,7 +3313,7 @@ html, body {
 
 .scraper-terminal {
     background-color: #0f172a;
-    color: #e2e8f0;
+    color: var(--bg-surface-tertiary);
     padding: 12px 14px;
     border-radius: var(--radius-md);
     font-size: 11.5px;
@@ -3459,7 +3459,7 @@ html, body {
     width: 36px;
     height: 36px;
     border-radius: 50%;
-    background-color: #ffffff;
+    background-color: var(--bg-surface);
     border: none;
     font-size: 24px;
     cursor: pointer;
@@ -3511,7 +3511,7 @@ html, body {
 }
 
 .stage-nav-btn {
-    background-color: rgba(255, 255, 255, 0.92);
+    background-color: var(--bg-surface);
     border: none;
     border-radius: 50%;
     width: 44px;
@@ -3628,7 +3628,7 @@ html, body {
 
 .dist-fill {
     height: 100%;
-    background-color: var(--brand-primary);
+    background-color: var(--action-primary);
     border-radius: var(--radius-full);
 }
 
@@ -3708,7 +3708,7 @@ body.density-compact .card-price {
     color: #ffffff;
     margin-bottom: 20px;
     box-shadow: 0 4px 16px rgba(15, 23, 42, 0.12);
-    border: 1px solid #334155;
+    border: 1px solid var(--text-secondary);
     display: flex;
     flex-direction: column;
     gap: 20px;
@@ -3739,7 +3739,7 @@ body.density-compact .card-price {
 
 .deals-hero-content p {
     font-size: 13px;
-    color: #94a3b8;
+    color: var(--border-strong);
     margin: 0;
     max-width: 800px;
     line-height: 1.5;
@@ -3754,7 +3754,7 @@ body.density-compact .card-price {
 }
 
 .deal-stat-block {
-    background: rgba(255, 255, 255, 0.06);
+    background: var(--bg-surface);
     border: 1px solid rgba(255, 255, 255, 0.08);
     border-radius: var(--radius-md);
     padding: 10px 14px;
@@ -3765,7 +3765,7 @@ body.density-compact .card-price {
 
 .d-stat-label {
     font-size: 11px;
-    color: #94a3b8;
+    color: var(--border-strong);
     text-transform: uppercase;
     letter-spacing: 0.04em;
     font-weight: 600;
@@ -3826,7 +3826,7 @@ body.density-compact .card-price {
 }
 
 .deal-pill.active {
-    background-color: var(--brand-primary);
+    background-color: var(--action-primary);
     border-color: var(--brand-primary);
     color: #ffffff;
     box-shadow: 0 1px 4px rgba(200, 32, 38, 0.3);
@@ -3860,7 +3860,7 @@ body.density-compact .card-price {
 .deal-eval-card-item:hover {
     transform: translateY(-2px);
     box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
-    border-color: #cbd5e1;
+    border-color: var(--border-medium);
 }
 
 .deal-card-top {
@@ -3879,7 +3879,7 @@ body.density-compact .card-price {
     overflow: hidden;
     flex-shrink: 0;
     position: relative;
-    background-color: #e2e8f0;
+    background-color: var(--bg-surface-tertiary);
 }
 
 .deal-thumb-box img {
@@ -3924,7 +3924,7 @@ body.density-compact .card-price {
 
 .deal-card-monthly {
     font-size: 11.5px;
-    color: #059669;
+    color: var(--positive-ink);
     font-weight: 700;
 }
 
@@ -3964,8 +3964,8 @@ body.density-compact .card-price {
     align-items: center;
     justify-content: space-between;
     padding: 8px 12px;
-    background: #f0fdf4;
-    border: 1px solid #bbf7d0;
+    background: var(--positive-bg);
+    border: 1px solid var(--positive-border);
     border-radius: var(--radius-md);
 }
 
@@ -3975,11 +3975,11 @@ body.density-compact .card-price {
     gap: 6px;
     font-size: 12px;
     font-weight: 800;
-    color: #166534;
+    color: var(--positive-ink);
 }
 
 .deal-score-pill {
-    background: #16a34a;
+    background: var(--positive-solid);
     color: #ffffff;
     font-size: 11px;
     font-weight: 800;
@@ -4013,7 +4013,7 @@ body.density-compact .card-price {
 .savings-val {
     font-size: 13px;
     font-weight: 800;
-    color: #15803d;
+    color: var(--positive-ink);
 }
 
 .deal-factor-bars-list {
@@ -4038,7 +4038,7 @@ body.density-compact .card-price {
 
 .deal-bar-track {
     height: 6px;
-    background: #e2e8f0;
+    background: var(--bg-surface-tertiary);
     border-radius: var(--radius-full);
     overflow: hidden;
 }
@@ -4072,8 +4072,8 @@ body.density-compact .card-price {
 
 /* Drawer Deal Evaluation Card */
 .deal-eval-card {
-    background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
-    border: 1px solid #cbd5e1;
+    background: linear-gradient(180deg, var(--bg-surface) 0%, var(--bg-page) 100%);
+    border: 1px solid var(--border-medium);
     border-left: 4px solid #10b981;
 }
 
@@ -4088,9 +4088,9 @@ body.density-compact .card-price {
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    background: #f0fdf4;
-    border: 1px solid #bbf7d0;
-    color: #166534;
+    background: var(--positive-bg);
+    border: 1px solid var(--positive-border);
+    color: var(--positive-ink);
     font-size: 11px;
     font-weight: 800;
     padding: 3px 10px;
@@ -4101,8 +4101,8 @@ body.density-compact .card-price {
 .deal-eval-score-badge {
     font-size: 12px;
     font-weight: 800;
-    color: #15803d;
-    background: #dcfce7;
+    color: var(--positive-ink);
+    background: var(--positive-bg);
     padding: 2px 8px;
     border-radius: var(--radius-sm);
 }
@@ -4113,7 +4113,7 @@ body.density-compact .card-price {
     line-height: 1.5;
     margin-bottom: 12px;
     padding: 8px 10px;
-    background: #f8fafc;
+    background: var(--bg-page);
     border-radius: var(--radius-md);
     border: 1px solid var(--border-subtle);
 }
@@ -4125,7 +4125,7 @@ body.density-compact .card-price {
 }
 
 .deal-metric-cell {
-    background: #ffffff;
+    background: var(--bg-surface);
     border: 1px solid var(--border-subtle);
     border-radius: var(--radius-md);
     padding: 8px 10px;
@@ -4148,7 +4148,7 @@ body.density-compact .card-price {
 }
 
 .dmc-val.good {
-    color: #15803d;
+    color: var(--positive-ink);
 }
 
 /* Card Deal Badges */
@@ -4561,7 +4561,7 @@ body.density-compact .card-price {
         height: calc(60px + env(safe-area-inset-bottom, 0px));
         min-height: calc(60px + env(safe-area-inset-bottom, 0px));
         padding-bottom: env(safe-area-inset-bottom, 0px);
-        background: #ffffff;
+        background: var(--bg-surface);
         border-top: 1px solid var(--border-medium);
         position: relative;
         bottom: 0;
@@ -4690,7 +4690,7 @@ body.density-compact .card-price {
         bottom: 12px;
         left: 10px;
         right: 10px;
-        background-color: #ffffff;
+        background-color: var(--bg-surface);
         border-radius: var(--radius-lg);
         box-shadow: 0 8px 30px rgba(0, 0, 0, 0.22);
         border: 1px solid var(--border-medium);
@@ -4830,8 +4830,8 @@ body.density-compact .card-price {
     flex-shrink: 0;
     margin: 0;
     padding: 5px 18px;
-    background: #fff8e8;
-    color: #805300;
+    background: var(--warning-bg);
+    color: var(--warning-ink);
     font-size: 11px;
     line-height: 1.35;
 }

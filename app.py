@@ -47,6 +47,8 @@ INDEX_FILE = os.path.join(BASE_DIR, "index.html")
 # Files the browser may request from the project root. Anything else is a 404,
 # so listing data and source files are never exposed by accident.
 STATIC_FILES: Dict[str, tuple] = {
+    "/favicon.svg": ("favicon.svg", "image/svg+xml"),
+    "/theme.css": ("theme.css", "text/css"),
     "/styles.css": ("styles.css", "text/css"),
     "/app.js": ("app.js", "application/javascript"),
     "/data.js": ("data.js", "application/javascript"),

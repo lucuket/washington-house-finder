@@ -26,6 +26,8 @@ venv/
 env/
 ENV/
 .venv/
+.qa-python/
+qa-artifacts/
 
 # Local user research state (personal favorites, ratings, and notes)
 data/user_state.json

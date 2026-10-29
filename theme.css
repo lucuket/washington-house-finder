@@ -1,0 +1,308 @@
+/* Shared semantic colors keep every research surface legible in both modes. */
+:root {
+    color-scheme: light;
+    --action-primary: #c82026;
+    --positive-solid: #15803d;
+    --positive-bg: #ecfdf5;
+    --positive-border: #a7e5c4;
+    --positive-ink: #166534;
+    --warning-bg: #fff8e8;
+    --warning-border: #e8d49a;
+    --warning-ink: #805300;
+    --info-bg: #eff8ff;
+    --info-border: #bfdef1;
+    --info-ink: #075985;
+    --negative-bg: #fff1f2;
+    --negative-border: #fecaca;
+    --negative-ink: #a11626;
+    --violet-bg: #eef2ff;
+    --violet-border: #c7d2fe;
+    --violet-ink: #4338ca;
+    --odd-page: #faf9f6;
+    --odd-bg: #fff8e5;
+    --odd-border: #d8c7a6;
+    --odd-ink: #775416;
+    --accent-emerald: #166534;
+    --accent-amber: #946200;
+    --photo-control-bg: #ffffff;
+    --photo-control-ink: #334155;
+    --sidebar-width: 288px;
+    --text-muted: #526478;
+}
+
+:root[data-theme="dark"] {
+    color-scheme: dark;
+    --bg-page: #101820;
+    --bg-surface: #17212b;
+    --bg-surface-secondary: #202d3a;
+    --bg-surface-tertiary: #2e4052;
+    --bg-backdrop: rgba(4, 9, 15, .72);
+    --border-subtle: #304151;
+    --border-medium: #465b70;
+    --border-strong: #8195ab;
+    --border-focus: #ff959a;
+    --text-primary: #edf3f8;
+    --text-secondary: #c6d3df;
+    --text-muted: #a4b5c6;
+    --brand-primary: #ff959a;
+    --brand-primary-hover: #b81b23;
+    --brand-primary-light: #563039;
+    --brand-primary-subtle: #35232d;
+    --brand-zillow-blue: #88bdff;
+    --accent-emerald: #7ce4b1;
+    --accent-emerald-light: #173a30;
+    --accent-emerald-border: #376b58;
+    --accent-amber: #f6cf76;
+    --accent-amber-light: #362f1f;
+    --accent-amber-border: #70603b;
+    --accent-blue: #92baff;
+    --accent-blue-light: #1e314b;
+    --accent-blue-border: #405b80;
+    --accent-rose: #ff9bb3;
+    --positive-bg: #173a30;
+    --positive-border: #376b58;
+    --positive-ink: #7ce4b1;
+    --warning-bg: #362f1f;
+    --warning-border: #70603b;
+    --warning-ink: #f6cf76;
+    --info-bg: #173247;
+    --info-border: #365c77;
+    --info-ink: #8fd1ff;
+    --negative-bg: #3f2631;
+    --negative-border: #75404c;
+    --negative-ink: #ffabb1;
+    --violet-bg: #2d2b48;
+    --violet-border: #56537d;
+    --violet-ink: #c4baff;
+    --odd-page: #1c211f;
+    --odd-bg: #353025;
+    --odd-border: #655d4a;
+    --odd-ink: #e6c68b;
+    --shadow-sm: 0 1px 3px rgba(0,0,0,.18);
+    --shadow-md: 0 4px 14px rgba(0,0,0,.25);
+    --shadow-lg: 0 10px 28px rgba(0,0,0,.4);
+    --shadow-xl: 0 20px 40px rgba(0,0,0,.5);
+    --shadow-drawer: -8px 0 32px rgba(0,0,0,.4);
+}
+
+/* Functional, compact chrome with stable space for the research controls. */
+button, input, select, textarea { font: inherit; }
+button { touch-action: manipulation; }
+input, select, textarea { accent-color: var(--action-primary); }
+input::placeholder, textarea::placeholder { color: var(--text-muted); opacity: 1; }
+html { scrollbar-color: var(--border-strong) var(--bg-page); }
+.app-layout-wrapper { height: 100dvh; }
+.app-workspace { min-width: 0; }
+.app-topbar { gap: 16px; box-shadow: none; }
+.topbar-left { min-width: 0; gap: 16px; }
+.topbar-brand { flex-shrink: 0; }
+.brand-badge { background: var(--action-primary); box-shadow: none; }
+.app-title { white-space: nowrap; font-size: 14px; }
+.brand-tagline { font-size: 9px; letter-spacing: .065em; }
+.topbar-actions { flex-shrink: 0; gap: 6px; }
+.topbar-stats { flex-shrink: 0; }
+.stat-pill { border-radius: 5px; }
+.sidebar-header { gap: 10px; padding: 12px 16px; }
+.sidebar-header-title { display: flex; align-items: center; gap: 8px; }
+.sidebar-header-title h2 { font-size: 13px; font-weight: 700; }
+.sidebar-header-right { display: flex; align-items: center; gap: 8px; }
+.sidebar-content { gap: 18px; }
+.pill-group { grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); grid-template-columns: none; }
+.card-star-rating .star, .star-pick { border: 0; background: transparent; font: inherit; color: inherit; cursor: pointer; padding: 0; }
+.bb-type-pill.badge-cable-only { background: #925109; }
+.bb-type-pill.badge-fiber-ready { background: #076b9e; }
+.btn-primary { border-color: var(--action-primary); }
+.btn-primary:hover { border-color: var(--brand-primary-hover); }
+.btn-emerald { color: white; }
+.property-card { border-radius: 7px; box-shadow: none; transition: border-color .12s, box-shadow .12s; }
+.property-card:hover { transform: none; box-shadow: var(--shadow-sm); border-color: var(--border-strong); }
+.property-card:hover .card-img { transform: none; }
+.card-view-drawer-btn, .card-view-drawer-btn:hover { background: var(--action-primary); transform: none; box-shadow: none; }
+.card-view-drawer-btn:hover { background: var(--brand-primary-hover); }
+.card-actions { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding-top: 8px; border-top: 1px solid var(--border-subtle); }
+.drawer-panel, .modal-box, .cmd-palette-box { animation-duration: .15s; }
+.property-card:focus-within .card-nav-arrow { opacity: 1; }
+.card-body { gap: 9px; padding: 12px 14px; }
+.card-price-row { flex-wrap: wrap; gap: 6px; }
+.card-price { font-size: 21px; }
+.card-mortgage-badge { color: var(--positive-ink); }
+.card-favorite-btn, .card-favorite-btn.favorited, .card-nav-arrow, .card-nav-arrow:hover {
+    background: var(--photo-control-bg); color: var(--photo-control-ink);
+}
+.card-favorite-btn.favorited { color: #be123c; }
+.card-score-badge { background: var(--bg-surface); }
+.listing-source-link { font-size: 11px; }
+.dataset-notice { background: var(--warning-bg); color: var(--warning-ink); border-bottom: 1px solid var(--warning-border); padding: 6px 18px; }
+.workspace-title-row { flex-wrap: wrap; }
+.sort-wrapper { flex-shrink: 0; }
+.sort-wrapper label { white-space: nowrap; }
+.view-mode-tabs { flex-wrap: wrap; }
+.view-tab-btn { white-space: nowrap; }
+.theme-icon-sun, [data-theme="dark"] .theme-icon-moon { display: none; }
+[data-theme="dark"] .theme-icon-sun { display: block; }
+#btn-theme-toggle { width: 32px; height: 32px; padding: 0; }
+
+/* Fixed to the viewport, bounded in both axes; saved names cannot widen it. */
+.preset-selector-wrapper { position: relative; min-width: 0; }
+#active-preset-label { display: inline-block; max-width: 128px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.preset-dropdown-menu {
+    position: fixed; z-index: 1800; width: min(320px, calc(100vw - 16px));
+    overflow: auto; overscroll-behavior: contain; padding: 8px 0;
+    border: 1px solid var(--border-medium); border-radius: 8px;
+    background: var(--bg-surface); color: var(--text-primary); box-shadow: var(--shadow-lg);
+}
+.preset-dropdown-menu .dropdown-item {
+    width: 100%; border: 0; background: transparent; text-align: left;
+    min-height: 38px; gap: 8px; line-height: 1.5; font: inherit; font-size: 12px;
+    overflow-wrap: anywhere;
+}
+.preset-dropdown-menu .dropdown-item:hover { background: var(--bg-surface-secondary); }
+.saved-preset-load { border: 0; background: transparent; color: inherit; text-align: left; flex: 1; min-width: 0; overflow-wrap: anywhere; cursor: pointer; }
+.preset-dropdown-menu .filter-tag-remove { flex-shrink: 0; min-width: 32px; min-height: 32px; }
+.save-preset-action { color: var(--brand-primary) !important; font-weight: 700 !important; }
+.preset-save-form { display: flex; flex-direction: column; gap: 8px; padding: 8px 12px; font-size: 12px; }
+.preset-save-actions { display: flex; justify-content: flex-end; gap: 8px; }
+
+/* Leaflet chrome is themed independently from photographs and satellite tiles. */
+.leaflet-container { background: var(--bg-surface-secondary); font-family: var(--font-sans); }
+.leaflet-popup-content-wrapper, .leaflet-popup-tip { background: var(--bg-surface); color: var(--text-primary); }
+.leaflet-popup-content { margin: 10px; }
+.leaflet-bar a, .leaflet-bar a:hover { background: var(--bg-surface); color: var(--text-primary); border-color: var(--border-medium); }
+.leaflet-control-attribution { background: var(--bg-surface) !important; color: var(--text-secondary); }
+.leaflet-control-attribution a { color: var(--brand-primary); }
+.map-basemap-btn.active { background: var(--text-primary); color: var(--bg-surface); }
+.map-quick-actions { flex-wrap: wrap; border-radius: 8px; max-width: 100%; }
+.map-region-pills { border-radius: 8px; }
+.map-overlay-bar { gap: 6px; }
+[data-theme="dark"] .theme-street-tiles { filter: invert(1) hue-rotate(180deg) brightness(.82) saturate(.65); }
+[data-theme="dark"] .marker-cluster-small, [data-theme="dark"] .marker-cluster-small div { background: var(--positive-bg); color: var(--positive-ink); }
+[data-theme="dark"] .marker-cluster-medium, [data-theme="dark"] .marker-cluster-medium div { background: var(--warning-bg); color: var(--warning-ink); }
+[data-theme="dark"] .marker-cluster-large, [data-theme="dark"] .marker-cluster-large div { background: var(--negative-bg); color: var(--negative-ink); }
+.scraper-terminal { background: #0f172a; color: #e2e8f0; }
+.internet-broadband-card, .nearby-broadband-card { background: var(--bg-surface); }
+.modal-box { max-height: calc(100dvh - 24px); }
+.modal-body { min-width: 0; }
+.comparison-table td { overflow-wrap: anywhere; }
+input[type="range"]:focus-visible { outline: 2px solid var(--border-focus); outline-offset: 4px; }
+
+/* Complete the original drawer/tray markup that lacked matching style rules. */
+.drawer-specs-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.spec-cell { display: flex; flex-direction: column; gap: 3px; padding: 8px; background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: 4px; }
+.sc-label { font-size: 11px; color: var(--text-muted); }
+.sc-val { font-size: 12px; overflow-wrap: anywhere; }
+.drawer-description { font-size: 12px; line-height: 1.7; color: var(--text-secondary); }
+.research-notes-header, .mortgage-card-header { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
+.save-indicator { font-size: 10px; color: var(--text-muted); }
+.drawer-notes-input-block { width: 100%; }
+.drawer-notes-textarea { min-height: 108px; line-height: 1.6; }
+.drawer-rating-row { flex-wrap: wrap; gap: 8px; }
+.rating-label-text { font-size: 11px; color: var(--text-secondary); }
+.btn-text-link { background: transparent; border: 0; color: var(--brand-primary); font-size: 11px; font-weight: 700; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+.score-title-block { display: flex; flex-direction: column; gap: 3px; }
+.score-breakdown-bars { display: flex; flex-direction: column; gap: 6px; }
+.drawer-mortgage-breakdown { display: flex; flex-direction: column; gap: 12px; }
+.d-mortgage-total { font-size: 24px; font-weight: 700; color: var(--positive-ink); }
+.per-mo { font-size: 12px; font-weight: 500; color: var(--text-muted); }
+.d-mortgage-bar { display: flex; width: 100%; height: 9px; border-radius: 4px; overflow: hidden; }
+.d-mortgage-legend { display: grid; gap: 8px; }
+.d-leg-item { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--text-secondary); }
+.d-leg-item strong { margin-left: auto; color: var(--text-primary); }
+.d-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.loan-amount-badge { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; border-top: 1px solid var(--border-medium); padding-top: 12px; }
+.compare-dock { width: min(620px, calc(100vw - 24px)); border-radius: 8px; }
+.compare-dock-inner { width: 100%; display: grid; grid-template-columns: 1fr auto; gap: 10px 16px; align-items: center; }
+.compare-dock-header { display: flex; justify-content: space-between; align-items: center; grid-column: 1 / -1; gap: 12px; }
+.dock-title { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; font-size: 12px; }
+.dock-count-badge { color: var(--text-muted); font-size: 11px; }
+.dock-clear-btn { background: transparent; border: 0; color: var(--brand-primary); cursor: pointer; font-size: 11px; }
+.compare-thumbnails-row { display: flex; gap: 8px; }
+.dock-thumb-remove { background: var(--photo-control-ink); color: white; }
+.scoring-actions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 8px; }
+.lightbox-close-btn { color: var(--text-primary); }
+.lightbox-header-info { flex-wrap: wrap; gap: 10px; }
+.l-info-actions { display: flex; align-items: center; gap: 12px; }
+.l-price { font-size: 20px; }
+.l-info-actions a { color: white; }
+.deals-header-hero { background: var(--bg-surface); color: var(--text-primary); padding: 16px; gap: 12px; border: 1px solid var(--border-subtle); border-radius: 6px; box-shadow: none; }
+.deals-hero-badge { display: none; }
+.deals-hero-content h2 { color: var(--text-primary); font-size: 18px; }
+.deals-hero-content p { color: var(--text-secondary); }
+.deals-metric-summary-bar { gap: 10px; padding-top: 12px; margin-top: 12px; border-color: var(--border-subtle); }
+.deal-stat-block { background: var(--bg-surface-secondary); border-color: var(--border-subtle); padding: 8px 10px; }
+.d-stat-label { color: var(--text-muted); }
+.d-stat-val { color: var(--text-primary); font-size: 16px; }
+.d-stat-val.highlight { color: var(--brand-primary); }
+.d-stat-val.emerald { color: var(--positive-ink); }
+.odd-finds-header h2 { font-size: 20px; }
+[data-theme="dark"] img[src^="data:image/svg+xml"] { filter: invert(1) hue-rotate(180deg) brightness(.85); }
+
+@media (min-width: 769px) and (max-width: 1400px) {
+    .topbar-stats > .stat-pill:not(.favorite-pill) { display: none; }
+    .topbar-left { gap: 10px; }
+    .toolbar-right { width: 100%; }
+}
+@media (min-width: 769px) and (max-width: 1050px) {
+    .cmd-palette-trigger .cmd-text, .cmd-palette-trigger kbd,
+    #btn-open-scoring span, #btn-export-csv span, .brand-tagline { display: none; }
+    .topbar-actions { gap: 4px; }
+    .topbar-brand { gap: 7px; }
+    .brand-title-full { display: none; }
+    .brand-title-mobile { display: inline; }
+    :root { --sidebar-width: 260px; }
+}
+@media (max-width: 768px) {
+    .app-topbar { gap: 6px; padding-inline: 8px; }
+    .app-title { font-size: 12px; }
+    .topbar-left { gap: 4px; }
+    .topbar-actions { gap: 3px; }
+    .brand-badge { display: none; }
+    .topbar-stats .favorite-pill { padding-inline: 5px; min-width: 38px; }
+    .topbar-actions .preset-selector-wrapper { display: block; }
+    #btn-presets-menu { min-width: 44px; min-height: 44px; padding: 0 8px; }
+    #active-preset-label { max-width: 72px; font-size: 10px; }
+    #btn-presets-menu > svg { display: none; }
+    #btn-theme-toggle { width: 44px; height: 44px; }
+    .topbar-actions .cmd-palette-trigger { display: inline-flex; width: 44px; height: 44px; justify-content: center; padding: 0; }
+    .cmd-palette-trigger .cmd-text, .cmd-palette-trigger kbd { display: none; }
+    .mobile-filter-btn { width: 44px; min-width: 44px; padding: 0; justify-content: center; }
+    .mobile-filter-btn span { display: none; }
+    .preset-dropdown-menu .dropdown-item { min-height: 44px; }
+    .preset-dropdown-menu .filter-tag-remove { min-width: 44px; min-height: 44px; }
+    .app-sidebar { min-width: 0; transition-duration: .15s; }
+    .active-filter-tags-row { display: flex; }
+    .filter-tag { min-height: 28px; }
+    .filter-tag-remove { min-width: 28px; min-height: 28px; }
+    .toolbar-left { gap: 5px; }
+    .workspace-toolbar { padding-block: 8px; }
+    .dataset-notice { font-size: 10px; padding: 6px 10px; }
+    .pill-btn { min-height: 44px; }
+    .btn-text-reset, .btn-toggle-advanced, .form-select { min-height: 44px; }
+    .card-favorite-btn, .card-nav-arrow { width: 44px; height: 44px; }
+    .card-nav-arrow { opacity: 1; }
+    .card-actions .btn, .compare-checkbox-label { min-height: 44px; }
+    .card-user-meta { flex-wrap: wrap; gap: 8px; }
+    .mobile-bottom-nav, .mobile-map-preview-card { background: var(--bg-surface); }
+    .modal-box { max-height: calc(100dvh - 24px); }
+    .modal-close-icon { min-width: 44px; min-height: 44px; }
+    .drawer-external-actions, .fcc-stats-metrics-grid { grid-template-columns: 1fr; }
+    .drawer-external-actions .btn { white-space: normal; }
+    .compare-dock { bottom: calc(72px + env(safe-area-inset-bottom, 0px)); padding: 10px; }
+    .compare-dock-inner { grid-template-columns: 1fr; gap: 8px; }
+    .compare-dock-actions .btn { width: 100%; min-height: 44px; }
+    .compare-dock-header { grid-column: auto; }
+    .dock-clear-btn { min-height: 36px; }
+    .dock-thumb-remove { width: 24px; height: 24px; top: -6px; right: -6px; }
+    .drawer-rating-row label { width: 100%; }
+    .star-picker-interactive .star-pick { min-width: 44px; min-height: 44px; }
+    .rating-label-text { width: 100%; }
+}
+@media (max-width: 359px) {
+    .topbar-stats { display: none; }
+}
+@media (max-width: 430px) {
+    #active-preset-label { display: none; }
+    #btn-presets-menu > svg:first-child { display: block; }
+}
+@media (min-width: 640px) and (max-width: 768px) {
+    .cards-grid, .view-split .cards-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}

@@ -32,6 +32,17 @@ def test_health(client):
     assert body["read_only"] is False and body["scraping_authorized"] is False
 
 
+def test_appearance_assets_are_served_by_the_local_backend(client):
+    icon = client.get('/favicon.svg')
+    theme = client.get('/theme.css')
+    assert icon.status_code == 200
+    assert icon.headers['content-type'].startswith('image/svg+xml')
+    assert '<svg' in icon.text
+    assert theme.status_code == 200
+    assert theme.headers['content-type'].startswith('text/css')
+    assert ':root[data-theme="dark"]' in theme.text
+
+
 def test_properties_filter_sort_and_unknown_marker_preserved(client):
     rows = client.get("/api/properties", params={"city": "tacoma"}).json()
     assert [r["id"] for r in rows] == ["b"]

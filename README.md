@@ -22,9 +22,14 @@ A high-density residential property research workstation for analyzing, filterin
 - **[`scraper_service.py`](scraper_service.py)** & **[`scraper.py`](scraper.py)**: Permission-gated CLI and service (`REALTOR_SCRAPING_AUTHORIZED=yes`) that merges refreshed listings into `PropertyStore` without overwriting saved IDs or user notes/ratings.
 - **[`build_data_js.py`](build_data_js.py)**: Atomic generator for `data.js` with `--check` verification mode.
 - **[`validate_data.py`](validate_data.py)**: Dataset & static bundle integrity validator (`--strict`, `--json`).
-- **[`tests/`](tests/)**: Automated `pytest` suite (71 tests) covering datastore, analytics, API routes, scraper normalization, and live dataset integrity.
+- **[`tests/`](tests/)**: Automated `pytest` suite (73 tests) and 19 frontend tests covering datastore, analytics, API routes, scraper normalization, dataset integrity, appearance, and workstation controls.
 
 ## Common Commands
+
+Appearance and UI verification: [UI_QA_REPORT.md](UI_QA_REPORT.md). The workstation
+supports persistent light/dark mode and follows the system appearance until a
+mode is selected. Live refresh controls are shown only when a writable backend
+confirms scraping authorization; the public static site uses the saved snapshot.
 
 ```powershell
 # Run the local FastAPI workstation server (http://127.0.0.1:8000)
