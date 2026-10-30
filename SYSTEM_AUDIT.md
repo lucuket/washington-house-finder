@@ -4,6 +4,8 @@ October 30, 2026. Reviewed the existing implementation, measured the original bu
 
 The vanilla architecture is appropriate for this personal research tool. The main weaknesses were unnecessary DOM/map reconstruction, unreliable asynchronous saves, inconsistent search restoration, expensive repeated compression, and a few misleading result states. A framework migration would add cost without addressing those problems.
 
+Post-release correction (October 30): the desktop property drawer must remain nonmodal so the exposed map and filters stay interactive. The focus manager now blocks the background only for mobile details and actual modal dialogs. Clicking a different desktop map pin updates the open drawer immediately. Regression coverage includes map selection, mobile previews, nested dialog focus, and resizing; the frontend suite now contains 32 tests.
+
 **System-by-system findings**
 
 | System | Finding and resulting behavior | Verification / practical limit |

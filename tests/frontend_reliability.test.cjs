@@ -123,14 +123,18 @@ test('mortgage calculations handle zero interest, all cash and invalid stored as
 
 test('unchanged map markers survive sorting and only changed pins are updated', () => {
     let created = 0, added = 0, removed = 0, iconUpdates = 0;
+    let drawerHidden = false, openedId = null, previewId = null;
     const ctx = context(['updateMapMarkers'], {
         map: {}, markerInstances: {}, mapMarkerCount: { dataset: {} },
         document: { getElementById: () => ({ dataset: {} }) },
         markersLayer: { addLayers: markers => { added += markers.length; }, removeLayers: markers => { removed += markers.length; } },
         escapeHtml: value => value, highlightCard() {}, buildMarkerPopupHtml() {},
+        window: { innerWidth: 1280 }, propertyDetailDrawer: { classList: { contains: () => drawerHidden } },
+        openPropertyDrawer(id) { openedId = id; }, showMobileMapPreview(p) { previewId = p.id; },
+        getPropertyById: id => ({ id }),
         L: { divIcon: data => data, marker: () => {
             created++;
-            return { bindPopup() {}, on() {}, setLatLng() {}, setIcon() { iconUpdates++; } };
+            return { bindPopup() {}, on(event, handler) { this[event] = handler; }, setLatLng() {}, setIcon() { iconUpdates++; } };
         } }
     });
     const a = { id: 'a', address: 'A', price: 400000, latitude: 47, longitude: -122 }, b = { ...a, id: 'b' };
@@ -143,6 +147,64 @@ test('unchanged map markers survive sorting and only changed pins are updated', 
     ctx.updateMapMarkers([a]);
     assert.equal(created, 2); assert.equal(iconUpdates, 1); assert.equal(removed, 1);
     assert.match(ctx.mapMarkerCount.textContent, /1 mapped/);
+    original.click();
+    assert.equal(openedId, 'a', 'clicking another pin updates the open desktop drawer');
+    openedId = null; drawerHidden = true;
+    original.click();
+    assert.equal(openedId, null, 'a closed drawer stays closed when browsing pins');
+    ctx.window.innerWidth = 375;
+    original.click();
+    assert.equal(previewId, 'a', 'mobile pins retain the compact preview');
+});
+
+test('desktop details leave the map interactive while mobile and nested dialogs contain focus', () => {
+    let observe, keydown, resize;
+    const media = { matches: false, addEventListener(_, callback) { resize = callback; } };
+    const body = { children: [] };
+    const layer = () => {
+        const node = { hidden: true, inert: false, parentElement: body, attributes: {}, isConnected: true,
+            getClientRects: () => [1], setAttribute(k, v) { this.attributes[k] = v; },
+            contains(el) { return el === this || el === this.button; },
+            querySelectorAll() { return [this.button]; } };
+        node.classList = { contains: () => node.hidden, add() { node.hidden = true; } };
+        node.button = { isConnected: true, getClientRects: () => [1], focus() { document.activeElement = this; } };
+        body.children.push(node);
+        return node;
+    };
+    const workspace = layer(), drawer = layer(), modal = layer();
+    const document = { body, activeElement: workspace.button, querySelectorAll: () => [modal],
+        addEventListener(_, callback) { keydown = callback; } };
+    const ctx = context(['setupDialogFocus'], { document, window: { matchMedia: () => media },
+        propertyDetailDrawer: drawer, appSidebar: null, drawerBackdrop: null, sidebarBackdrop: null,
+        toastContainer: null, cmdPaletteModal: null,
+        MutationObserver: class { constructor(callback) { observe = callback; } observe() {} },
+        closePropertyDrawer() { drawer.hidden = true; }, closeMobileSidebar() {}, closeCommandPalette() {} });
+    ctx.setupDialogFocus();
+    const flush = node => observe([{ target: node }]);
+    drawer.hidden = false; flush(drawer);
+    assert.equal(workspace.inert, false);
+    assert.equal(drawer.attributes['aria-modal'], 'false');
+    let trapped = false;
+    document.activeElement = workspace.button;
+    keydown({ key: 'Tab', preventDefault() { trapped = true; } });
+    assert.equal(trapped, false, 'desktop map and filters remain keyboard accessible');
+    document.activeElement = drawer.button;
+    modal.hidden = false; flush(modal);
+    assert.equal(workspace.inert, true);
+    assert.equal(drawer.inert, true);
+    keydown({ key: 'Escape', preventDefault() {}, stopImmediatePropagation() {} });
+    flush(modal);
+    assert.equal(drawer.hidden, false);
+    assert.equal(workspace.inert, false);
+    assert.equal(drawer.inert, false);
+    assert.equal(document.activeElement, drawer.button);
+    media.matches = true; resize();
+    assert.equal(workspace.inert, true);
+    assert.equal(drawer.attributes['aria-modal'], 'true');
+    media.matches = false; resize();
+    assert.equal(workspace.inert, false, 'resizing back to desktop re-enables the map');
+    drawer.hidden = true; flush(drawer);
+    assert.equal(workspace.inert, false);
 });
 
 test('existing cards are reused without rebuilding or moving unchanged DOM', () => {

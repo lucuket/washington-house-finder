@@ -658,6 +658,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     highlightCard(p.id);
                     if (window.innerWidth <= 768) {
                         showMobileMapPreview(getPropertyById(p.id) || p);
+                    } else if (!propertyDetailDrawer.classList.contains('hidden')) {
+                        openPropertyDrawer(p.id);
                     }
                 });
 
@@ -3856,11 +3858,14 @@ document.addEventListener('DOMContentLoaded', () => {
         const opened = [];
         const returnFocus = new WeakMap();
         const inertRoots = new Map();
+        const mobileDrawer = window.matchMedia('(max-width: 768px)');
+        const isModal = layer => layer !== propertyDetailDrawer || mobileDrawer.matches;
         const syncInert = () => {
             inertRoots.forEach((value, node) => { node.inert = value; });
             inertRoots.clear();
             const top = opened.at(-1);
-            if (!top) return;
+            propertyDetailDrawer.setAttribute('aria-modal', String(mobileDrawer.matches));
+            if (!top || !isModal(top)) return;
             let branch = top;
             while (branch.parentElement && branch !== document.body) {
                 for (const sibling of branch.parentElement.children) {
@@ -3874,6 +3879,12 @@ document.addEventListener('DOMContentLoaded', () => {
         };
         const focusables = layer => [...layer.querySelectorAll('button, a[href], input, select, textarea, [tabindex="0"]')]
             .filter(el => !el.disabled && el.getClientRects().length);
+        mobileDrawer.addEventListener('change', () => {
+            syncInert();
+            const top = opened.at(-1);
+            if (top && isModal(top) && !top.contains(document.activeElement)) (focusables(top)[0] || top).focus();
+        });
+        syncInert();
         const observer = new MutationObserver(records => {
             for (const { target } of records) {
                 const index = opened.indexOf(target);
@@ -3898,7 +3909,7 @@ document.addEventListener('DOMContentLoaded', () => {
         document.addEventListener('keydown', event => {
             const top = opened.at(-1);
             if (!top) return;
-            if (event.key === 'Tab') {
+            if (event.key === 'Tab' && isModal(top)) {
                 const items = focusables(top);
                 if (!items.length) return;
                 if (!top.contains(document.activeElement) || (event.shiftKey && document.activeElement === items[0])

@@ -25,7 +25,7 @@ competitor/reference review, implemented fixes, measured performance, and verifi
 - **[`scraper_service.py`](scraper_service.py)** & **[`scraper.py`](scraper.py)**: Permission-gated CLI and service (`REALTOR_SCRAPING_AUTHORIZED=yes`) that merges refreshed listings into `PropertyStore` without overwriting saved IDs or user notes/ratings.
 - **[`build_data_js.py`](build_data_js.py)**: Atomic generator for `data.js` with `--check` verification mode.
 - **[`validate_data.py`](validate_data.py)**: Dataset & static bundle integrity validator (`--strict`, `--json`).
-- **[`tests/`](tests/)**: Automated `pytest` suite (91 tests) and 31 frontend tests covering datastore, analytics, API routes, scraper normalization, dataset integrity, appearance, persistence, incremental rendering, and workstation controls.
+- **[`tests/`](tests/)**: Automated `pytest` suite (91 tests) and 32 frontend tests covering datastore, analytics, API routes, scraper normalization, dataset integrity, appearance, persistence, incremental rendering, and workstation controls.
 
 ## Common Commands
 
