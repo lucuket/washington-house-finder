@@ -25,6 +25,17 @@ def test_repository_consistency(listings):
     assert errors == []
 
 
+def test_ui_release_versions_are_independent_but_stale_data_tokens_still_fail(listings, tmp_path, monkeypatch):
+    from pathlib import Path
+    html = Path(validate_data.INDEX_FILE).read_text(encoding="utf-8")
+    index = tmp_path / "index.html"
+    index.write_text(html.replace("app.js?v=20261030", "app.js?v=20300101"), encoding="utf-8")
+    monkeypatch.setattr(validate_data, "INDEX_FILE", str(index))
+    assert validate_data.check_repository(listings)[0] == []
+    index.write_text(html.replace("data.js?v=20261028", "data.js?v=19990101"), encoding="utf-8")
+    assert any("cache-busting tokens" in error for error in validate_data.check_repository(listings)[0])
+
+
 def test_data_js_matches_properties_json(listings):
     assert is_current(listings)
 

@@ -1,7 +1,7 @@
 """Pydantic request/response models for the Washington Home Search API."""
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 class SearchCriteria(BaseModel):
@@ -17,6 +17,14 @@ class SearchCriteria(BaseModel):
     lot_size_min: int = Field(default=6500, ge=0, description="Minimum lot size in sqft")
     garage_min: int = Field(default=2, ge=0, le=10, description="Minimum garage spaces")
     year_built_min: int = Field(default=1980, ge=0, le=2100, description="Minimum year built")
+
+    @model_validator(mode="after")
+    def ordered_ranges(self):
+        if self.price_min > self.price_max:
+            raise ValueError("Minimum price must not exceed maximum price")
+        if self.sqft_min > self.sqft_max:
+            raise ValueError("Minimum living area must not exceed maximum living area")
+        return self
 
 
 class PropertyNoteUpdate(BaseModel):

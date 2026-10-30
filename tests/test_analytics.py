@@ -96,3 +96,22 @@ def test_csv_blanks_for_unknown_and_neutralizes_formulas():
     assert y["HOA Monthly ($)"] == "0" and y["Garage Spaces"] == "0"  # reported zeros survive
     assert y["Price/SqFt ($)"] == "200.0"
     assert y["Lot Size (acres)"] == "0.184"
+
+
+def test_search_matches_terms_across_fields_like_the_frontend():
+    row = make_listing(address="100 Oak Street", city="Tacoma", user_notes="New roof")
+    assert apply_filters([row], ListingFilter(search="tacoma roof oak")) == [row]
+    assert apply_filters([row], ListingFilter(search="tacoma missing")) == []
+
+
+def test_numeric_filters_do_not_accept_marked_unknown_values():
+    row = make_listing(beds=4, sqft=1800, unknown_fields=["beds", "sqft"])
+    assert apply_filters([row], ListingFilter(min_beds=3)) == []
+    assert apply_filters([row], ListingFilter(max_sqft=2000)) == []
+
+
+def test_csv_neutralizes_every_free_text_column():
+    row = make_listing(id="=id", city="+City", state="@WA", zip="\t123", url="=url")
+    result = next(csv.DictReader(io.StringIO(listings_to_csv([row]))))
+    for field in ("Property ID", "City", "State", "Zip Code", "Listing URL"):
+        assert result[field].startswith("'")

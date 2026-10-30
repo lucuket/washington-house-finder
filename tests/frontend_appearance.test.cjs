@@ -103,7 +103,7 @@ test('rapid note editing across homes saves both local notes before the debounce
         selectedPropId: 'a', getPropertyById: id => id === 'a' ? a : b,
         drawerNotesTextarea: { value: 'First private note' }, drawerNoteStatus: {},
         persistUserData: (id, patch) => { saved[id] = patch; }, API_WRITES_ENABLED: false,
-        noteSaveDebounceTimer: null, clearTimeout() {}, setTimeout() { return 1; },
+        noteSaveTimers: new Map(), clearTimeout() {}, setTimeout() { return 1; },
     });
     ctx.saveDrawerNotesDebounced();
     ctx.selectedPropId = 'b';

@@ -15,20 +15,24 @@ Environment:
 from __future__ import annotations
 
 import asyncio
+import gzip
+import hashlib
 import json
 import logging
 import os
+import re
 import threading
 from contextlib import asynccontextmanager
 from typing import Any, Dict, Optional
 
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
 
 from analytics import ListingFilter, apply_filters, compute_stats, listings_to_csv, sort_listings
-from datastore import BASE_DIR, PropertyStore
+from build_data_js import render_data_js
+from datastore import BASE_DIR, DATA_JS_FILE, USER_DEFAULTS, PropertyStore, atomic_write_text
 from models import (
     FavoriteToggle,
     PropertyListing,
@@ -68,6 +72,16 @@ def read_only() -> bool:
 def require_writable() -> None:
     if read_only():
         raise HTTPException(status_code=403, detail="Server is in read-only mode.")
+
+
+def public_listing(listing: Dict[str, Any]) -> Dict[str, Any]:
+    """Public/read-only deployments must not publish personal research."""
+    return {**listing, **USER_DEFAULTS} if read_only() else listing
+
+
+def query_listings():
+    listings = store.all()
+    return [{**listing, **USER_DEFAULTS} for listing in listings] if read_only() else listings
 
 
 store = PropertyStore()
@@ -117,7 +131,8 @@ class ScrapeJobTracker:
 
 scrape_job = ScrapeJobTracker()
 _background_tasks: set = set()
-_properties_cache: Dict[str, Any] = {"version": -1, "body": b""}
+_properties_cache: Dict[str, Any] = {"key": None, "body": b"", "gzip_body": None, "etag": ""}
+_properties_cache_lock = threading.Lock()
 
 
 @asynccontextmanager
@@ -141,7 +156,7 @@ app.add_middleware(
     allow_methods=["GET", "POST", "PATCH"],
     allow_headers=["Content-Type"],
 )
-app.add_middleware(GZipMiddleware, minimum_size=1024)
+app.add_middleware(GZipMiddleware, minimum_size=1024, compresslevel=4)
 
 
 # -----------------------------------------------------------------------------
@@ -172,14 +187,31 @@ for _url, (_relative, _type) in STATIC_FILES.items():
 
 
 @app.get("/properties.json", include_in_schema=False)
-async def serve_raw_properties():
+def serve_raw_properties(request: Request):
     """Full listing set including personal research, cached until data changes."""
-    version = store.version
-    if _properties_cache["version"] != version:
-        _properties_cache["body"] = json.dumps(store.all(), ensure_ascii=False).encode("utf-8")
-        _properties_cache["version"] = version
-    return Response(_properties_cache["body"], media_type="application/json",
-                    headers={"Cache-Control": "no-cache"})
+    # Serialization runs in FastAPI's worker pool; the event loop stays free for
+    # health/progress requests during large exports or initial dataset loading.
+    accepts_gzip = any(
+        part.split(";", 1)[0].strip().lower() == "gzip"
+        and not re.search(r";\s*q=0(?:\.0*)?\s*(?:;|$)", part, re.I)
+        for part in request.headers.get("accept-encoding", "").split(",")
+    )
+    with _properties_cache_lock:
+        key = (id(store), store.version, read_only())
+        if _properties_cache["key"] != key:
+            body = json.dumps(query_listings(), ensure_ascii=False).encode("utf-8")
+            _properties_cache.update(key=key, body=body, gzip_body=None,
+                                     etag='W/"' + hashlib.sha256(body).hexdigest() + '"')
+        body, etag = _properties_cache["body"], _properties_cache["etag"]
+        headers = {"Cache-Control": "private, no-cache", "ETag": etag, "Vary": "Accept-Encoding"}
+        if request.headers.get("if-none-match") == etag:
+            return Response(status_code=304, headers=headers)
+        if accepts_gzip:
+            if _properties_cache["gzip_body"] is None:
+                _properties_cache["gzip_body"] = gzip.compress(body, compresslevel=4, mtime=0)
+            body = _properties_cache["gzip_body"]
+            headers["Content-Encoding"] = "gzip"
+    return Response(body, media_type="application/json", headers=headers)
 
 
 @app.get("/api/health")
@@ -199,21 +231,25 @@ async def health():
 
 def listing_filters(
     city: Optional[str] = None,
-    min_price: Optional[int] = None,
-    max_price: Optional[int] = None,
-    min_beds: Optional[int] = None,
-    min_baths: Optional[float] = None,
-    min_sqft: Optional[int] = None,
-    max_sqft: Optional[int] = None,
-    min_lot: Optional[int] = None,
-    min_garage: Optional[int] = None,
-    min_year: Optional[int] = None,
-    max_hoa: Optional[int] = None,
-    min_rating: Optional[int] = None,
+    min_price: Optional[int] = Query(default=None, ge=0),
+    max_price: Optional[int] = Query(default=None, ge=0),
+    min_beds: Optional[int] = Query(default=None, ge=0, le=20),
+    min_baths: Optional[float] = Query(default=None, ge=0, le=20),
+    min_sqft: Optional[int] = Query(default=None, ge=0),
+    max_sqft: Optional[int] = Query(default=None, ge=0),
+    min_lot: Optional[int] = Query(default=None, ge=0),
+    min_garage: Optional[int] = Query(default=None, ge=0, le=20),
+    min_year: Optional[int] = Query(default=None, ge=0, le=2100),
+    max_hoa: Optional[int] = Query(default=None, ge=0),
+    min_rating: Optional[int] = Query(default=None, ge=0, le=5),
     favorites_only: bool = False,
     search: Optional[str] = None,
 ) -> ListingFilter:
     """Query-string filters shared by listings, stats, and CSV export."""
+    if min_price is not None and max_price is not None and min_price > max_price:
+        raise HTTPException(status_code=422, detail="Minimum price must not exceed maximum price")
+    if min_sqft is not None and max_sqft is not None and min_sqft > max_sqft:
+        raise HTTPException(status_code=422, detail="Minimum living area must not exceed maximum living area")
     return ListingFilter(
         city=city, min_price=min_price, max_price=max_price, min_beds=min_beds,
         min_baths=min_baths, min_sqft=min_sqft, max_sqft=max_sqft, min_lot=min_lot,
@@ -223,9 +259,9 @@ def listing_filters(
 
 
 @app.get("/api/properties")
-async def get_properties(filters: ListingFilter = Depends(listing_filters), sort_by: str = "default"):
+def get_properties(filters: ListingFilter = Depends(listing_filters), sort_by: str = "default"):
     """Filtered and sorted listings. Unknown specs keep their ``unknown_fields`` marker."""
-    results = sort_listings(apply_filters(store.all(), filters), sort_by)
+    results = sort_listings(apply_filters(query_listings(), filters), sort_by)
     return JSONResponse(results)
 
 
@@ -234,7 +270,7 @@ async def get_property_by_id(property_id: str):
     listing = store.get(property_id)
     if listing is None:
         raise HTTPException(status_code=404, detail="Property listing not found")
-    return listing
+    return public_listing(listing)
 
 
 @app.patch("/api/properties/{property_id}/note", response_model=PropertyListing,
@@ -262,16 +298,16 @@ async def toggle_property_favorite(property_id: str, toggle_data: Optional[Favor
 
 
 @app.get("/api/stats")
-async def get_properties_stats(filters: ListingFilter = Depends(listing_filters)):
+def get_properties_stats(filters: ListingFilter = Depends(listing_filters)):
     """Market analytics across all or filtered listings (unknown specs excluded)."""
-    return compute_stats(apply_filters(store.all(), filters))
+    return compute_stats(apply_filters(query_listings(), filters))
 
 
 @app.get("/api/export/csv")
-async def export_properties_csv(filters: ListingFilter = Depends(listing_filters),
+def export_properties_csv(filters: ListingFilter = Depends(listing_filters),
                                 sort_by: str = "default"):
     """CSV of matched listings; unknown specifications export as blank cells."""
-    listings = sort_listings(apply_filters(store.all(), filters), sort_by)
+    listings = sort_listings(apply_filters(query_listings(), filters), sort_by)
     # UTF-8 BOM so Excel decodes non-ASCII text correctly.
     body = "\ufeff" + listings_to_csv(listings)
     return Response(
@@ -291,6 +327,10 @@ async def run_scraper_job(criteria: Dict[str, Any]) -> None:
             criteria=criteria, log_callback=scrape_job.log, progress_callback=scrape_job.progress)
         merged = await asyncio.to_thread(store.merge, collected) if collected else None
         if merged:
+            def rebuild_bundle():
+                publishable = [{**listing, **USER_DEFAULTS} for listing in store.all()]
+                atomic_write_text(DATA_JS_FILE, render_data_js(publishable))
+            await asyncio.to_thread(rebuild_bundle)
             scrape_job.log(f"Merged {merged.total} listings ({merged.added} new, "
                            f"{merged.updated} updated). Total active: {len(store)}")
         scrape_job.finish(f"Scan complete! {len(collected)} properties processed.", len(collected))

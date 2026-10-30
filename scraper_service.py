@@ -61,7 +61,7 @@ NON_HOUSE_DESCRIPTION = re.compile(
 _NUMBER_WORDS = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5}
 _GARAGE_PHRASE = re.compile(
     r"\b(\d|one|two|three|four|five)[\s-]*car(?:[\s-]+(?:attached|detached|oversized|tandem))?"
-    r"[\s-]+garage\b|\b(double|triple)\s+garage\b|\b(\d|one|two|three|four|five)[\s-]*car\b",
+    r"[\s-]+garage\b|\b(double|triple)\s+garage\b",
     re.IGNORECASE,
 )
 
@@ -140,7 +140,7 @@ def evaluate_row(row: Mapping[str, Any], criteria: Mapping[str, Any],
         return None, "price"
 
     sqft = to_float(get_val(row, ["sqft", "building_size", "sqft_min"], 0))
-    if not criteria.get("sqft_min", 0) <= sqft <= criteria.get("sqft_max", math.inf):
+    if sqft <= 0 or not criteria.get("sqft_min", 0) <= sqft <= criteria.get("sqft_max", math.inf):
         return None, "sqft"
 
     beds = to_int(get_val(row, ["beds", "bedrooms", "beds_min"], 0))
@@ -167,7 +167,7 @@ def evaluate_row(row: Mapping[str, Any], criteria: Mapping[str, Any],
         return None, "hoa"
 
     description = str(get_val(row, ["description", "text"], ""))
-    garage_raw = get_val(row, ["garage", "parking_garage", "garage_spaces", "parking_spaces"], None)
+    garage_raw = get_val(row, ["garage", "parking_garage", "garage_spaces"], None)
     garage = None if garage_raw is None else to_float(garage_raw, float("nan"))
     if garage is None or math.isnan(garage):
         # Description phrases establish a lower bound, not an exact count.
@@ -233,8 +233,18 @@ def evaluate_row(row: Mapping[str, Any], criteria: Mapping[str, Any],
         "mls_status": str(get_val(row, ["mls_status"], "")),
         "snapshot_date": snapshot_date or date.today().isoformat(),
     }
-    # Strict checks above guarantee every metric is reported, so
-    # ``unknown_fields`` stays empty for scraped listings.
+    # With an "Any" minimum, a missing specification can pass the filter. It
+    # still remains unknown; coercion to zero is not evidence of a reported zero.
+    for field, keys in {
+        "beds": ["beds", "bedrooms", "beds_min"],
+        "baths": ["full_baths", "baths_full", "baths", "bathrooms", "baths_min"],
+        "lot_sqft": ["lot_sqft", "lot_size", "lot_size_min"],
+        "year_built": ["year_built", "year_built_min"],
+    }.items():
+        raw = get_val(row, keys, None)
+        if raw is None or not math.isfinite(to_float(raw, float("nan"))) or (field == "year_built" and year == 0):
+            listing["unknown_fields"].append(field)
+            listing[field] = 0
     return listing, ""
 
 

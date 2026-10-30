@@ -19,6 +19,7 @@ def client(make_store, monkeypatch):
         make_listing(id="b", url="https://x/b", city="Tacoma", price=500000, unknown_fields=["hoa"]),
     ])
     monkeypatch.setattr(app_module, "store", store)
+    monkeypatch.setattr(app_module, "DATA_JS_FILE", store.properties_file + ".data.js")
     monkeypatch.delenv("WHS_READ_ONLY", raising=False)
     monkeypatch.delenv("REALTOR_SCRAPING_AUTHORIZED", raising=False)
     monkeypatch.setattr(app_module, "scrape_job", app_module.ScrapeJobTracker())
@@ -30,6 +31,55 @@ def test_health(client):
     body = client.get("/api/health").json()
     assert body["status"] == "ok" and body["listings"] == 2
     assert body["read_only"] is False and body["scraping_authorized"] is False
+
+
+def test_dataset_etag_revalidates_and_changes_after_a_save(client):
+    first = client.get("/properties.json")
+    etag = first.headers["etag"]
+    assert first.headers["cache-control"] == "private, no-cache"
+    cached = client.get("/properties.json", headers={"If-None-Match": etag})
+    assert cached.status_code == 304 and not cached.content
+    client.patch("/api/properties/a/note", json={"rating": 4})
+    updated = client.get("/properties.json", headers={"If-None-Match": etag})
+    assert updated.status_code == 200 and updated.headers["etag"] != etag
+
+
+def test_dataset_compression_is_cached_and_invalidated(client, monkeypatch):
+    import gzip
+    calls = []
+    compress = gzip.compress
+    monkeypatch.setattr(app_module.gzip, "compress", lambda *args, **kwargs: (calls.append(1), compress(*args, **kwargs))[1])
+    app_module._properties_cache["key"] = None
+    first = client.get("/properties.json", headers={"Accept-Encoding": "gzip"})
+    second = client.get("/properties.json", headers={"Accept-Encoding": "gzip"})
+    assert len(calls) == 1 and first.content == second.content
+    assert first.headers["content-encoding"] == "gzip"
+    plain = client.get("/properties.json", headers={"Accept-Encoding": "identity"})
+    assert "content-encoding" not in plain.headers and plain.content == first.content
+    client.patch("/api/properties/a/note", json={"rating": 2})
+    client.get("/properties.json", headers={"Accept-Encoding": "gzip"})
+    assert len(calls) == 2
+
+
+def test_public_read_only_routes_do_not_expose_private_research(client, monkeypatch):
+    client.patch("/api/properties/a/note", json={"rating": 5, "favorite": True, "user_notes": "private-audit-note"})
+    private_etag = client.get("/properties.json").headers["etag"]
+    monkeypatch.setenv("WHS_READ_ONLY", "1")
+    for endpoint in ("/properties.json", "/api/properties", "/api/properties/a", "/api/export/csv"):
+        response = client.get(endpoint)
+        assert response.status_code == 200 and "private-audit-note" not in response.text
+    assert client.get("/properties.json").headers["etag"] != private_etag
+    assert client.get("/api/properties/a").json()["favorite"] is False
+    assert client.get("/api/stats").json()["rated_count"] == 0
+    assert client.get("/api/properties", params={"favorites_only": True}).json() == []
+
+
+@pytest.mark.parametrize("params", [{"min_price": -1}, {"min_rating": 6},
+                                  {"min_baths": -1}, {"min_price": 600000, "max_price": 300000},
+                                  {"min_sqft": 2000, "max_sqft": 1000}])
+def test_query_endpoints_reject_invalid_filters(client, params):
+    for endpoint in ("/api/properties", "/api/stats", "/api/export/csv"):
+        assert client.get(endpoint, params=params).status_code == 422
 
 
 def test_appearance_assets_are_served_by_the_local_backend(client):
@@ -141,6 +191,9 @@ def test_search_rejects_concurrent_jobs_and_merges_results(client, monkeypatch):
     assert client.get("/api/properties/new").status_code == 200
     on_disk = json.load(open(app_module.store.properties_file, encoding="utf-8"))
     assert {p["id"] for p in on_disk} == {"a", "b", "new"}
+    bundle = open(app_module.DATA_JS_FILE, encoding="utf-8").read()
+    assert json.loads(bundle.removeprefix("window.WASHINGTON_PROPERTIES = ").removesuffix(";")) == on_disk
+    assert all(not p["user_notes"] and not p["favorite"] for p in on_disk)
 
 
 def test_invalid_search_criteria_rejected(client):

@@ -34,8 +34,8 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
 
     <!-- Application Stylesheet -->
-    <link rel="stylesheet" href="styles.css?v=20261028-ui6">
-    <link rel="stylesheet" href="theme.css?v=20261028-ui6">
+    <link rel="stylesheet" href="styles.css?v=20261030-audit1">
+    <link rel="stylesheet" href="theme.css?v=20261030-audit1">
 </head>
 <body class="density-comfortable">
 
@@ -292,6 +292,10 @@
                         </div>
                         <input type="range" id="hoa-slider" min="0" max="300" step="5" value="300" class="single-range" aria-label="Maximum Monthly HOA Fee">
                     </div>
+                    <button class="payment-settings" id="btn-payment-settings" title="Edit the assumptions used for every monthly estimate">
+                        <span>Payment assumptions <span aria-hidden="true">↗</span></span>
+                        <strong class="mono" id="payment-assumptions-label">20% down · 6.65% · 30 yr</strong>
+                    </button>
 
                     <!-- Collapsible Advanced Filters Section -->
                     <div class="advanced-filters-accordion">
@@ -413,7 +417,7 @@
                     <div class="toolbar-left">
                         <div class="workspace-title-row">
                             <h2 class="workspace-heading" id="workspace-title">Washington Listings</h2>
-                            <span class="results-chip mono" id="results-count-label">Loading homes...</span>
+                            <span class="results-chip mono" id="results-count-label" role="status" aria-live="polite" aria-atomic="true">Loading homes...</span>
                         </div>
                         
                         <!-- Active Filters Removable Tags Container -->
@@ -518,7 +522,7 @@
                     <!-- Map Column -->
                     <div class="map-container-wrapper" id="map-container-wrapper">
                         <div class="map-panel-header">
-                            <span>Washington map</span>
+                            <span>Washington map <span id="map-marker-count" class="map-marker-count"></span></span>
                             <button class="btn btn-secondary btn-sm" id="btn-close-map" aria-label="Close map and show more listings">Close map &times;</button>
                         </div>
                         <div id="leaflet-map" class="leaflet-map-view" role="application" aria-label="Interactive Washington Map"></div>
@@ -1228,7 +1232,7 @@
                 <div class="mortgage-controls">
                     <div class="calc-field">
                         <label for="calc-home-price">Home Listing Price ($)</label>
-                        <input type="number" id="calc-home-price" class="form-input mono" step="1000">
+                        <input type="number" id="calc-home-price" class="form-input mono" step="1000" min="0">
                     </div>
 
                     <div class="calc-field-row">
@@ -1253,25 +1257,26 @@
                         </div>
                         <div class="calc-field">
                             <label for="calc-interest-rate">Interest Rate (%)</label>
-                            <input type="number" id="calc-interest-rate" class="form-input mono" value="6.65" step="0.05" min="1" max="15">
+                            <input type="number" id="calc-interest-rate" class="form-input mono" value="6.65" step="0.05" min="0" max="25">
                         </div>
                     </div>
 
                     <div class="calc-field-row">
                         <div class="calc-field">
-                            <label for="calc-tax-rate">WA Property Tax (%)</label>
+                            <label for="calc-tax-rate">Assumed Annual Property Tax (%)</label>
                             <input type="number" id="calc-tax-rate" class="form-input mono" value="1.02" step="0.05" min="0" max="5">
                         </div>
                         <div class="calc-field">
                             <label for="calc-insurance">Annual Insurance ($)</label>
-                            <input type="number" id="calc-insurance" class="form-input mono" value="1200" step="50">
+                            <input type="number" id="calc-insurance" class="form-input mono" value="1200" step="50" min="0">
                         </div>
                     </div>
 
                     <div class="calc-field">
                         <label for="calc-hoa-fee">Monthly HOA Fee ($/mo)</label>
-                        <input type="number" id="calc-hoa-fee" class="form-input mono" value="0" step="10">
+                        <input type="number" id="calc-hoa-fee" class="form-input mono" value="0" step="10" min="0">
                     </div>
+                    <p class="payment-assumptions-note" id="calc-assumptions-note">Down payment, rate, term, tax, and insurance assumptions apply to all listing estimates. Price and HOA changes apply only to this calculation. Estimates exclude PMI, maintenance, utilities, and closing costs. Rates, tax, and insurance are editable assumptions.</p>
                 </div>
 
                 <div class="mortgage-summary-card">
@@ -1408,6 +1413,6 @@
     
     <!-- Primary data loads asynchronously. The generated bundle is loaded only
          if JSON loading fails, including offline file:// previews. -->
-    <script defer src="app.js?v=20261028f" data-listings-fallback="data.js?v=20261028"></script>
+    <script defer src="app.js?v=20261030-audit1" data-listings-fallback="data.js?v=20261028"></script>
 </body>
 </html>

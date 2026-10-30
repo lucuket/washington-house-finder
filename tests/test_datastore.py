@@ -159,3 +159,30 @@ def test_write_listings_resets_research(tmp_path):
     write_listings([make_listing(rating=4, favorite=True, user_notes="private")], str(path))
     saved = json.loads(path.read_text(encoding="utf-8"))[0]
     assert (saved["rating"], saved["favorite"], saved["user_notes"]) == (0, False, "")
+
+
+def test_normalization_marks_missing_invalid_and_legacy_zero_metrics_unknown():
+    row = normalize_property({"address": "100 Main", "hoa": 0, "garage": -2,
+                              "beds": "invalid", "sqft": 0, "unknown_fields": []})
+    assert row["hoa"] == 0 and has_metric(row, "hoa")
+    for field in ("beds", "baths", "garage", "sqft", "lot_sqft", "year_built"):
+        assert row[field] == 0 and not has_metric(row, field)
+    legacy = normalize_property({"hoa": 0, "garage": 0})
+    assert not has_metric(legacy, "hoa") and not has_metric(legacy, "garage")
+
+
+def test_failed_user_write_does_not_leak_into_later_saves(make_store, monkeypatch):
+    import datastore
+    store = make_store([make_listing(id="a"), make_listing(id="b")])
+    version = store.version
+    original = datastore.atomic_write_text
+    def fail(*args, **kwargs):
+        raise OSError("disk unavailable")
+    monkeypatch.setattr(datastore, "atomic_write_text", fail)
+    with pytest.raises(OSError):
+        store.update_user("a", user_notes="should not be committed")
+    assert store.version == version and store.get("a")["user_notes"] == ""
+    monkeypatch.setattr(datastore, "atomic_write_text", original)
+    store.update_user("b", rating=4)
+    state = json.load(open(store.user_state_file, encoding="utf-8"))
+    assert "a" not in state

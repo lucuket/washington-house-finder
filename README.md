@@ -2,6 +2,9 @@
 
 A high-density residential property research workstation for analyzing, filtering, mapping, and comparing single-family listings across Washington State.
 
+The [October 30 system audit](SYSTEM_AUDIT.md) documents the system breakdown,
+competitor/reference review, implemented fixes, measured performance, and verification.
+
 ## Live Deployment
 - **GitHub Pages (Static Workstation)**: `https://lucuket.github.io/washington-house-finder/`
 
@@ -11,7 +14,7 @@ A high-density residential property research workstation for analyzing, filterin
 - **[`index.html`](index.html)**: Semantic workstation shell with split cards/map view, full-bleed GIS map, top value deals evaluation view, reactive analytics dashboard, side-by-side comparison matrix, and mortgage calculator.
 - **[`app.js`](app.js)**: Vanilla JavaScript client engine with O(1) property lookup (`Map`), lazy Leaflet popup binding, `unknown_fields`-aware filtering/scoring, FCC broadband city coverage integration, URL hash state sync, and local persistence (`localStorage`).
 - **[`styles.css`](styles.css)**: High-density workstation design system using CSS custom properties without external UI frameworks or glassmorphism.
-- **[`properties.json`](properties.json)** & **[`data.js`](data.js)**: Primary JSON dataset (4,225 Washington listings) and generated `window.INITIAL_PROPERTIES` fallback bundle for offline `file://` usage.
+- **[`properties.json`](properties.json)** & **[`data.js`](data.js)**: Primary JSON dataset (4,225 Washington listings) and generated `window.WASHINGTON_PROPERTIES` fallback bundle for offline `file://` usage.
 - **[`data/fcc_wa_broadband_by_city.json`](data/fcc_wa_broadband_by_city.json)**: Derived FCC Broadband Data Collection (BDC) city-level fiber and cable coverage summary.
 
 ### Modular Python Backend & Data Pipeline
@@ -22,7 +25,7 @@ A high-density residential property research workstation for analyzing, filterin
 - **[`scraper_service.py`](scraper_service.py)** & **[`scraper.py`](scraper.py)**: Permission-gated CLI and service (`REALTOR_SCRAPING_AUTHORIZED=yes`) that merges refreshed listings into `PropertyStore` without overwriting saved IDs or user notes/ratings.
 - **[`build_data_js.py`](build_data_js.py)**: Atomic generator for `data.js` with `--check` verification mode.
 - **[`validate_data.py`](validate_data.py)**: Dataset & static bundle integrity validator (`--strict`, `--json`).
-- **[`tests/`](tests/)**: Automated `pytest` suite (73 tests) and 19 frontend tests covering datastore, analytics, API routes, scraper normalization, dataset integrity, appearance, and workstation controls.
+- **[`tests/`](tests/)**: Automated `pytest` suite (91 tests) and 31 frontend tests covering datastore, analytics, API routes, scraper normalization, dataset integrity, appearance, persistence, incremental rendering, and workstation controls.
 
 ## Common Commands
 
@@ -30,6 +33,8 @@ Appearance and UI verification: [UI_QA_REPORT.md](UI_QA_REPORT.md). The workstat
 supports persistent light/dark mode and follows the system appearance until a
 mode is selected. Live refresh controls are shown only when a writable backend
 confirms scraping authorization; the public static site uses the saved snapshot.
+Public Render, Docker, and tunnel configurations default to `WHS_READ_ONLY=1`;
+read-only API responses omit private research. Use writable mode only for private use.
 
 ```powershell
 # Run the local FastAPI workstation server (http://127.0.0.1:8000)

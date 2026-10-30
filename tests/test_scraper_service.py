@@ -73,6 +73,29 @@ def test_description_is_only_a_lower_bound_for_garage():
     assert svc.garage_from_text("double garage and a two car carport") == 2
 
 
+def test_driveway_parking_is_not_garage_capacity():
+    assert svc.garage_from_text("Room for three cars on the driveway, two-car carport") is None
+    assert evaluate(parking_garage=None, parking_spaces=4,
+                    description="Three-car driveway with covered carport")[1] == "garage"
+
+
+def test_any_minimum_does_not_turn_missing_specs_into_reported_zeros():
+    criteria = {**CRITERIA, "beds_min": 0, "baths_min": 0, "lot_size_min": 0, "year_built_min": 0}
+    listing, reason = svc.evaluate_row(good_row(beds=None, full_baths=None, half_baths=None,
+                                               lot_sqft=None, year_built=None), criteria)
+    assert listing is not None, reason
+    assert set(listing["unknown_fields"]) == {"beds", "baths", "lot_sqft", "year_built"}
+    assert svc.evaluate_row(good_row(sqft=None), {**criteria, "sqft_min": 0})[1] == "sqft"
+
+
+@pytest.mark.parametrize("values", [{"price_min": 600000, "price_max": 300000},
+                                   {"sqft_min": 2000, "sqft_max": 1200}])
+def test_search_criteria_reject_reversed_ranges(values):
+    from pydantic import ValidationError
+    with pytest.raises(ValidationError):
+        SearchCriteria(**values)
+
+
 def test_description_mentioning_condos_does_not_reject_a_house():
     listing, reason = evaluate(description="Quiet street, no condos or townhouses nearby.")
     assert listing is not None, reason

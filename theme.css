@@ -306,3 +306,23 @@ input[type="range"]:focus-visible { outline: 2px solid var(--border-focus); outl
 @media (min-width: 640px) and (max-width: 768px) {
     .cards-grid, .view-split .cards-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+
+/* Research controls share the workstation's compact, explicit visual language. */
+.payment-settings {
+    width: 100%; display: grid; gap: 5px; padding: 10px 0; margin: 0 0 12px;
+    border: 0; border-top: 1px solid var(--border-subtle); border-bottom: 1px solid var(--border-subtle);
+    background: transparent; color: var(--text-secondary); text-align: left; cursor: pointer;
+    font: inherit; font-size: 11px;
+}
+.payment-settings > span { display: flex; justify-content: space-between; }
+.payment-settings strong { color: var(--brand-primary); font-size: 11px; }
+.payment-settings:hover { background: var(--bg-surface-secondary); }
+.payment-assumptions-note { color: var(--text-secondary); font-size: 11px; line-height: 1.6; margin-top: 14px; }
+.card-mortgage-badge { cursor: pointer; font-family: var(--font-mono); }
+.map-marker-count { font-size: 10px; font-weight: 400; color: var(--text-secondary); margin-left: 6px; }
+.map-panel-header > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.deals-empty-message { grid-column: 1 / -1; padding: 24px; color: var(--text-secondary); }
+.comparison-assumptions { caption-side: bottom; padding: 14px; text-align: left; color: var(--text-secondary); font-size: 11px; line-height: 1.6; }
+.drawer-panel, .modal-box, .lightbox-container { animation-duration: 120ms; }
+.drawer-thumb:focus-visible, .strip-thumb:focus-visible { outline: 2px solid var(--brand-primary); outline-offset: 2px; }
+@media (max-width: 768px) { .card-mortgage-badge { min-height: 44px; } }

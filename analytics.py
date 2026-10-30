@@ -40,11 +40,11 @@ class ListingFilter:
 
 
 def _at_least(listing: Listing, field: str, minimum: Optional[float]) -> bool:
-    return minimum is None or listing[field] >= minimum
+    return minimum is None or (minimum <= 0 or has_metric(listing, field)) and listing[field] >= minimum
 
 
 def _at_most(listing: Listing, field: str, maximum: Optional[float]) -> bool:
-    return maximum is None or listing[field] <= maximum
+    return maximum is None or (field == "price" or has_metric(listing, field)) and listing[field] <= maximum
 
 
 def matches(listing: Listing, f: ListingFilter, *, city: Optional[str], query: Optional[str]) -> bool:
@@ -66,14 +66,11 @@ def matches(listing: Listing, f: ListingFilter, *, city: Optional[str], query: O
         return False
     if f.favorites_only and not listing.get("favorite"):
         return False
-    if query and not (
-        query in listing["address"].lower()
-        or query in listing["city"].lower()
-        or query in listing["zip"].lower()
-        or query in listing["description"].lower()
-        or query in listing.get("user_notes", "").lower()
-    ):
-        return False
+    if query:
+        corpus = " ".join(str(listing.get(field, "")) for field in
+                          ("address", "city", "zip", "description", "user_notes")).lower()
+        if not all(term in corpus for term in query.split()):
+            return False
     return True
 
 
@@ -224,7 +221,8 @@ def listings_to_csv(listings: Iterable[Listing]) -> str:
         ppsf = price_per_sqft(p)
         lot = p["lot_sqft"] if has_metric(p, "lot_sqft") else None
         writer.writerow([
-            p["id"], _csv_safe(p["address"]), p["city"], p["state"], p["zip"], p["price"],
+            _csv_safe(p["id"]), _csv_safe(p["address"]), _csv_safe(p["city"]),
+            _csv_safe(p["state"]), _csv_safe(p["zip"]), p["price"],
             _csv_cell(p, "beds"), _csv_cell(p, "baths"), _csv_cell(p, "sqft"),
             _csv_cell(p, "lot_sqft"),
             round(lot / SQFT_PER_ACRE, 3) if lot is not None else "",
@@ -234,6 +232,6 @@ def listings_to_csv(listings: Iterable[Listing]) -> str:
             _csv_safe(str(p.get("user_notes", "")).replace("\r", "").replace("\n", " ")),
             "" if p.get("latitude") is None else p["latitude"],
             "" if p.get("longitude") is None else p["longitude"],
-            p["url"],
+            _csv_safe(p["url"]),
         ])
     return out.getvalue()

@@ -137,7 +137,9 @@ def check_repository(listings: List[Any]) -> Tuple[List[str], List[str]]:
             if human not in html:
                 errors.append(f"index.html does not mention the snapshot date '{human}'")
             stamp = day.strftime("%Y%m%d")
-            stale = set(re.findall(r"\?v=(\d{8})", html)) - {stamp}
+            # UI releases and listing acquisitions have independent versions.
+            # Only data-resource cache tokens must match the snapshot date.
+            stale = set(re.findall(r"(?:data\.js|properties\.json)\?v=(\d{8})", html)) - {stamp}
             if stale:
                 errors.append(f"index.html cache-busting tokens {sorted(stale)} != {stamp}")
 

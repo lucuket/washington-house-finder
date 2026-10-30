@@ -174,6 +174,19 @@ def normalize_property(item: Dict[str, Any]) -> Dict[str, Any]:
     for field in PASSTHROUGH_FIELDS:
         if field in item:
             res[field] = item[field]
+    # An omitted/invalid metric must never become a reported zero during coercion.
+    supplied_unknown = item.get("unknown_fields")
+    unknown = [f for f in supplied_unknown if f in METRIC_FIELDS] if isinstance(supplied_unknown, list) else []
+    for field in METRIC_FIELDS:
+        raw = to_float(item.get(field), float("nan"))
+        invalid = (not math.isfinite(raw) or raw < 0
+                   or (field in ("sqft", "year_built") and raw == 0))
+        legacy_zero = not isinstance(supplied_unknown, list) and raw == 0
+        if invalid or legacy_zero or field in unknown:
+            res[field] = 0
+            if field not in unknown:
+                unknown.append(field)
+    res["unknown_fields"] = unknown
     return res
 
 
@@ -301,9 +314,10 @@ class PropertyStore:
             self._save_user_state()
             logger.info("Migrated legacy favorites/ratings/notes to %s", self.user_state_file)
 
-    def _save_user_state(self) -> None:
+    def _save_user_state(self, state: Optional[Dict[str, Dict[str, Any]]] = None) -> None:
         atomic_write_text(self.user_state_file,
-                          json.dumps(self._user_state, indent=2, ensure_ascii=False, sort_keys=True))
+                          json.dumps(self._user_state if state is None else state,
+                                     indent=2, ensure_ascii=False, sort_keys=True))
 
     def _with_user_state(self, listing: Dict[str, Any]) -> Dict[str, Any]:
         state = self._user_state.get(listing["id"])
@@ -355,8 +369,9 @@ class PropertyStore:
                 updated["user_notes"] = str(user_notes)
             if favorite is not None:
                 updated["favorite"] = bool(favorite)
-            self._user_state[listing_id] = {f: updated[f] for f in USER_FIELDS}
-            self._save_user_state()
+            next_state = {**self._user_state, listing_id: {f: updated[f] for f in USER_FIELDS}}
+            self._save_user_state(next_state)
+            self._user_state = next_state
             self._listings[pos] = updated
             self.version += 1
             return updated

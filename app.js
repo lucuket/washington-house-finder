@@ -15,6 +15,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const STORAGE_RECENT_KEY = 'wa_home_search_recent_v1';
     const STORAGE_DENSITY_KEY = 'wa_home_search_density_v1';
     const STORAGE_USER_DATA_KEY = 'wa_home_search_userdata_v1';
+    const STORAGE_COMPARE_KEY = 'wa_home_search_compare_v1';
     const isLocalHost = ['localhost', '127.0.0.1'].includes(window.location.hostname);
     const API_CANDIDATE = window.location.protocol.startsWith('http')
         && !window.location.hostname.endsWith('.github.io')
@@ -112,7 +113,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // City Medians Cache
     let cityMedians = {};
-    let marketMedians = { price: 425000, ppsqft: 260, sqft: 1600, lot: 7500 };
+    let marketMedians = { price: 0, ppsqft: 0, sqft: 0, lot: 0 };
 
     // Modal Contexts & Timers
     let currentLightboxProp = null;
@@ -120,7 +121,10 @@ document.addEventListener('DOMContentLoaded', () => {
     let scraperPollTimer = null;
     let searchDebounceTimer = null;
     let mapBoundsDebounceTimer = null;
-    let noteSaveDebounceTimer = null;
+    const noteSaveTimers = new Map();
+    const apiSaveQueues = new Map();
+    let userDataCache = null;
+    let storageWarningShown = false;
 
     // Security & Sanitization Utilities
     function hasListingMetric(property, field) {
@@ -138,6 +142,11 @@ document.addEventListener('DOMContentLoaded', () => {
     function listingHoa(property) {
         if (!hasListingMetric(property, 'hoa')) return 'HOA unknown';
         return property.hoa === 0 ? 'No HOA ($0)' : `$${property.hoa}/mo HOA`;
+    }
+
+    function listingPpsqft(property) {
+        return hasListingMetric(property, 'sqft') && property.sqft > 0
+            ? `$${Math.round(property.price / property.sqft)}/sqft` : '$/sqft unknown';
     }
 
     function escapeHtml(str) {
@@ -167,7 +176,10 @@ document.addEventListener('DOMContentLoaded', () => {
     function thumbUrl(url, width = 600) {
         if (!url || typeof url !== 'string') return url;
         if (url.indexOf('ap.rdcpix.com') !== -1) {
-            return url.replace(/([?&])w=\d+/, '$1w=' + width);
+            // This CDN encodes its actual size in the filename. Query-only
+            // changes leave a 960px image unchanged, even for a 100px thumbnail.
+            return url.replace(/w\d+_h\d+_x\d+(?=\.(?:webp|jpe?g|png))/i,
+                `w${width}_h${Math.round(width * 0.75)}_x1`).replace(/([?&])w=\d+/, '$1w=' + width);
         }
         return url;
     }
@@ -451,7 +463,12 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     function initMap() {
-        if (map || !HAS_LEAFLET) return;
+        if (map) return;
+        if (!HAS_LEAFLET) {
+            const element = document.getElementById('leaflet-map');
+            if (element) element.textContent = 'Map library unavailable. You can continue researching homes in Listings.';
+            return;
+        }
         const mapElement = document.getElementById('leaflet-map');
         if (!mapElement) return;
 
@@ -593,7 +610,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div class="popup-info">
                     <span class="popup-price">$${p.price.toLocaleString()}</span>
                     <strong class="popup-address">${safeAddr}</strong>
-                    <span class="popup-specs">${listingMetric(p, 'beds')} Beds • ${listingMetric(p, 'baths')} Baths • ${p.sqft.toLocaleString()} sqft</span>
+                    <span class="popup-specs">${listingMetric(p, 'beds')} Beds • ${listingMetric(p, 'baths')} Baths • ${listingMetric(p, 'sqft', ' sqft')}</span>
                     <div style="margin-top: 5px; display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--border-subtle); padding-top: 4px;">
                         <span style="font-size: 9.5px; color: var(--info-ink); font-weight: 700;">${escapeHtml(bbSummary.badgeText)}</span>
                         <a href="${safeFcc}" target="_blank" rel="noopener noreferrer" style="font-size: 10px; color: var(--brand-primary); font-weight: 700; text-decoration: underline;" onclick="event.stopPropagation();">FCC Map ↗</a>
@@ -605,14 +622,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function updateMapMarkers(propertiesToDisplay) {
         if (!map || !markersLayer) return;
-        markersLayer.clearLayers();
-        markerInstances = {};
-
-        const validCoords = [];
+        const started = performance.now();
+        const wanted = new Set();
         const newMarkers = [];
 
         propertiesToDisplay.forEach(p => {
             if (p.latitude && p.longitude) {
+                wanted.add(p.id);
+                const existing = markerInstances[p.id];
+                const markerKey = `${p.latitude},${p.longitude}:${p.price}:${!!p.favorite}`;
+                if (existing?._listingKey === markerKey) return;
                 const formattedPrice = '$' + Math.round(p.price / 1000) + 'k';
                 const isFavorited = p.favorite ? '♥ ' : '';
 
@@ -624,31 +643,49 @@ document.addEventListener('DOMContentLoaded', () => {
                     popupAnchor: [0, -14]
                 });
 
-                const marker = L.marker([p.latitude, p.longitude], { icon: customIcon });
-                marker.bindPopup(() => buildMarkerPopupHtml(p), { maxWidth: 240, className: 'realtor-map-popup' });
+                if (existing) {
+                    existing.options = { ...existing.options, title: `${p.address}, $${p.price.toLocaleString()}` };
+                    existing.setLatLng([p.latitude, p.longitude]);
+                    existing.setIcon(customIcon);
+                    existing._listingKey = markerKey;
+                    return;
+                }
+                const marker = L.marker([p.latitude, p.longitude], { icon: customIcon, title: `${p.address}, $${p.price.toLocaleString()}` });
+                marker._listingKey = markerKey;
+                marker.bindPopup(() => buildMarkerPopupHtml(getPropertyById(p.id) || p), { maxWidth: 240, className: 'realtor-map-popup' });
 
                 marker.on('click', () => {
                     highlightCard(p.id);
                     if (window.innerWidth <= 768) {
-                        showMobileMapPreview(p);
+                        showMobileMapPreview(getPropertyById(p.id) || p);
                     }
                 });
 
                 newMarkers.push(marker);
                 markerInstances[p.id] = marker;
-                validCoords.push([p.latitude, p.longitude]);
             }
         });
 
-        if (markersLayer.addLayers && typeof markersLayer.addLayers === 'function') {
+        const removed = [];
+        Object.keys(markerInstances).forEach(id => {
+            if (!wanted.has(id)) {
+                removed.push(markerInstances[id]);
+                delete markerInstances[id];
+            }
+        });
+        if (removed.length && markersLayer.removeLayers) markersLayer.removeLayers(removed);
+        else removed.forEach(marker => markersLayer.removeLayer(marker));
+        if (newMarkers.length && typeof markersLayer.addLayers === 'function') {
             markersLayer.addLayers(newMarkers);
         } else {
             newMarkers.forEach(m => markersLayer.addLayer(m));
         }
 
         if (mapMarkerCount) {
-            mapMarkerCount.textContent = `${validCoords.length} WA homes`;
+            const unmapped = propertiesToDisplay.length - wanted.size;
+            mapMarkerCount.textContent = `${wanted.size.toLocaleString()} mapped${unmapped ? ` · ${unmapped} without coordinates` : ''}`;
         }
+        document.getElementById('leaflet-map').dataset.updateMs = (performance.now() - started).toFixed(2);
     }
 
     function showMobileMapPreview(p) {
@@ -763,11 +800,11 @@ document.addEventListener('DOMContentLoaded', () => {
             const city = p.city || 'Other';
             if (!cityBuckets[city]) cityBuckets[city] = { prices: [], ppsqfts: [], sqfts: [], lots: [] };
             cityBuckets[city].prices.push(p.price);
-            if (p.sqft > 0) {
+            if (hasListingMetric(p, 'sqft') && p.sqft > 0) {
                 cityBuckets[city].sqfts.push(p.sqft);
                 cityBuckets[city].ppsqfts.push(p.price / p.sqft);
             }
-            if (p.lot_sqft > 0) cityBuckets[city].lots.push(p.lot_sqft);
+            if (hasListingMetric(p, 'lot_sqft') && p.lot_sqft > 0) cityBuckets[city].lots.push(p.lot_sqft);
         });
 
         const medianOf = (arr) => {
@@ -788,9 +825,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         const allPrices = allProperties.map(p => p.price);
-        const allSqfts = allProperties.filter(p => p.sqft > 0).map(p => p.sqft);
-        const allLots = allProperties.filter(p => p.lot_sqft > 0).map(p => p.lot_sqft);
-        const allPpsqfts = allProperties.filter(p => p.sqft > 0).map(p => p.price / p.sqft);
+        const allSqfts = allProperties.filter(p => hasListingMetric(p, 'sqft') && p.sqft > 0).map(p => p.sqft);
+        const allLots = allProperties.filter(p => hasListingMetric(p, 'lot_sqft') && p.lot_sqft > 0).map(p => p.lot_sqft);
+        const allPpsqfts = allProperties.filter(p => hasListingMetric(p, 'sqft') && p.sqft > 0).map(p => p.price / p.sqft);
 
         marketMedians = {
             price: Math.round(medianOf(allPrices)),
@@ -806,7 +843,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const cityMed = cityMedians[p.city] || marketMedians;
 
         // $/sqft vs city median
-        if (cityMed.ppsqft > 0) {
+        if (hasListingMetric(p, 'sqft') && p.sqft > 0 && cityMed.ppsqft > 0) {
             const deltaPct = Math.round(((ppsqft - cityMed.ppsqft) / cityMed.ppsqft) * 100);
             if (deltaPct <= -8) {
                 signals.push({ label: `↓ ${Math.abs(deltaPct)}% below median $/sqft`, type: 'good' });
@@ -845,13 +882,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // 1. PPSQFT score (0 - 100): Lower is better
         let scorePpsqft = 50;
-        if (cityMed.ppsqft > 0) {
+        if (hasListingMetric(p, 'sqft') && p.sqft > 0 && cityMed.ppsqft > 0) {
             const ratio = ppsqft / cityMed.ppsqft;
             scorePpsqft = Math.max(0, Math.min(100, Math.round(100 - (ratio - 0.7) * 100)));
         }
 
         // 2. Living SqFt score (0 - 100): 1200 - 2500 normalized
-        const scoreSqft = Math.max(0, Math.min(100, Math.round(((p.sqft - 1000) / 1500) * 100)));
+        const scoreSqft = hasListingMetric(p, 'sqft') && p.sqft > 0 ? Math.max(0, Math.min(100, Math.round(((p.sqft - 1000) / 1500) * 100))) : 50;
 
         // 3. Lot Size score (0 - 100): 5000 - 20000 normalized
         const scoreLot = hasListingMetric(p, 'lot_sqft') ? Math.max(0, Math.min(100, Math.round(((p.lot_sqft - 4000) / 16000) * 100))) : 50;
@@ -890,7 +927,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 sqft: { score: scoreSqft, weight: w.sqft, label: `Living Area: ${scoreSqft}/100` },
                 lot: { score: scoreLot, weight: w.lot, label: `Lot Size: ${scoreLot}/100` },
                 garage: { score: scoreGarage, weight: w.garage, label: `Garage Spaces: ${scoreGarage}/100` },
-                year: { score: scoreYear, weight: w.year, label: `Age / Condition: ${scoreYear}/100` },
+                year: { score: scoreYear, weight: w.year, label: `Construction Age: ${scoreYear}/100` },
                 hoa: { score: scoreHoa, weight: w.hoa, label: `Low HOA Benefit: ${scoreHoa}/100` },
                 rating: { score: Math.round(scoreRating), weight: w.rating, label: `Personal Rating: ${Math.round(scoreRating)}/100` }
             }
@@ -930,13 +967,14 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!p) return null;
         const ppsqft = Math.round(p.price / Math.max(1, p.sqft));
         const cityMed = cityMedians[p.city] || marketMedians;
-        const cityMedPpsqft = (cityMed && cityMed.ppsqft) ? cityMed.ppsqft : 300;
+        const cityMedPpsqft = cityMed?.ppsqft || 0;
+        const hasBenchmark = hasListingMetric(p, 'sqft') && p.sqft > 0 && cityMedPpsqft > 0;
         const ppsqftDiff = cityMedPpsqft - ppsqft;
-        const ppsqftPct = Math.round((ppsqftDiff / cityMedPpsqft) * 100);
-        const estDollarSavings = Math.round(ppsqftDiff * p.sqft);
+        const ppsqftPct = hasBenchmark ? Math.round((ppsqftDiff / cityMedPpsqft) * 100) : 0;
+        const estDollarSavings = hasBenchmark ? Math.round(ppsqftDiff * p.sqft) : 0;
 
         // 1. Price / SqFt Score (0-100)
-        let priceScore = 60 + Math.round(ppsqftPct * 1.3);
+        let priceScore = hasBenchmark ? 60 + Math.round(ppsqftPct * 1.3) : 50;
         priceScore = Math.max(10, Math.min(100, priceScore));
 
         // 2. Lot Value Score (0-100)
@@ -990,14 +1028,14 @@ document.addEventListener('DOMContentLoaded', () => {
         );
 
         // Factual Deal Narrative
-        const ppsqftText = ppsqftPct > 0 
+        const ppsqftText = !hasBenchmark ? 'with no reliable price-per-square-foot benchmark' : ppsqftPct > 0
             ? `priced ${ppsqftPct}% below the ${p.city} median ($${cityMedPpsqft}/sqft)` 
             : `priced at $${ppsqft}/sqft in ${p.city}`;
         const lotText = !hasListingMetric(p, 'lot_sqft') ? 'an unreported lot size' : acres >= 0.2 ? `a substantial ${acres.toFixed(2)}-acre (${p.lot_sqft.toLocaleString()} sqft) parcel` : `a ${p.lot_sqft.toLocaleString()} sqft lot`;
         const hoaText = hasListingMetric(p, 'hoa') ? `$${p.hoa}/mo in reported HOA dues` : `unverified HOA dues`;
         const garageText = !hasListingMetric(p, 'garage') ? 'unreported garage capacity' : p.garage >= 2 ? `a ${p.garage}-car garage` : `${p.garage} garage space`;
 
-        const narrative = `This ${p.city} property offers ${p.sqft.toLocaleString()} sqft ${ppsqftText}, paired with ${lotText}, ${hoaText}, and ${garageText}. The price-per-square-foot comparison is based on the listings in this snapshot.`;
+        const narrative = `This ${p.city} property offers ${listingMetric(p, 'sqft', ' sqft')} ${ppsqftText}, paired with ${lotText}, ${hoaText}, and ${garageText}. The benchmark uses ${cityMed.count || allProperties.length} listings in this snapshot; it does not estimate condition or resale value.`;
 
         let grade = "C";
         let gradeLabel = "Fair Value";
@@ -1008,6 +1046,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         return {
             dealScore,
+            hasBenchmark,
             grade,
             gradeLabel,
             ppsqft,
@@ -1028,12 +1067,32 @@ document.addEventListener('DOMContentLoaded', () => {
         };
     }
 
-    function calculateEstimatedMonthly(price, hoa = 0, customDownPct = null) {
-        const downPct = customDownPct !== null ? customDownPct : mortgageAssumptions.downPct;
+    function sanitizeMortgageAssumptions(values) {
+        const bounded = (value, fallback, max) => value !== null && value !== '' && Number.isFinite(Number(value)) ? Math.max(0, Math.min(max, Number(value))) : fallback;
+        return {
+            downPct: bounded(values?.downPct, 20, 100),
+            termYears: [15, 20, 30].includes(Number(values?.termYears)) ? Number(values.termYears) : 30,
+            rate: bounded(values?.rate, 6.65, 25),
+            taxRate: bounded(values?.taxRate, 1.02, 5),
+            insurance: bounded(values?.insurance, 1200, 100000)
+        };
+    }
+
+    function benchmarkLabel(evaluation) {
+        if (!evaluation.hasBenchmark) return 'Benchmark unavailable';
+        if (evaluation.ppsqftPct > 0) return `↓ ${evaluation.ppsqftPct}% below median`;
+        if (evaluation.ppsqftPct < 0) return `↑ ${Math.abs(evaluation.ppsqftPct)}% above median`;
+        return 'At median';
+    }
+
+    function calculateEstimatedMonthly(price, hoa = 0, customDownPct = null, assumptions = mortgageAssumptions) {
+        price = Number.isFinite(price) ? Math.max(0, price) : 0;
+        hoa = Number.isFinite(hoa) ? Math.max(0, hoa) : 0;
+        const downPct = customDownPct !== null ? Math.max(0, Math.min(100, customDownPct)) : assumptions.downPct;
         const downAmount = price * (downPct / 100);
         const principal = Math.max(0, price - downAmount);
-        const monthlyRate = (mortgageAssumptions.rate / 100) / 12;
-        const totalPayments = mortgageAssumptions.termYears * 12;
+        const monthlyRate = (assumptions.rate / 100) / 12;
+        const totalPayments = assumptions.termYears * 12;
 
         let monthlyPi = 0;
         if (monthlyRate > 0 && principal > 0) {
@@ -1042,8 +1101,8 @@ document.addEventListener('DOMContentLoaded', () => {
             monthlyPi = principal / totalPayments;
         }
 
-        const monthlyTax = (price * (mortgageAssumptions.taxRate / 100)) / 12;
-        const monthlyIns = mortgageAssumptions.insurance / 12;
+        const monthlyTax = (price * (assumptions.taxRate / 100)) / 12;
+        const monthlyIns = assumptions.insurance / 12;
         const total = monthlyPi + monthlyTax + monthlyIns + hoa;
 
         return {
@@ -1061,21 +1120,51 @@ document.addEventListener('DOMContentLoaded', () => {
     // User Data Local Persistence Helper (Favorites, Notes, Ratings)
     // -------------------------------------------------------------------------
     function getUserDataRegistry() {
+        if (userDataCache) return userDataCache;
         try {
             const raw = localStorage.getItem(STORAGE_USER_DATA_KEY);
-            return raw ? JSON.parse(raw) : {};
+            const parsed = raw ? JSON.parse(raw) : {};
+            userDataCache = parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
         } catch (e) {
-            return {};
+            userDataCache = {};
         }
+        return userDataCache;
     }
 
     function persistUserData(propId, updates) {
+        const data = getUserDataRegistry();
+        data[propId] = { ...data[propId], ...updates };
         try {
-            const data = getUserDataRegistry();
-            if (!data[propId]) data[propId] = {};
-            Object.assign(data[propId], updates);
             localStorage.setItem(STORAGE_USER_DATA_KEY, JSON.stringify(data));
-        } catch (e) {}
+            return true;
+        } catch (e) {
+            if (!storageWarningShown) {
+                storageWarningShown = true;
+                showToast('Browser storage is unavailable. Export your research before closing this page.', 'error');
+            }
+            return false;
+        }
+    }
+
+    function queueUserUpdate(propId, updates) {
+        if (!API_WRITES_ENABLED) return Promise.resolve(false);
+        // Keep writes for each home in order, including rapid rating/favorite changes.
+        const pending = (apiSaveQueues.get(propId) || Promise.resolve()).then(async () => {
+            try {
+                const response = await fetch(`/api/properties/${encodeURIComponent(propId)}/note`, {
+                    method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(updates), signal: AbortSignal.timeout(10000)
+                });
+                if (!response.ok) throw new Error(`Save failed (${response.status})`);
+                return true;
+            } catch (_) {
+                showToast('Server save failed. Your research is still available in this browser; use Export CSV to back it up.', 'error');
+                return false;
+            }
+        });
+        apiSaveQueues.set(propId, pending);
+        pending.finally(() => { if (apiSaveQueues.get(propId) === pending) apiSaveQueues.delete(propId); });
+        return pending;
     }
 
     // -------------------------------------------------------------------------
@@ -1088,10 +1177,10 @@ document.addEventListener('DOMContentLoaded', () => {
     let nearbyBroadbandMeta = {};
 
     async function loadProperties() {
-        const broadbandRequest = fetch("data/fcc_wa_broadband_by_city.json")
+        const broadbandRequest = fetch("data/fcc_wa_broadband_by_city.json", { signal: AbortSignal.timeout(5000) })
             .then(res => res.ok ? res.json() : {})
             .catch(() => ({}));
-        const nearbyRequest = fetch("data/ispmap_top_deals.json")
+        const nearbyRequest = fetch("data/ispmap_top_deals.json", { signal: AbortSignal.timeout(5000) })
             .then(res => res.ok ? res.json() : {})
             .catch(() => ({}));
         try {
@@ -1101,7 +1190,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // 1. Try relative static JSON (async; does not block first paint)
             try {
-                const res = await fetch('properties.json?v=20261028');
+                const res = await fetch('properties.json?v=20261028', { signal: AbortSignal.timeout(10000) });
                 if (res.ok) data = await res.json();
             } catch (e) {}
 
@@ -1144,7 +1233,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // Shallow-copy each record so downstream mutations (favorite, rating,
             // notes, derived _fields) never touch the shared source array.
             // Nested arrays (photos) are never mutated in place, so a deep
-            // clone (2x parse cost on ~5MB) is unnecessary.
+            // clone (2x parse cost on ~20MB) is unnecessary.
             data = data.map(p => ({ ...p, photos: Array.isArray(p.photos) ? p.photos : [] }));
 
             // Merge local storage user data (favorites, notes, ratings)
@@ -1153,12 +1242,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (localUserData[p.id]) {
                     const u = localUserData[p.id];
                     if (typeof u.favorite === 'boolean') p.favorite = u.favorite;
-                    if (typeof u.rating === 'number') p.rating = u.rating;
+                    if (Number.isInteger(u.rating) && u.rating >= 0 && u.rating <= 5) p.rating = u.rating;
                     if (typeof u.user_notes === 'string') p.user_notes = u.user_notes;
                 }
             });
 
             allProperties = data;
+            updateDatasetNotice();
             propertyById = new Map();
             oddFindsCache.clear();
 
@@ -1174,6 +1264,12 @@ document.addEventListener('DOMContentLoaded', () => {
             cityBroadband = await broadbandRequest;
             nearbyBroadbandMeta = await nearbyRequest;
             nearbyBroadband = nearbyBroadbandMeta.listings || {};
+            try {
+                const savedComparison = JSON.parse(localStorage.getItem(STORAGE_COMPARE_KEY) || '[]');
+                if (Array.isArray(savedComparison)) comparisonSet = new Set(savedComparison.filter(id => propertyById.has(id)).slice(0, 4));
+            } catch (_) {}
+            updateCompareDock();
+            updatePaymentAssumptionsLabel();
             computeMarketMedians();
             populateCityDropdown();
             loadStateFromUrl();
@@ -1184,6 +1280,19 @@ document.addEventListener('DOMContentLoaded', () => {
             if (resultsCountLabel) resultsCountLabel.textContent = "Unable to load listings";
             showToast("Failed to load listings data.", "error");
         }
+    }
+
+    function updateDatasetNotice() {
+        const notice = document.querySelector('.dataset-notice');
+        if (!notice) return;
+        const dates = [...new Set(allProperties.map(p => p.snapshot_date).filter(value => /^\d{4}-\d{2}-\d{2}$/.test(value || '')))].sort();
+        const formatDate = value => {
+            const date = new Date(`${value}T00:00:00Z`);
+            return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
+        };
+        const dateLabel = dates.length ? dates.length === 1 ? `Recorded ${formatDate(dates[0])}`
+            : `Mixed snapshots: ${formatDate(dates[0])}–${formatDate(dates.at(-1))}` : 'Snapshot date unavailable';
+        notice.textContent = `${allProperties.length.toLocaleString()} saved listings · ${new Set(allProperties.map(p => p.city)).size} cities · ${dateLabel}. Partial coverage; verify current price and availability at the source. Unreported specifications are Unknown. *Payment estimates assume $0 for unknown HOA and exclude PMI.`;
     }
 
     function populateCityDropdown() {
@@ -1252,7 +1361,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // Max $/SqFt
             if (filterState.maxPpsqft < FILTER_DEFAULTS.maxPpsqft) {
                 const ppsqft = p._ppsqft || (p.price / Math.max(1, p.sqft));
-                if (ppsqft > filterState.maxPpsqft) return false;
+                if (!hasListingMetric(p, 'sqft') || p.sqft <= 0 || ppsqft > filterState.maxPpsqft) return false;
             }
 
             // Star Rating
@@ -1326,7 +1435,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 filteredProperties.sort((a, b) => b.price - a.price);
                 break;
             case 'price_per_sqft_asc':
-                filteredProperties.sort((a, b) => (a._ppsqft || (a.price / Math.max(1, a.sqft))) - (b._ppsqft || (b.price / Math.max(1, b.sqft))));
+                filteredProperties.sort((a, b) => (hasListingMetric(a, 'sqft') && a.sqft > 0 ? a.price / a.sqft : Infinity) - (hasListingMetric(b, 'sqft') && b.sqft > 0 ? b.price / b.sqft : Infinity));
                 break;
             case 'sqft_desc':
                 filteredProperties.sort((a, b) => b.sqft - a.sqft);
@@ -1351,13 +1460,16 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentCardLimit = 28;
 
     function renderGalleryCards(resetLimit = false) {
+        const started = performance.now();
         if (resetLimit) {
             currentCardLimit = 28;
             if (cardsGrid.parentElement) cardsGrid.parentElement.scrollTop = 0;
         }
-        cardsGrid.innerHTML = '';
+        const existingCards = new Map([...cardsGrid.querySelectorAll('.property-card')].map(card => [card.id, card]));
+        cardsGrid.querySelector('.load-more-container')?.remove();
 
         if (filteredProperties.length === 0) {
+            cardsGrid.replaceChildren();
             emptyStateNotice.classList.remove('hidden');
             cardsGrid.classList.add('hidden');
             return;
@@ -1366,15 +1478,26 @@ document.addEventListener('DOMContentLoaded', () => {
         emptyStateNotice.classList.add('hidden');
         cardsGrid.classList.remove('hidden');
 
-        const fragment = document.createDocumentFragment();
+        const orderedCards = [];
         const displayBatch = filteredProperties.slice(0, currentCardLimit);
+        const assumptionsKey = JSON.stringify(mortgageAssumptions);
 
         displayBatch.forEach(p => {
+            const previous = existingCards.get(`card-${p.id}`);
+            const renderKey = `${!!p.favorite}:${p.rating || 0}:${!!p.user_notes}:${p._score?.total}:${assumptionsKey}`;
+            if (previous?._listing === p) {
+                if (previous._renderKey !== renderKey) updateExistingCard(previous, p);
+                previous._renderKey = renderKey;
+                orderedCards.push(previous);
+                return;
+            }
             const card = document.createElement('article');
             card.className = 'property-card';
             card.id = `card-${p.id}`;
             card.setAttribute('tabindex', '0');
-            card.setAttribute('role', 'button');
+            card.setAttribute('role', 'group');
+            card._listing = p;
+            card._renderKey = renderKey;
             card.setAttribute('aria-label', `${p.address}, ${p.city}, WA. Listing price $${p.price.toLocaleString()}`);
 
             const photoIdx = activePhotoIndices[p.id] || 0;
@@ -1392,7 +1515,7 @@ document.addEventListener('DOMContentLoaded', () => {
             let starsHtml = '';
             for (let i = 1; i <= 5; i++) {
                 const filledClass = i <= (p.rating || 0) ? 'filled' : '';
-                starsHtml += `<button class="star ${filledClass}" data-rate="${i}" title="Rate ${i} stars" aria-label="Rate ${i} stars" aria-pressed="${i <= (p.rating || 0)}">★</button>`;
+                starsHtml += `<button class="star ${filledClass}" data-rate="${i}" title="Rate ${i} stars" aria-label="Rate ${i} stars" aria-pressed="${i === (p.rating || 0)}">★</button>`;
             }
 
             // On cards, show distinctive differential value signals (e.g. $/sqft vs median) without repeating basic specs
@@ -1414,14 +1537,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
             card.innerHTML = `
                 <div class="card-media">
-                    <img src="${safePhotoUrl}" alt="${safeAddr}" class="card-img" id="img-${p.id}" loading="lazy" onerror="this.onerror=null;this.src='${PHOTO_PLACEHOLDER}'">
+                    <img src="${currentPhoto === PHOTO_PLACEHOLDER ? PHOTO_PLACEHOLDER : safePhotoUrl}" alt="${safeAddr}" class="card-img" id="img-${p.id}" loading="lazy" decoding="async" width="600" height="375" onerror="this.onerror=null;this.src='${PHOTO_PLACEHOLDER}'">
                     <div class="card-media-tags-top">
                         <span class="card-city-badge">${safeCity}, WA</span>
                         ${isTopDeal ? `<span class="card-deal-badge" title="${escapeHtml(dealEval.gradeLabel)}">TOP DEAL</span>` : ''}
                     </div>
                     <span class="card-score-badge mono" title="Smart Shortlist Score: ${scoreVal}/100">Score ${scoreVal}</span>
                     
-                    <button class="card-favorite-btn ${p.favorite ? 'favorited' : ''}" data-id="${p.id}" title="${p.favorite ? 'Remove from shortlist' : 'Save to shortlist'}" aria-label="Toggle favorite">
+                    <button class="card-favorite-btn ${p.favorite ? 'favorited' : ''}" data-id="${p.id}" title="${p.favorite ? 'Remove from shortlist' : 'Save to shortlist'}" aria-label="Toggle favorite" aria-pressed="${!!p.favorite}">
                         <svg viewBox="0 0 24 24" width="16" height="16" fill="${p.favorite ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2">
                             <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
                         </svg>
@@ -1439,7 +1562,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div class="card-body">
                     <div class="card-price-row">
                         <span class="card-price mono">$${p.price.toLocaleString()}</span>
-                        <span class="card-mortgage-badge mono" data-id="${p.id}" title="${hasListingMetric(p, 'hoa') ? 'Click to view mortgage breakdown' : 'Estimate assumes $0 HOA because dues are unknown'}">Est. $${estMonthly.total.toLocaleString()}/mo${hasListingMetric(p, 'hoa') ? "" : "*"}</span>
+                        <button type="button" class="card-mortgage-badge mono" data-id="${p.id}" title="${hasListingMetric(p, 'hoa') ? 'View payment assumptions and breakdown' : 'Estimate assumes $0 HOA because dues are unknown'}">Est. $${estMonthly.total.toLocaleString()}/mo${hasListingMetric(p, 'hoa') ? "" : "*"}</button>
                     </div>
 
                     <div class="card-address-block">
@@ -1458,7 +1581,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             <span class="spec-lbl">Baths</span>
                         </div>
                         <div class="spec-item">
-                            <span class="spec-val mono">${p.sqft.toLocaleString()}</span>
+                            <span class="spec-val mono">${listingMetric(p, 'sqft')}</span>
                             <span class="spec-lbl">SqFt</span>
                         </div>
                         <div class="spec-item">
@@ -1468,7 +1591,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
 
                     <div class="card-extra-chips">
-                        <span class="chip mono">$${ppsqft}/sqft</span>
+                        <span class="chip mono">${listingPpsqft(p)}</span>
                         <span class="chip mono">${hasListingMetric(p, 'lot_sqft') ? `${acres} Ac Lot` : 'Lot unknown'}</span>
                         <span class="chip">Built ${listingMetric(p, 'year_built')}</span>
                         <span class="chip">${listingHoa(p)}</span>
@@ -1519,34 +1642,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
             `;
 
-            // Hover marker synchronization
-            card.addEventListener('mouseenter', () => highlightMarker(p.id, true));
-            card.addEventListener('mouseleave', () => highlightMarker(p.id, false));
-
-            // Card click opens drawer
-            card.addEventListener('click', (e) => {
-                // Ignore clicks on specific interactive sub-controls
-                if (e.target.closest('.card-star-rating') ||
-                    e.target.closest('.compare-checkbox-label') ||
-                    e.target.closest('.card-note-trigger') ||
-                    e.target.closest('.card-favorite-btn') ||
-                    e.target.closest('.card-nav-arrow') ||
-                    e.target.closest('.card-view-drawer-btn') ||
-                    e.target.closest('a')) {
-                    return;
-                }
-                openPropertyDrawer(p.id);
-            });
-
-            // Enter key opens drawer
-            card.addEventListener('keydown', (e) => {
-                if (e.target === card && (e.key === 'Enter' || e.key === ' ')) {
-                    e.preventDefault();
-                    openPropertyDrawer(p.id);
-                }
-            });
-
-            fragment.appendChild(card);
+            orderedCards.push(card);
         });
 
         // Add Load More button if more cards exist
@@ -1561,15 +1657,33 @@ document.addEventListener('DOMContentLoaded', () => {
                     Load More Listings (Showing ${displayBatch.length} of ${filteredProperties.length})
                 </button>
             `;
-            loadMoreWrapper.querySelector('#btn-load-more-cards').addEventListener('click', () => {
-                currentCardLimit += 28;
-                renderGalleryCards(false);
-            });
-            fragment.appendChild(loadMoreWrapper);
+            orderedCards.push(loadMoreWrapper);
         }
 
-        cardsGrid.appendChild(fragment);
-        attachCardDelegatedEvents();
+        const wantedCards = new Set(orderedCards);
+        [...cardsGrid.children].forEach(card => { if (!wantedCards.has(card)) card.remove(); });
+        orderedCards.forEach((card, index) => {
+            if (cardsGrid.children[index] !== card) cardsGrid.insertBefore(card, cardsGrid.children[index] || null);
+        });
+        cardsGrid.dataset.renderMs = (performance.now() - started).toFixed(2);
+    }
+
+    function updateExistingCard(card, p) {
+        const favorite = card.querySelector('.card-favorite-btn');
+        favorite.classList.toggle('favorited', !!p.favorite);
+        favorite.setAttribute('aria-pressed', String(!!p.favorite));
+        favorite.title = p.favorite ? 'Remove from shortlist' : 'Save to shortlist';
+        favorite.querySelector('svg').setAttribute('fill', p.favorite ? 'currentColor' : 'none');
+        card.querySelectorAll('.star').forEach(star => {
+            const filled = Number(star.dataset.rate) <= (p.rating || 0);
+            star.classList.toggle('filled', filled);
+            star.setAttribute('aria-pressed', String(Number(star.dataset.rate) === p.rating));
+        });
+        card.querySelector('.card-note-trigger').classList.toggle('has-note', !!p.user_notes);
+        const score = card.querySelector('.card-score-badge');
+        score.textContent = `Score ${p._score?.total || 0}`;
+        score.title = `Smart Shortlist Score: ${p._score?.total || 0}/100`;
+        card.querySelector('.card-mortgage-badge').textContent = `Est. $${calculateEstimatedMonthly(p.price, p.hoa).total.toLocaleString()}/mo${hasListingMetric(p, 'hoa') ? '' : '*'}`;
     }
 
     function toggleComparison(propId, shouldAdd, checkboxEl = null) {
@@ -1591,62 +1705,44 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function attachCardDelegatedEvents() {
-        // Photo cycling navigation
-        cardsGrid.querySelectorAll('.card-nav-arrow').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                const propId = btn.getAttribute('data-id');
-                const dir = parseInt(btn.getAttribute('data-dir'), 10);
-                cycleCardPhoto(propId, dir);
-            });
+        // One set of listeners serves every current and future card.
+        cardsGrid.addEventListener('click', event => {
+            const target = event.target;
+            if (target.closest('#btn-load-more-cards')) {
+                currentCardLimit += 28;
+                renderGalleryCards(false);
+                return;
+            }
+            const card = target.closest('.property-card');
+            if (!card) return;
+            const id = card._listing.id;
+            const arrow = target.closest('.card-nav-arrow');
+            if (arrow) cycleCardPhoto(id, Number(arrow.dataset.dir));
+            else if (target.closest('.card-favorite-btn')) toggleFavorite(id);
+            else if (target.closest('.card-mortgage-badge')) openMortgageEstimator(id);
+            else if (target.closest('.star')) updatePropertyRating(id, Number(target.closest('.star').dataset.rate));
+            else if (target.closest('.card-note-trigger')) {
+                openPropertyDrawer(id);
+                drawerNotesTextarea.focus();
+            } else if (!target.closest('a, input, .compare-checkbox-label')) openPropertyDrawer(id);
         });
-
-        // Favorite Button Toggle
-        cardsGrid.querySelectorAll('.card-favorite-btn').forEach(btn => {
-            btn.addEventListener('click', async (e) => {
-                e.stopPropagation();
-                const propId = btn.getAttribute('data-id');
-                await toggleFavorite(propId);
-            });
+        cardsGrid.addEventListener('change', event => {
+            const checkbox = event.target.closest('.compare-check');
+            if (checkbox) toggleComparison(checkbox.dataset.id, checkbox.checked, checkbox);
         });
-
-        // Mortgage Badge Click
-        cardsGrid.querySelectorAll('.card-mortgage-badge').forEach(badge => {
-            badge.addEventListener('click', (e) => {
-                e.stopPropagation();
-                const propId = badge.getAttribute('data-id');
-                openMortgageEstimator(propId);
-            });
+        cardsGrid.addEventListener('keydown', event => {
+            if (event.target.matches('.property-card') && ['Enter', ' '].includes(event.key)) {
+                event.preventDefault();
+                openPropertyDrawer(event.target._listing.id);
+            }
         });
-
-        // Star Rating Clicks
-        cardsGrid.querySelectorAll('.card-star-rating .star').forEach(star => {
-            star.addEventListener('click', async (e) => {
-                e.stopPropagation();
-                const container = star.parentElement;
-                const propId = container.getAttribute('data-id');
-                const rateVal = parseInt(star.getAttribute('data-rate'), 10);
-                await updatePropertyRating(propId, rateVal);
+        for (const name of ['mouseover', 'mouseout', 'focusin', 'focusout']) {
+            cardsGrid.addEventListener(name, event => {
+                const card = event.target.closest('.property-card');
+                if (!card || card.contains(event.relatedTarget)) return;
+                highlightMarker(card._listing.id, name === 'mouseover' || name === 'focusin');
             });
-        });
-
-        // Note Trigger & View Details Click -> Open drawer
-        cardsGrid.querySelectorAll('.card-note-trigger, .card-view-drawer-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                const propId = btn.getAttribute('data-id');
-                openPropertyDrawer(propId);
-            });
-        });
-
-        // Compare Checkbox Toggle
-        cardsGrid.querySelectorAll('.compare-check').forEach(chk => {
-            chk.addEventListener('change', (e) => {
-                e.stopPropagation();
-                const propId = chk.getAttribute('data-id');
-                toggleComparison(propId, chk.checked, chk);
-            });
-        });
+        }
     }
 
     function cycleCardPhoto(propId, direction) {
@@ -1668,6 +1764,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // -------------------------------------------------------------------------
     function renderActiveFilterTags() {
         if (!activeFilterTags) return;
+        document.querySelectorAll('.pill-btn[data-beds], .pill-btn[data-baths], .pill-btn[data-garage]').forEach(button => {
+            button.setAttribute('aria-pressed', String(button.classList.contains('active')));
+        });
         activeFilterTags.innerHTML = '';
 
         const tags = [];
@@ -1727,6 +1826,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 filterState.maxPpsqft = FILTER_DEFAULTS.maxPpsqft; maxPpsqftSlider.value = FILTER_DEFAULTS.maxPpsqft; maxPpsqftDisplay.textContent = 'No Limit';
             }});
         }
+        if (filterState.mapBoundsOnly) {
+            tags.push({ label: 'Visible map area', key: 'map', reset: () => {
+                filterState.mapBoundsOnly = false;
+                if (mapBoundsFilterToggle) mapBoundsFilterToggle.checked = false;
+            }});
+        }
         if (filterState.minRating > 0) {
             tags.push({ label: `${filterState.minRating}+ Stars`, key: 'rating', reset: () => {
                 filterState.minRating = 0; ratingFilter.value = '0';
@@ -1778,10 +1883,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function computeMarketStats(properties) {
         const prices = properties.map(p => p.price).filter(Number.isFinite);
-        const sqfts = properties.map(p => p.sqft).filter(v => Number.isFinite(v) && v > 0);
+        const sqfts = properties.filter(p => hasListingMetric(p, 'sqft') && p.sqft > 0).map(p => p.sqft);
         const lots = properties.filter(p => hasListingMetric(p, 'lot_sqft')).map(p => p.lot_sqft);
         const ppsqfts = properties
-            .filter(p => Number.isFinite(p.price) && Number.isFinite(p.sqft) && p.sqft > 0)
+            .filter(p => Number.isFinite(p.price) && hasListingMetric(p, 'sqft') && p.sqft > 0)
             .map(p => p.price / p.sqft);
 
         const median = (values) => {
@@ -2048,7 +2153,16 @@ document.addEventListener('DOMContentLoaded', () => {
         drawerThumbnailsStrip.innerHTML = '';
         prop.photos.forEach((src, idx) => {
             const thumb = document.createElement('img');
-            thumb.src = src;
+            thumb.src = thumbUrl(src, 160);
+            thumb.loading = 'lazy';
+            thumb.decoding = 'async';
+            thumb.width = 100;
+            thumb.height = 64;
+            thumb.tabIndex = 0;
+            thumb.setAttribute('role', 'button');
+            thumb.addEventListener('keydown', event => {
+                if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); thumb.click(); }
+            });
             thumb.className = `drawer-thumb ${idx === photoIdx ? 'active' : ''}`;
             thumb.alt = `Photo ${idx + 1}`;
             thumb.addEventListener('click', () => {
@@ -2089,11 +2203,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 drawerDealMetricsGrid.innerHTML = `
                     <div class="deal-metric-cell">
                         <span class="dmc-label">$/SqFt Delta</span>
-                        <strong class="dmc-val ${dealEval.ppsqftPct > 0 ? 'good' : ''} mono">${dealEval.ppsqftPct > 0 ? '↓ ' + dealEval.ppsqftPct + '% vs median' : 'At median'}</strong>
+                        <strong class="dmc-val ${dealEval.ppsqftPct > 0 ? 'good' : ''} mono">${benchmarkLabel(dealEval)}</strong>
                     </div>
                     <div class="deal-metric-cell">
                         <span class="dmc-label">Gap at City Median $/SqFt</span>
-                        <strong class="dmc-val ${dealEval.estDollarSavings > 0 ? 'good' : ''} mono">${dealEval.estDollarSavings > 0 ? '+$' + dealEval.estDollarSavings.toLocaleString() : 'Parity'}</strong>
+                        <strong class="dmc-val ${dealEval.estDollarSavings > 0 ? 'good' : ''} mono">${dealEval.estDollarSavings === 0 ? 'At benchmark' : (dealEval.estDollarSavings > 0 ? '+' : '−') + '$' + Math.abs(dealEval.estDollarSavings).toLocaleString()}</strong>
                     </div>
                     <div class="deal-metric-cell">
                         <span class="dmc-label">Lot &amp; Acreage</span>
@@ -2125,8 +2239,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const ppsqft = Math.round(prop.price / Math.max(1, prop.sqft));
         dSpecBeds.textContent = listingMetric(prop, 'beds');
         dSpecBaths.textContent = listingMetric(prop, 'baths');
-        dSpecSqft.textContent = `${prop.sqft.toLocaleString()} sqft`;
-        dSpecPpsqft.textContent = `$${ppsqft}/sqft`;
+        dSpecSqft.textContent = listingMetric(prop, 'sqft', ' sqft');
+        dSpecPpsqft.textContent = listingPpsqft(prop);
         dSpecLot.textContent = hasListingMetric(prop, 'lot_sqft') ? `${prop.lot_sqft.toLocaleString()} sqft (${(prop.lot_sqft/43560).toFixed(2)} ac)` : 'Unknown';
         dSpecGarage.textContent = listingMetric(prop, 'garage', ' Car');
         dSpecYear.textContent = listingMetric(prop, 'year_built');
@@ -2162,6 +2276,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function stepDrawerProperty(direction) {
         if (!filteredProperties.length) return;
+        const selectedIndex = filteredProperties.findIndex(property => property.id === selectedPropId);
+        currentDrawerIndex = selectedIndex >= 0 ? selectedIndex : direction > 0 ? -1 : 0;
         currentDrawerIndex = (currentDrawerIndex + direction + filteredProperties.length) % filteredProperties.length;
         const nextProp = filteredProperties[currentDrawerIndex];
         if (nextProp) {
@@ -2175,7 +2291,7 @@ document.addEventListener('DOMContentLoaded', () => {
         stars.forEach(s => {
             const val = parseInt(s.getAttribute('data-val'), 10);
             s.classList.toggle('active', val <= currentRating);
-            s.setAttribute('aria-pressed', String(val <= currentRating));
+            s.setAttribute('aria-pressed', String(val === currentRating));
         });
 
         const labels = ["Not rated", "1 Star - Basic Match", "2 Stars - Fair Option", "3 Stars - Good Contender", "4 Stars - High Priority", "5 Stars - Top Pick"];
@@ -2226,7 +2342,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div class="sim-info">
                     <span class="sim-price mono">$${p.price.toLocaleString()} • ${safeCity}</span>
                     <strong class="sim-address">${safeAddr}</strong>
-                    <span style="font-size: 10.5px; color: var(--text-secondary);">${listingMetric(p, 'beds')}b / ${listingMetric(p, 'baths')}ba • ${p.sqft.toLocaleString()} sqft</span>
+                    <span style="font-size: 10.5px; color: var(--text-secondary);">${listingMetric(p, 'beds')}b / ${listingMetric(p, 'baths')}ba • ${listingMetric(p, 'sqft', ' sqft')}</span>
                 </div>
             `;
             item.addEventListener('click', () => {
@@ -2248,11 +2364,7 @@ document.addEventListener('DOMContentLoaded', () => {
         persistUserData(propId, { favorite: prop.favorite });
 
         try {
-            if (API_WRITES_ENABLED) fetch(`/api/properties/${propId}/favorite`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ favorite: prop.favorite })
-            }).catch(() => {});
+            queueUserUpdate(propId, { favorite: prop.favorite });
 
             showToast(prop.favorite ? `Saved "${prop.address}" to Shortlist` : `Removed "${prop.address}" from Shortlist`);
             applyFilters(false);
@@ -2276,11 +2388,7 @@ document.addEventListener('DOMContentLoaded', () => {
         persistUserData(propId, { rating: rating });
 
         try {
-            if (API_WRITES_ENABLED) fetch(`/api/properties/${propId}/note`, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ rating: rating })
-            }).catch(() => {});
+            queueUserUpdate(propId, { rating });
 
             showToast(rating ? `Rated ${rating} ★ for ${prop.address}` : `Rating cleared for ${prop.address}`);
             applyFilters(false);
@@ -2298,35 +2406,29 @@ document.addEventListener('DOMContentLoaded', () => {
         const prop = getPropertyById(selectedPropId);
         if (!prop) return;
 
-        const val = drawerNotesTextarea.value.trim();
+        const val = drawerNotesTextarea.value;
         prop.user_notes = val;
-        // Persist immediately so closing the page or typing in another home's
-        // notes cannot cancel the local save; only the optional API is debounced.
-        persistUserData(prop.id, { user_notes: val });
-        prop._searchCorpus = `${prop.address || ''} ${prop.city || ''} ${prop.zip || ''} ${prop.description || ''} ${prop.user_notes || ''}`.toLowerCase();
-        drawerNoteStatus.textContent = API_WRITES_ENABLED ? "Saving..." : "Saved locally";
-
-        clearTimeout(noteSaveDebounceTimer);
-        noteSaveDebounceTimer = setTimeout(async () => {
-            if (!API_WRITES_ENABLED) return;
-            try {
-                const response = await fetch(`/api/properties/${prop.id}/note`, {
-                    method: 'PATCH',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ user_notes: val })
-                });
-                if (!response.ok) throw new Error(`API save failed (${response.status})`);
-                drawerNoteStatus.textContent = "Auto-saved to DB";
-            } catch (e) {
-                drawerNoteStatus.textContent = "Saved locally";
+        const saved = persistUserData(prop.id, { user_notes: val });
+        prop._searchCorpus = `${prop.address || ''} ${prop.city || ''} ${prop.zip || ''} ${prop.description || ''} ${val}`.toLowerCase();
+        drawerNoteStatus.textContent = saved === false ? 'Session only: export before closing' : API_WRITES_ENABLED ? 'Saved locally; syncing…' : 'Saved locally';
+        clearTimeout(noteSaveTimers.get(prop.id));
+        noteSaveTimers.set(prop.id, setTimeout(async () => {
+            noteSaveTimers.delete(prop.id);
+            const synced = await queueUserUpdate(prop.id, { user_notes: val });
+            if (selectedPropId === prop.id && prop.user_notes === val) {
+                drawerNoteStatus.textContent = synced ? 'Saved to server' : saved === false ? 'Session only: export before closing' : 'Saved locally';
             }
-        }, 300);
+            // Refresh note indicators and searches without moving the results scroll.
+            applyFilters(false);
+        }, 300));
     }
 
     // -------------------------------------------------------------------------
     // Comparison Matrix
     // -------------------------------------------------------------------------
     function updateCompareDock() {
+        syncComparisonControls();
+        try { localStorage.setItem(STORAGE_COMPARE_KEY, JSON.stringify([...comparisonSet])); } catch (_) {}
         const count = comparisonSet.size;
         compareCountBadge.textContent = `${count} / 4`;
         compareDock.classList.toggle('hidden', count === 0);
@@ -2379,6 +2481,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         let tableHtml = `
             <table class="comparison-table">
+                <caption class="comparison-assumptions">Payment assumptions: ${mortgageAssumptions.downPct}% down, ${mortgageAssumptions.rate}% interest, ${mortgageAssumptions.termYears} years. Tax and insurance are assumed. *Unknown HOA uses $0. PMI, maintenance, utilities, and closing costs are excluded.</caption>
                 <thead>
                     <tr>
                         <th>Property Details</th>
@@ -2413,7 +2516,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         <th>Price / SqFt</th>
                         ${props.map(p => {
                             const ppsqft = Math.round(p.price / Math.max(1, p.sqft));
-                            return `<td class="${ppsqft === minPpsqft ? 'best-metric-cell' : ''}">$${ppsqft}/sqft ${ppsqft === minPpsqft ? '★ (Best Value)' : ''}</td>`;
+                            return `<td class="${ppsqft === minPpsqft ? 'best-metric-cell' : ''}">$${ppsqft}/sqft ${ppsqft === minPpsqft ? '★ (Lowest)' : ''}</td>`;
                         }).join('')}
                     </tr>
                     <tr>
@@ -2422,7 +2525,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     </tr>
                     <tr>
                         <th>Living Area</th>
-                        ${props.map(p => `<td class="${p.sqft === maxSqft ? 'best-metric-cell' : ''}">${p.sqft.toLocaleString()} sqft ${p.sqft === maxSqft ? '★ (Largest)' : ''}</td>`).join('')}
+                        ${props.map(p => `<td class="${p.sqft === maxSqft ? 'best-metric-cell' : ''}">${listingMetric(p, 'sqft', ' sqft')} ${p.sqft === maxSqft ? '★ (Largest)' : ''}</td>`).join('')}
                     </tr>
                     <tr>
                         <th>Lot Size</th>
@@ -2495,44 +2598,28 @@ document.addEventListener('DOMContentLoaded', () => {
         calcTaxRate.value = mortgageAssumptions.taxRate;
         calcInsurance.value = mortgageAssumptions.insurance;
         calcHoaFee.value = prop.hoa || 0;
+        document.getElementById('calc-assumptions-note').textContent = `${hasListingMetric(prop, 'hoa') ? '' : 'HOA is unknown; $0 is assumed. ' }Down payment, rate, term, tax, and insurance assumptions apply to all listing estimates. Price and HOA changes apply only to this calculation. Estimates exclude PMI, maintenance, utilities, and closing costs. Rates, tax, and insurance are editable assumptions.`;
 
         recalculateMortgageModal();
         mortgageModal.classList.remove('hidden');
     }
 
     function recalculateMortgageModal() {
-        const price = parseFloat(calcHomePrice.value) || 0;
-        const downPctRaw = parseFloat(calcDownPct.value);
-        const downPct = Number.isFinite(downPctRaw) ? downPctRaw : 20;
-        const downAmount = price * (downPct / 100);
-        calcDownAmount.value = `$${Math.round(downAmount).toLocaleString()}`;
-
-        const termYears = parseInt(calcLoanTerm.value, 10) || 30;
-        const rateRaw = parseFloat(calcInterestRate.value);
-        const rate = Number.isFinite(rateRaw) ? rateRaw : 6.65;
-        const taxRateRaw = parseFloat(calcTaxRate.value);
-        const taxRate = Number.isFinite(taxRateRaw) ? taxRateRaw : 1.02;
-        const insRaw = parseFloat(calcInsurance.value);
-        const insAnnual = Number.isFinite(insRaw) ? insRaw : 1200;
-        const hoaRaw = parseFloat(calcHoaFee.value);
-        const hoa = Number.isFinite(hoaRaw) ? hoaRaw : 0;
-
-        const principal = Math.max(0, price - downAmount);
-        calcLoanPrincipal.textContent = `$${Math.round(principal).toLocaleString()}`;
-
-        const monthlyRate = (rate / 100) / 12;
-        const totalPayments = termYears * 12;
-
-        let monthlyPi = 0;
-        if (monthlyRate > 0 && principal > 0) {
-            monthlyPi = principal * (monthlyRate * Math.pow(1 + monthlyRate, totalPayments)) / (Math.pow(1 + monthlyRate, totalPayments) - 1);
-        } else if (principal > 0) {
-            monthlyPi = principal / totalPayments;
-        }
-
-        const monthlyTax = (price * (taxRate / 100)) / 12;
-        const monthlyIns = insAnnual / 12;
-        const totalMonthly = monthlyPi + monthlyTax + monthlyIns + hoa;
+        const readNumber = (input, fallback) => {
+            const value = parseFloat(input.value);
+            return Number.isFinite(value) ? value : fallback;
+        };
+        const price = Math.max(0, readNumber(calcHomePrice, 0));
+        const hoa = Math.max(0, readNumber(calcHoaFee, 0));
+        const assumptions = sanitizeMortgageAssumptions({
+            downPct: readNumber(calcDownPct, 20), termYears: readNumber(calcLoanTerm, 30),
+            rate: readNumber(calcInterestRate, 6.65), taxRate: readNumber(calcTaxRate, 1.02),
+            insurance: readNumber(calcInsurance, 1200)
+        });
+        const estimate = calculateEstimatedMonthly(price, hoa, null, assumptions);
+        const { pi: monthlyPi, tax: monthlyTax, ins: monthlyIns, total: totalMonthly } = estimate;
+        calcDownAmount.value = `$${estimate.downAmount.toLocaleString()}`;
+        calcLoanPrincipal.textContent = `$${estimate.principal.toLocaleString()}`;
 
         calcTotalMonthly.innerHTML = `$${Math.round(totalMonthly).toLocaleString()}<span class="per-mo">/mo</span>`;
         calcValPi.textContent = `$${Math.round(monthlyPi).toLocaleString()}/mo`;
@@ -2552,13 +2639,36 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div class="bar-segment seg-ins" style="width: ${insPct}%;" title="Insurance"></div>
                 <div class="bar-segment seg-hoa" style="width: ${hoaPct}%;" title="HOA Dues"></div>
             `;
-        }
+        } else calcVisualBar.replaceChildren();
 
         // Persist user assumptions
-        mortgageAssumptions = { downPct, termYears, rate, taxRate, insurance: insAnnual };
+        const previousAssumptions = JSON.stringify(mortgageAssumptions);
+        mortgageAssumptions = assumptions;
         try {
             localStorage.setItem(STORAGE_MORTGAGE_KEY, JSON.stringify(mortgageAssumptions));
         } catch (e) {}
+        if (previousAssumptions !== JSON.stringify(mortgageAssumptions)) {
+            renderGalleryCards(false);
+            if (activeView === 'deals') renderDealsView();
+            if (selectedPropId) {
+                const selected = getPropertyById(selectedPropId);
+                updateDrawerMortgageBreakdown(selected);
+                drawerEstMonthly.textContent = `Est. $${calculateEstimatedMonthly(selected.price, selected.hoa).total.toLocaleString()}/mo${hasListingMetric(selected, 'hoa') ? '' : '*'}`;
+            }
+            if (!comparisonModal.classList.contains('hidden')) openComparisonMatrix();
+        }
+        updatePaymentAssumptionsLabel();
+    }
+
+    function updatePaymentAssumptionsLabel() {
+        const label = document.getElementById('payment-assumptions-label');
+        if (label) label.textContent = `${mortgageAssumptions.downPct}% down · ${mortgageAssumptions.rate}% · ${mortgageAssumptions.termYears} yr`;
+    }
+
+    function syncComparisonControls() {
+        document.querySelectorAll('.compare-check').forEach(checkbox => {
+            checkbox.checked = comparisonSet.has(checkbox.dataset.id);
+        });
     }
 
     // -------------------------------------------------------------------------
@@ -2588,20 +2698,38 @@ document.addEventListener('DOMContentLoaded', () => {
         if (currentLightboxIndex < 0) currentLightboxIndex = total - 1;
 
         lightboxActiveImg.src = photos[currentLightboxIndex];
+        lightboxActiveImg.onerror = () => { lightboxActiveImg.onerror = null; lightboxActiveImg.src = PHOTO_PLACEHOLDER; };
         lightboxCurrentNum.textContent = currentLightboxIndex + 1;
         lightboxTotalNum.textContent = total;
 
-        lightboxThumbnailsStrip.innerHTML = '';
-        photos.forEach((src, idx) => {
-            const thumb = document.createElement('img');
-            thumb.src = src;
-            thumb.className = `strip-thumb ${idx === currentLightboxIndex ? 'active' : ''}`;
-            thumb.alt = `Photo ${idx + 1}`;
-            thumb.addEventListener('click', () => {
-                currentLightboxIndex = idx;
-                renderLightboxStage();
+        const rebuildThumbnails = lightboxThumbnailsStrip.dataset.propertyId !== currentLightboxProp.id;
+        if (rebuildThumbnails) {
+            lightboxThumbnailsStrip.innerHTML = '';
+            lightboxThumbnailsStrip.dataset.propertyId = currentLightboxProp.id;
+            photos.forEach((src, idx) => {
+                const thumb = document.createElement('img');
+                thumb.src = thumbUrl(src, 160);
+                thumb.loading = 'lazy';
+                thumb.decoding = 'async';
+                thumb.width = 100;
+                thumb.height = 64;
+                thumb.tabIndex = 0;
+                thumb.setAttribute('role', 'button');
+                thumb.addEventListener('keydown', event => {
+                    if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); thumb.click(); }
+                });
+                thumb.className = `strip-thumb ${idx === currentLightboxIndex ? 'active' : ''}`;
+                thumb.alt = `Photo ${idx + 1}`;
+                thumb.addEventListener('click', () => {
+                    currentLightboxIndex = idx;
+                    renderLightboxStage();
+                });
+                lightboxThumbnailsStrip.appendChild(thumb);
             });
-            lightboxThumbnailsStrip.appendChild(thumb);
+        }
+        lightboxThumbnailsStrip.querySelectorAll('.strip-thumb').forEach((thumb, index) => {
+            thumb.classList.toggle('active', index === currentLightboxIndex);
+            thumb.setAttribute('aria-pressed', String(index === currentLightboxIndex));
         });
 
         const activeThumb = lightboxThumbnailsStrip.querySelector('.strip-thumb.active');
@@ -2922,9 +3050,35 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (e) {}
     }
 
+    function normalizeFilterState(state = {}) {
+        if (!state || typeof state !== 'object') state = {};
+        const normalized = { ...FILTER_DEFAULTS };
+        const ranges = {
+            minPrice: [200000, 740000], maxPrice: [210000, 750000],
+            minSqft: [0, 5900], maxSqft: [100, 6000], minBeds: [0, 5], minBaths: [0, 3],
+            minGarage: [0, 3], minLot: [0, 35000], minYear: [0, 2100], maxHoa: [0, 300],
+            maxPpsqft: [150, 500], minRating: [0, 5]
+        };
+        for (const [key, [min, max]] of Object.entries(ranges)) {
+            if (state[key] !== undefined && Number.isFinite(Number(state[key]))) normalized[key] = Math.max(min, Math.min(max, Number(state[key])));
+        }
+        normalized.maxPrice = Math.max(normalized.maxPrice, normalized.minPrice + 10000);
+        normalized.maxSqft = Math.max(normalized.maxSqft, normalized.minSqft + 100);
+        normalized.city = typeof state.city === 'string' && (state.city === 'all' || allProperties.some(p => p._cityLower === state.city.toLowerCase())) ? state.city.toLowerCase() : 'all';
+        normalized.search = typeof state.search === 'string' ? state.search.slice(0, 1000) : '';
+        for (const key of ['favoritesOnly', 'fiberOnly']) normalized[key] = state[key] === true;
+        if (['all', 'fiber', 'gigabit'].includes(state.broadbandType)) normalized.broadbandType = state.broadbandType;
+        if (['smart_score', 'default', 'price_asc', 'price_desc', 'price_per_sqft_asc', 'sqft_desc', 'lot_desc', 'year_desc', 'rating_desc'].includes(state.sortBy)) normalized.sortBy = state.sortBy;
+        return normalized;
+    }
+
     function applyPresetState(state) {
-        Object.assign(filterState, FILTER_DEFAULTS, state);
-        
+        Object.assign(filterState, normalizeFilterState(state));
+        syncFilterControls();
+        applyFilters();
+    }
+
+    function syncFilterControls() {
         searchInput.value = filterState.search || '';
         citySelect.value = filterState.city || 'all';
         priceMinSlider.value = filterState.minPrice;
@@ -2940,14 +3094,19 @@ document.addEventListener('DOMContentLoaded', () => {
         yearSelect.value = String(filterState.minYear || 0);
         ratingFilter.value = String(filterState.minRating || 0);
         filterFavoritesToggle.checked = !!filterState.favoritesOnly;
-        if (filterFiberToggle) filterFiberToggle.checked = !!filterState.fiberOnly;
+        if (filterFiberToggle) filterFiberToggle.checked = filterState.fiberOnly || filterState.broadbandType === 'fiber';
         if (broadbandFilter) broadbandFilter.value = filterState.broadbandType || (filterState.fiberOnly ? 'fiber' : 'all');
 
         bedsPillGroup.querySelectorAll('.pill-btn').forEach(b => b.classList.toggle('active', b.getAttribute('data-beds') === String(filterState.minBeds)));
         bathsPillGroup.querySelectorAll('.pill-btn').forEach(b => b.classList.toggle('active', b.getAttribute('data-baths') === String(filterState.minBaths)));
         garagePillGroup.querySelectorAll('.pill-btn').forEach(b => b.classList.toggle('active', b.getAttribute('data-garage') === String(filterState.minGarage)));
 
-        applyFilters();
+        maxPpsqftSlider.value = filterState.maxPpsqft;
+        maxPpsqftDisplay.textContent = filterState.maxPpsqft >= FILTER_DEFAULTS.maxPpsqft ? 'No Limit' : `≤ $${filterState.maxPpsqft}/sqft`;
+        sortDropdown.value = filterState.sortBy;
+        clearSearchBtn.classList.toggle('hidden', !filterState.search);
+        if (mapBoundsFilterToggle) mapBoundsFilterToggle.checked = filterState.mapBoundsOnly;
+        document.querySelectorAll('.pill-btn[data-beds], .pill-btn[data-baths], .pill-btn[data-garage]').forEach(button => button.setAttribute('aria-pressed', String(button.classList.contains('active'))));
     }
 
     // -------------------------------------------------------------------------
@@ -3006,6 +3165,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (filterState.maxHoa < FILTER_DEFAULTS.maxHoa) params.set('maxHoa', filterState.maxHoa);
         if (filterState.minLot > FILTER_DEFAULTS.minLot) params.set('minLot', filterState.minLot);
         if (filterState.minYear > 0) params.set('minYear', filterState.minYear);
+        if (filterState.maxPpsqft < FILTER_DEFAULTS.maxPpsqft) params.set('maxPpsqft', filterState.maxPpsqft);
+        if (filterState.minRating > 0) params.set('minRating', filterState.minRating);
         if (filterState.favoritesOnly) params.set('favorites', '1');
         if (filterState.fiberOnly) params.set('fiber', '1');
         if (filterState.broadbandType && filterState.broadbandType !== 'all') params.set('broadband', filterState.broadbandType);
@@ -3020,58 +3181,19 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function loadStateFromUrl() {
-        const hash = window.location.hash.replace('#', '');
-        if (!hash) return;
-        const params = new URLSearchParams(hash);
-
-        const parseIntOr = (val, fallback) => {
-            const parsed = parseInt(val, 10);
-            return Number.isFinite(parsed) ? parsed : fallback;
-        };
-        const parseFloatOr = (val, fallback) => {
-            const parsed = parseFloat(val);
-            return Number.isFinite(parsed) ? parsed : fallback;
-        };
-
-        if (params.has('city')) filterState.city = params.get('city');
-        if (params.has('minPrice')) filterState.minPrice = parseIntOr(params.get('minPrice'), FILTER_DEFAULTS.minPrice);
-        if (params.has('maxPrice')) filterState.maxPrice = parseIntOr(params.get('maxPrice'), FILTER_DEFAULTS.maxPrice);
-        if (params.has('beds')) filterState.minBeds = parseIntOr(params.get('beds'), 0);
-        if (params.has('baths')) filterState.minBaths = parseFloatOr(params.get('baths'), 0);
-        if (params.has('garage')) filterState.minGarage = parseIntOr(params.get('garage'), 0);
-        if (params.has('minSqft')) filterState.minSqft = parseIntOr(params.get('minSqft'), FILTER_DEFAULTS.minSqft);
-        if (params.has('maxSqft')) filterState.maxSqft = parseIntOr(params.get('maxSqft'), FILTER_DEFAULTS.maxSqft);
-        if (params.has('maxHoa')) filterState.maxHoa = parseIntOr(params.get('maxHoa'), FILTER_DEFAULTS.maxHoa);
-        if (params.has('minLot')) filterState.minLot = parseIntOr(params.get('minLot'), FILTER_DEFAULTS.minLot);
-        if (params.has('minYear')) filterState.minYear = parseIntOr(params.get('minYear'), 0);
-        if (params.has('favorites')) filterState.favoritesOnly = params.get('favorites') === '1';
-        if (params.has('fiber')) filterState.fiberOnly = params.get('fiber') === '1';
-        if (params.has('broadband')) filterState.broadbandType = params.get('broadband');
-        if (params.has('sort')) filterState.sortBy = params.get('sort');
-        if (params.has('q')) filterState.search = params.get('q');
-        if (params.has('view')) setViewMode(params.get('view'));
-
-        searchInput.value = filterState.search;
-        citySelect.value = filterState.city;
-        priceMinSlider.value = filterState.minPrice;
-        priceMaxSlider.value = filterState.maxPrice;
-        priceRangeDisplay.textContent = `$${Math.round(filterState.minPrice/1000)}k – $${Math.round(filterState.maxPrice/1000)}k`;
-        sqftMinSlider.value = filterState.minSqft;
-        sqftMaxSlider.value = filterState.maxSqft;
-        sqftRangeDisplay.textContent = `${filterState.minSqft.toLocaleString()} – ${filterState.maxSqft.toLocaleString()} sqft`;
-        hoaSlider.value = filterState.maxHoa;
-        hoaDisplay.textContent = filterState.maxHoa >= FILTER_DEFAULTS.maxHoa ? 'No Limit' : (filterState.maxHoa === 0 ? '$0/mo (known dues only)' : `≤ $${filterState.maxHoa}/mo`);
-        lotSlider.value = filterState.minLot;
-        lotDisplay.textContent = filterState.minLot <= 0 ? 'Any Lot' : `${filterState.minLot.toLocaleString()}+ sqft`;
-        yearSelect.value = String(filterState.minYear || 0);
-        filterFavoritesToggle.checked = filterState.favoritesOnly;
-        if (filterFiberToggle) filterFiberToggle.checked = filterState.fiberOnly || (filterState.broadbandType === 'fiber');
-        if (broadbandFilter) broadbandFilter.value = filterState.broadbandType || (filterState.fiberOnly ? 'fiber' : 'all');
-        sortDropdown.value = filterState.sortBy;
-
-        bedsPillGroup.querySelectorAll('.pill-btn').forEach(b => b.classList.toggle('active', b.getAttribute('data-beds') === String(filterState.minBeds)));
-        bathsPillGroup.querySelectorAll('.pill-btn').forEach(b => b.classList.toggle('active', b.getAttribute('data-baths') === String(filterState.minBaths)));
-        garagePillGroup.querySelectorAll('.pill-btn').forEach(b => b.classList.toggle('active', b.getAttribute('data-garage') === String(filterState.minGarage)));
+        const params = new URLSearchParams(window.location.hash.replace('#', ''));
+        const state = {};
+        for (const key of ['minPrice', 'maxPrice', 'minSqft', 'maxSqft', 'maxHoa', 'minLot', 'minYear', 'maxPpsqft', 'minRating']) {
+            if (params.has(key)) state[key] = Number(params.get(key));
+        }
+        for (const [key, param] of Object.entries({ minBeds: 'beds', minBaths: 'baths', minGarage: 'garage', city: 'city', search: 'q', sortBy: 'sort', broadbandType: 'broadband' })) {
+            if (params.has(param)) state[key] = params.get(param);
+        }
+        state.favoritesOnly = params.get('favorites') === '1';
+        state.fiberOnly = params.get('fiber') === '1';
+        Object.assign(filterState, normalizeFilterState(state));
+        syncFilterControls();
+        setViewMode(params.get('view') || 'grid');
     }
 
     // -------------------------------------------------------------------------
@@ -3108,7 +3230,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!dealsEvaluationGrid) return;
 
         // Filter properties based on current global filters + deal city filter
-        let candidates = filteredProperties.length ? filteredProperties : allProperties;
+        let candidates = filteredProperties;
         if (cityFilter !== 'all') {
             const filterLower = cityFilter.toLowerCase();
             if (filterLower === 'tri-cities') {
@@ -3154,6 +3276,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Render Cards Grid
         dealsEvaluationGrid.innerHTML = '';
+        if (!topDeals.length) {
+            const empty = document.createElement('p');
+            empty.className = 'deals-empty-message';
+            empty.textContent = 'No homes match these criteria. Adjust your filters or use Reset All.';
+            dealsEvaluationGrid.appendChild(empty);
+            return;
+        }
         const fragment = document.createDocumentFragment();
 
         topDeals.forEach((item, index) => {
@@ -3186,7 +3315,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         <div class="deal-card-specs-row mono">
                             <span>${listingMetric(p, 'beds')}b / ${listingMetric(p, 'baths')}ba</span>
                             <span>•</span>
-                            <span>${p.sqft.toLocaleString()} sqft</span>
+                            <span>${listingMetric(p, 'sqft', ' sqft')}</span>
                             <span>•</span>
                             <span>${listingMetric(p, 'garage', ' Car')}</span>
                         </div>
@@ -3205,11 +3334,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div class="deal-savings-highlight-row">
                         <div class="savings-block">
                             <span class="savings-label">$/SqFt vs ${safeCity} Median</span>
-                            <span class="savings-val mono">${ev.ppsqftPct > 0 ? '↓ ' + ev.ppsqftPct + '% below median' : 'At median'} ($${ev.ppsqft}/sf)</span>
+                            <span class="savings-val mono">${benchmarkLabel(ev)} ($${ev.ppsqft}/sf)</span>
                         </div>
                         <div class="savings-block">
                             <span class="savings-label">Gap at City Median $/SqFt</span>
-                            <span class="savings-val mono">${ev.estDollarSavings > 0 ? '+$' + ev.estDollarSavings.toLocaleString() + ' Value' : 'Parity'}</span>
+                            <span class="savings-val mono">${ev.estDollarSavings === 0 ? 'At benchmark' : (ev.estDollarSavings > 0 ? '+' : '−') + '$' + Math.abs(ev.estDollarSavings).toLocaleString() + ' gap'}</span>
                         </div>
                     </div>
 
@@ -3581,10 +3710,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 p.price,
                 hasListingMetric(p, 'beds') ? p.beds : '',
                 hasListingMetric(p, 'baths') ? p.baths : '',
-                p.sqft,
+                hasListingMetric(p, 'sqft') ? p.sqft : '',
                 hasListingMetric(p, 'lot_sqft') ? p.lot_sqft : '',
                 hasListingMetric(p, 'lot_sqft') ? acres : '',
-                ppsqft,
+                hasListingMetric(p, 'sqft') && p.sqft > 0 ? ppsqft : '',
                 hasListingMetric(p, 'year_built') ? p.year_built : '',
                 hasListingMetric(p, 'hoa') ? p.hoa : '',
                 hasListingMetric(p, 'garage') ? p.garage : '',
@@ -3653,10 +3782,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 price_max: filterState.maxPrice,
                 sqft_min: filterState.minSqft,
                 sqft_max: filterState.maxSqft,
-                beds_min: filterState.minBeds || 2,
-                baths_min: filterState.minBaths || 1.0,
+                beds_min: filterState.minBeds,
+                baths_min: filterState.minBaths,
                 lot_size_min: filterState.minLot,
-                garage_min: filterState.minGarage || 2,
+                garage_min: filterState.minGarage,
+                year_built_min: filterState.minYear,
                 hoa_max: filterState.maxHoa
             };
 
@@ -3709,7 +3839,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     clearInterval(scraperPollTimer);
                     scraperPollTimer = null;
                     btnStartLiveScrape.disabled = false;
-                    showToast("Scraper finished! Updating dataset...");
+                    showToast(status.message?.toLowerCase().includes('error') ? 'Refresh stopped. Existing listings were retained.' : 'Refresh finished. Updating saved listings…', status.message?.toLowerCase().includes('error') ? 'error' : 'info');
                     await loadProperties();
                 }
             } catch (e) {
@@ -3725,6 +3855,23 @@ document.addEventListener('DOMContentLoaded', () => {
         const layers = [...document.querySelectorAll('.modal-backdrop'), propertyDetailDrawer, appSidebar];
         const opened = [];
         const returnFocus = new WeakMap();
+        const inertRoots = new Map();
+        const syncInert = () => {
+            inertRoots.forEach((value, node) => { node.inert = value; });
+            inertRoots.clear();
+            const top = opened.at(-1);
+            if (!top) return;
+            let branch = top;
+            while (branch.parentElement && branch !== document.body) {
+                for (const sibling of branch.parentElement.children) {
+                    if (sibling === branch || sibling === drawerBackdrop || sibling === sidebarBackdrop
+                        || sibling === toastContainer || ['SCRIPT', 'LINK', 'STYLE'].includes(sibling.tagName)) continue;
+                    inertRoots.set(sibling, sibling.inert);
+                    sibling.inert = true;
+                }
+                branch = branch.parentElement;
+            }
+        };
         const focusables = layer => [...layer.querySelectorAll('button, a[href], input, select, textarea, [tabindex="0"]')]
             .filter(el => !el.disabled && el.getClientRects().length);
         const observer = new MutationObserver(records => {
@@ -3735,11 +3882,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (visible && index < 0) {
                     returnFocus.set(target, document.activeElement);
                     opened.push(target);
+                    syncInert();
                     if (!target.contains(document.activeElement)) (focusables(target)[0] || target).focus();
                 } else if (!visible && index >= 0) {
+                    const wasTop = index === opened.length - 1;
                     opened.splice(index, 1);
+                    syncInert();
                     const previous = returnFocus.get(target);
-                    if (previous?.isConnected && previous.getClientRects().length) previous.focus();
+                    if (wasTop && previous?.isConnected && previous.getClientRects().length
+                        && (!opened.length || opened.at(-1).contains(previous))) previous.focus();
                 }
             }
         });
@@ -3787,6 +3938,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 applyFilters();
             });
         }
+
+        window.addEventListener('hashchange', () => { loadStateFromUrl(); applyFilters(); });
+        document.getElementById('btn-payment-settings')?.addEventListener('click', () => {
+            const property = getPropertyById(selectedPropId) || filteredProperties[0] || allProperties[0];
+            if (property) openMortgageEstimator(property.id);
+        });
 
         // City Selector
         if (citySelect) {
@@ -4436,12 +4593,20 @@ document.addEventListener('DOMContentLoaded', () => {
             document.body.classList.add('density-compact');
         }
         const savedWeights = localStorage.getItem(STORAGE_WEIGHTS_KEY);
-        if (savedWeights) scoreWeights = JSON.parse(savedWeights);
+        if (savedWeights) {
+            const parsed = JSON.parse(savedWeights);
+            const weights = { ...scoreWeights };
+            for (const key of Object.keys(weights)) {
+                if (Number.isFinite(parsed?.[key]) && parsed[key] >= 0 && parsed[key] <= 100) weights[key] = parsed[key];
+            }
+            if (Object.values(weights).some(value => value > 0)) scoreWeights = weights;
+        }
 
         const savedMortgage = localStorage.getItem(STORAGE_MORTGAGE_KEY);
-        if (savedMortgage) mortgageAssumptions = JSON.parse(savedMortgage);
+        if (savedMortgage) mortgageAssumptions = sanitizeMortgageAssumptions(JSON.parse(savedMortgage));
     } catch (e) {}
 
+    attachCardDelegatedEvents();
     setupEventListeners();
     setupDialogFocus();
     const mobileLayout = matchMedia('(max-width: 768px)');
@@ -4459,6 +4624,19 @@ document.addEventListener('DOMContentLoaded', () => {
         if (saved !== 'light' && saved !== 'dark') applyTheme(event.matches ? 'dark' : 'light');
     });
     window.addEventListener('storage', (event) => {
+        if (event.key === STORAGE_USER_DATA_KEY) {
+            userDataCache = null;
+            const registry = getUserDataRegistry();
+            allProperties.forEach(property => {
+                const data = registry[property.id];
+                if (!data) return;
+                if (typeof data.favorite === 'boolean') property.favorite = data.favorite;
+                if (Number.isInteger(data.rating) && data.rating >= 0 && data.rating <= 5) property.rating = data.rating;
+                if (typeof data.user_notes === 'string') property.user_notes = data.user_notes;
+                property._searchCorpus = `${property.address} ${property.city} ${property.zip || ''} ${property.description || ''} ${property.user_notes || ''}`.toLowerCase();
+            });
+            applyFilters(false);
+        }
         if (event.key === STORAGE_THEME_KEY) applyTheme(event.newValue === 'light' || event.newValue === 'dark'
             ? event.newValue : (systemTheme.matches ? 'dark' : 'light'));
     });
