@@ -4,6 +4,8 @@ A high-density residential property research workstation for analyzing, filterin
 
 The [October 30 system audit](SYSTEM_AUDIT.md) documents the system breakdown,
 competitor/reference review, implemented fixes, measured performance, and verification.
+The [local performance and compatibility review](PERFORMANCE_COMPATIBILITY_REVIEW.md)
+records the subsequent startup-payload, browser-compatibility, and UI improvements.
 
 ## Live Deployment
 - **GitHub Pages (Static Workstation)**: `https://lucuket.github.io/washington-house-finder/`
@@ -15,6 +17,8 @@ competitor/reference review, implemented fixes, measured performance, and verifi
 - **[`app.js`](app.js)**: Vanilla JavaScript client engine with O(1) property lookup (`Map`), lazy Leaflet popup binding, `unknown_fields`-aware filtering/scoring, FCC broadband city coverage integration, URL hash state sync, and local persistence (`localStorage`).
 - **[`styles.css`](styles.css)**: High-density workstation design system using CSS custom properties without external UI frameworks or glassmorphism.
 - **[`properties.json`](properties.json)** & **[`data.js`](data.js)**: Primary JSON dataset (4,225 Washington listings) and generated `window.WASHINGTON_PROPERTIES` fallback bundle for offline `file://` usage.
+- **[`properties.compact.json`](properties.compact.json)**: Preferred lossless startup payload. Repeated photo URL text is packed; galleries expand in memory only when accessed. The original listing array and offline fallback remain available.
+- **[`vendor/`](vendor/README.md)**: The existing pinned Leaflet and marker-cluster assets served locally. System fonts remove the external font dependency.
 - **[`data/fcc_wa_broadband_by_city.json`](data/fcc_wa_broadband_by_city.json)**: Derived FCC Broadband Data Collection (BDC) city-level fiber and cable coverage summary.
 
 ### Modular Python Backend & Data Pipeline
@@ -23,9 +27,9 @@ competitor/reference review, implemented fixes, measured performance, and verifi
 - **[`analytics.py`](analytics.py)**: Pure filtering (`ListingFilter`, `apply_filters`), sorting (`sort_listings` with unknown-metric-last ordering), market statistics (`compute_stats`), and CSV export (`listings_to_csv` with spreadsheet formula-injection protection).
 - **[`models.py`](models.py)**: Pydantic v2 schemas for `PropertyListing`, `SearchCriteria`, `PropertyNoteUpdate`, and `ScrapeStatus`.
 - **[`scraper_service.py`](scraper_service.py)** & **[`scraper.py`](scraper.py)**: Permission-gated CLI and service (`REALTOR_SCRAPING_AUTHORIZED=yes`) that merges refreshed listings into `PropertyStore` without overwriting saved IDs or user notes/ratings.
-- **[`build_data_js.py`](build_data_js.py)**: Atomic generator for `data.js` with `--check` verification mode.
+- **[`build_data_js.py`](build_data_js.py)** & **[`compact_data.py`](compact_data.py)**: Generate both browser bundles from the source JSON, with `--check` verification and lossless photo packing.
 - **[`validate_data.py`](validate_data.py)**: Dataset & static bundle integrity validator (`--strict`, `--json`).
-- **[`tests/`](tests/)**: Automated `pytest` suite (91 tests) and 32 frontend tests covering datastore, analytics, API routes, scraper normalization, dataset integrity, appearance, persistence, incremental rendering, and workstation controls.
+- **[`tests/`](tests/)**: 101 Python tests, 37 frontend tests, and an optional real-browser workflow runner covering datastore, analytics, API routes, scraper normalization, dataset integrity, startup formats, appearance, persistence, incremental rendering, and workstation controls.
 
 ## Common Commands
 
@@ -46,7 +50,20 @@ python build_data_js.py --check
 
 # Run the automated test suite
 python -m pytest -q
+node --test tests/frontend_*.test.cjs
 ```
+
+After refreshing listing data, run `python build_data_js.py` to regenerate both
+browser bundles. The backend refresh and CLI refresh do this automatically
+unless the CLI's `--no-build` option is selected. File previews load `data.js`
+directly; HTTP hosting uses the smaller payload with the original JSON as fallback.
+
+Optional browser QA requires an existing Playwright installation and its test
+browser binaries; see [tests/browser_qa.cjs](tests/browser_qa.cjs). Set
+`WHS_PLAYWRIGHT` to the installed module if it is outside Node's module path,
+`WHS_BROWSER` to `chromium`, `firefox`, or `webkit`, and optionally
+`WHS_BROWSER_EXECUTABLE` to an installed browser executable. Then run
+`node tests/browser_qa.cjs`. No browser-testing package is loaded by the app.
 
 ## Neighborhood broadband snapshot
 

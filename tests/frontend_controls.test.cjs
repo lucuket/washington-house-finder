@@ -43,7 +43,7 @@ test('years have no grouping while quantities retain grouping and unknowns stay 
 
 test('map opens on demand, flushes deferred markers, and closing clears its bounds filter', () => {
     const ctx = vm.createContext({
-        activeView: 'grid', workspaceViewport: element(),
+        activeView: 'grid', galleryDirty: false, galleryNeedsReset: false, workspaceViewport: element(),
         filterState: { mapBoundsOnly: false }, mapBoundsFilterToggle: { checked: false },
         mapBoundsDebounceTimer: null, clearTimeout() {},
         filteredProperties: [{ id: 'a' }], mapMarkersDirty: true,
@@ -93,6 +93,7 @@ test('divider handles pointer drag, cancellation, bounds, keyboard, and mobile o
         document: { getElementById: id => id === 'map-resize-handle' ? divider : element() },
         workspaceViewport: viewport, window: { matchMedia: () => media }, activeView: 'split', map: null,
         ResizeObserver: class { observe() {} }, requestAnimationFrame() {},
+        listenMedia: (media, listener) => media.addEventListener('change', listener),
     });
     vm.runInContext(appFunction('setupMapResize'), ctx);
     ctx.setupMapResize();

@@ -15,6 +15,7 @@ from datetime import date
 from typing import Any, Dict, List, Tuple
 
 from build_data_js import is_current
+from compact_data import is_compact_current
 from datastore import (
     BASE_DIR, METRIC_FIELDS, PROPERTIES_FILE, WA_LAT_RANGE, WA_LNG_RANGE,
 )
@@ -110,6 +111,8 @@ def check_repository(listings: List[Any]) -> Tuple[List[str], List[str]]:
 
     if not is_current(listings):
         errors.append("data.js is out of date; run: python build_data_js.py")
+    if not is_compact_current(listings):
+        errors.append("properties.compact.json is out of date; run: python build_data_js.py")
 
     snapshot = None
     if os.path.exists(SNAPSHOT_FILE):

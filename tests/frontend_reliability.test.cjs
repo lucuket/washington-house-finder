@@ -174,7 +174,7 @@ test('desktop details leave the map interactive while mobile and nested dialogs 
     const workspace = layer(), drawer = layer(), modal = layer();
     const document = { body, activeElement: workspace.button, querySelectorAll: () => [modal],
         addEventListener(_, callback) { keydown = callback; } };
-    const ctx = context(['setupDialogFocus'], { document, window: { matchMedia: () => media },
+    const ctx = context(['listenMedia', 'setupDialogFocus'], { document, window: { matchMedia: () => media },
         propertyDetailDrawer: drawer, appSidebar: null, drawerBackdrop: null, sidebarBackdrop: null,
         toastContainer: null, cmdPaletteModal: null,
         MutationObserver: class { constructor(callback) { observe = callback; } observe() {} },
@@ -209,12 +209,12 @@ test('desktop details leave the map interactive while mobile and nested dialogs 
 
 test('existing cards are reused without rebuilding or moving unchanged DOM', () => {
     const a = { id: 'a' }, b = { id: 'b' };
-    const cards = [a, b].map(p => ({ id: `card-${p.id}`, _listing: p, _renderKey: 'false:0:false:undefined:{}' }));
+    const cards = [a, b].map(p => ({ id: `card-${p.id}`, _listing: p, _renderKey: 'false:0:false:undefined:{}:0' }));
     let patched = 0;
     const ctx = context(['renderGalleryCards'], {
         cardsGrid: { dataset: {}, children: cards, querySelectorAll: () => cards, querySelector: () => null,
             classList: { remove() {} }, insertBefore() { throw new Error('unchanged card moved'); } },
-        emptyStateNotice: { classList: { add() {} } }, mortgageAssumptions: {},
+        emptyStateNotice: { classList: { add() {} } }, mortgageAssumptions: {}, broadbandVersion: 0,
         filteredProperties: [a, b], currentCardLimit: 28,
         updateExistingCard() { patched++; },
         document: { createElement() { throw new Error('existing card rebuilt'); } }

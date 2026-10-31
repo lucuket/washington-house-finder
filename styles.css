@@ -5,10 +5,10 @@
 
 :root {
     /* Brand Colors (Redfin Crimson & Slate Palette) */
-    --brand-primary: #c82026;
-    --brand-primary-hover: #ad1419;
-    --brand-primary-light: #fee2e2;
-    --brand-primary-subtle: #fef2f2;
+    --brand-primary: #24547a;
+    --brand-primary-hover: #193e5c;
+    --brand-primary-light: #dceaf4;
+    --brand-primary-subtle: #eef5fa;
     --brand-zillow-blue: #006aff;
 
     /* Semantic Accent Colors */
@@ -34,7 +34,7 @@
     --border-subtle: #e2e8f0;
     --border-medium: #cbd5e1;
     --border-strong: #94a3b8;
-    --border-focus: #c82026;
+    --border-focus: #24547a;
 
     /* Typography Colors */
     --text-primary: #0f172a;
@@ -58,8 +58,8 @@
     --radius-full: 9999px;
 
     /* Typography Stack */
-    --font-sans: 'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    --font-mono: 'JetBrains Mono', monospace;
+    --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    --font-mono: ui-monospace, 'Cascadia Code', 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
 
     /* Layout Dimensions */
     --topbar-height: 56px;
@@ -210,7 +210,7 @@ html, body {
 
 .stat-pill.favorite-pill {
     background-color: var(--brand-primary-subtle);
-    border-color: var(--negative-border);
+    border-color: var(--brand-primary-light);
     color: var(--brand-primary);
     cursor: pointer;
     transition: all 0.15s ease;
@@ -4296,7 +4296,7 @@ body.density-compact .card-price {
         z-index: 2001;
         transform: translateX(-100%);
         transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
-        box-shadow: 4px 0 24px rgba(0, 0, 0, 0.25);
+        box-shadow: none;
         background-color: var(--bg-surface);
         display: flex;
         flex-direction: column;
@@ -4304,6 +4304,7 @@ body.density-compact .card-price {
 
     .app-sidebar.mobile-open {
         transform: translateX(0);
+        box-shadow: 4px 0 24px rgba(0, 0, 0, 0.25);
     }
 
     .sidebar-header {

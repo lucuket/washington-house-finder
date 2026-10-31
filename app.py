@@ -32,6 +32,7 @@ from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
 
 from analytics import ListingFilter, apply_filters, compute_stats, listings_to_csv, sort_listings
 from build_data_js import render_data_js
+from compact_data import COMPACT_FILE, render_compact_json
 from datastore import BASE_DIR, DATA_JS_FILE, USER_DEFAULTS, PropertyStore, atomic_write_text
 from models import (
     FavoriteToggle,
@@ -132,6 +133,7 @@ class ScrapeJobTracker:
 scrape_job = ScrapeJobTracker()
 _background_tasks: set = set()
 _properties_cache: Dict[str, Any] = {"key": None, "body": b"", "gzip_body": None, "etag": ""}
+_compact_properties_cache: Dict[str, Any] = {"key": None, "body": b"", "gzip_body": None, "etag": ""}
 _properties_cache_lock = threading.Lock()
 
 
@@ -176,7 +178,9 @@ def _static_route(url_path: str, relative: str, media_type: str) -> None:
     async def handler():
         if not os.path.exists(full_path):
             raise HTTPException(status_code=404, detail=f"{relative} not found")
-        return FileResponse(full_path, media_type=media_type)
+        return FileResponse(full_path, media_type=media_type, headers={
+            "Cache-Control": "public, max-age=604800" if relative.startswith("vendor") else "no-cache"
+        })
 
     app.add_api_route(url_path, handler, methods=["GET"], include_in_schema=False,
                       name=f"static:{relative}")
@@ -185,10 +189,32 @@ def _static_route(url_path: str, relative: str, media_type: str) -> None:
 for _url, (_relative, _type) in STATIC_FILES.items():
     _static_route(_url, _relative, _type)
 
+# Only these pinned map assets are public; do not expose a directory mount.
+for _relative in (
+    "leaflet/leaflet.js", "leaflet/leaflet.css",
+    "markercluster/leaflet.markercluster.js", "markercluster/MarkerCluster.css",
+    "markercluster/MarkerCluster.Default.css",
+    "leaflet/images/layers.png", "leaflet/images/layers-2x.png",
+    "leaflet/images/marker-icon.png", "leaflet/images/marker-icon-2x.png",
+    "leaflet/images/marker-shadow.png",
+):
+    _type = "application/javascript" if _relative.endswith(".js") else "text/css" if _relative.endswith(".css") else "image/png"
+    _static_route(f"/vendor/{_relative}", os.path.join("vendor", _relative), _type)
+
 
 @app.get("/properties.json", include_in_schema=False)
 def serve_raw_properties(request: Request):
     """Full listing set including personal research, cached until data changes."""
+    return listing_payload_response(request, compact=False)
+
+
+@app.get("/properties.compact.json", include_in_schema=False)
+def serve_compact_properties(request: Request):
+    """Lossless browser payload with the same privacy/version rules as the API."""
+    return listing_payload_response(request, compact=True)
+
+
+def listing_payload_response(request: Request, *, compact: bool):
     # Serialization runs in FastAPI's worker pool; the event loop stays free for
     # health/progress requests during large exports or initial dataset loading.
     accepts_gzip = any(
@@ -196,20 +222,22 @@ def serve_raw_properties(request: Request):
         and not re.search(r";\s*q=0(?:\.0*)?\s*(?:;|$)", part, re.I)
         for part in request.headers.get("accept-encoding", "").split(",")
     )
+    cache = _compact_properties_cache if compact else _properties_cache
     with _properties_cache_lock:
         key = (id(store), store.version, read_only())
-        if _properties_cache["key"] != key:
-            body = json.dumps(query_listings(), ensure_ascii=False).encode("utf-8")
-            _properties_cache.update(key=key, body=body, gzip_body=None,
+        if cache["key"] != key:
+            listings = query_listings()
+            body = (render_compact_json(listings) if compact else json.dumps(listings, ensure_ascii=False)).encode("utf-8")
+            cache.update(key=key, body=body, gzip_body=None,
                                      etag='W/"' + hashlib.sha256(body).hexdigest() + '"')
-        body, etag = _properties_cache["body"], _properties_cache["etag"]
+        body, etag = cache["body"], cache["etag"]
         headers = {"Cache-Control": "private, no-cache", "ETag": etag, "Vary": "Accept-Encoding"}
         if request.headers.get("if-none-match") == etag:
             return Response(status_code=304, headers=headers)
         if accepts_gzip:
-            if _properties_cache["gzip_body"] is None:
-                _properties_cache["gzip_body"] = gzip.compress(body, compresslevel=4, mtime=0)
-            body = _properties_cache["gzip_body"]
+            if cache["gzip_body"] is None:
+                cache["gzip_body"] = gzip.compress(body, compresslevel=4, mtime=0)
+            body = cache["gzip_body"]
             headers["Content-Encoding"] = "gzip"
     return Response(body, media_type="application/json", headers=headers)
 
@@ -330,6 +358,7 @@ async def run_scraper_job(criteria: Dict[str, Any]) -> None:
             def rebuild_bundle():
                 publishable = [{**listing, **USER_DEFAULTS} for listing in store.all()]
                 atomic_write_text(DATA_JS_FILE, render_data_js(publishable))
+                atomic_write_text(COMPACT_FILE, render_compact_json(publishable))
             await asyncio.to_thread(rebuild_bundle)
             scrape_job.log(f"Merged {merged.total} listings ({merged.added} new, "
                            f"{merged.updated} updated). Total active: {len(store)}")

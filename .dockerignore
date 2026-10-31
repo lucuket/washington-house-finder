@@ -6,6 +6,8 @@ __pycache__/
 .git/
 .gitignore
 .pytest_cache/
+.qa-python/
+qa-artifacts/
 tests/
 .agents/
 data/fcc/

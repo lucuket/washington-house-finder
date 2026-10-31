@@ -22,7 +22,7 @@ function context(text = source) {
     scoreWeights: { ppsqft: 30, sqft: 15, lot: 15, garage: 10, year: 10, hoa: 10, rating: 10 },
     updateDualRangeTracks: noop, renderGalleryCards: noop, renderActiveFilterTags: noop,
     updateHeaderAndMarketStats: noop, renderDealsView: noop, renderOddFinds: noop, syncStateToUrl: noop,
-    isMapVisible: () => false, mapMarkersDirty: false, map: null, activeView: 'grid',
+    isMapVisible: () => false, mapMarkersDirty: false, map: null, activeView: 'grid', galleryDirty: false, galleryNeedsReset: false,
     getRegionalBroadbandDetails: () => ({ hasFiber: false, hasGigabit: false }),
     });
     const defaults = text.match(/const FILTER_DEFAULTS = Object.freeze\((\{[\s\S]*?\})\)/)[1];
@@ -77,6 +77,20 @@ test('search covers notes and descriptions and reset restores the dataset', () =
     ctx.filterState.search = '';
     ctx.applyFilters();
     assert.equal(ctx.filteredProperties.length, 4225);
+});
+
+test('filtering hidden listing views defers cards until they become visible', () => {
+    const ctx = context(); let renders = 0;
+    ctx.renderGalleryCards = () => renders++;
+    ctx.activeView = 'analytics';
+    ctx.applyFilters();
+    assert.equal(renders, 0);
+    assert.equal(ctx.galleryDirty, true);
+    assert.equal(ctx.galleryNeedsReset, true);
+    ctx.activeView = 'grid';
+    ctx.applyFilters();
+    assert.equal(renders, 1);
+    assert.equal(ctx.galleryDirty, false);
 });
 
 test('score cache invalidates when rating or score weights change', () => {

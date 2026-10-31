@@ -20,6 +20,7 @@ def client(make_store, monkeypatch):
     ])
     monkeypatch.setattr(app_module, "store", store)
     monkeypatch.setattr(app_module, "DATA_JS_FILE", store.properties_file + ".data.js")
+    monkeypatch.setattr(app_module, "COMPACT_FILE", store.properties_file + ".compact.json")
     monkeypatch.delenv("WHS_READ_ONLY", raising=False)
     monkeypatch.delenv("REALTOR_SCRAPING_AUTHORIZED", raising=False)
     monkeypatch.setattr(app_module, "scrape_job", app_module.ScrapeJobTracker())
@@ -59,6 +60,29 @@ def test_dataset_compression_is_cached_and_invalidated(client, monkeypatch):
     client.patch("/api/properties/a/note", json={"rating": 2})
     client.get("/properties.json", headers={"Accept-Encoding": "gzip"})
     assert len(calls) == 2
+
+
+def test_compact_payload_matches_raw_and_revalidates_after_save(client, monkeypatch):
+    from compact_data import unpack_listings
+    first = client.get('/properties.compact.json')
+    assert unpack_listings(first.json()) == client.get('/properties.json').json()
+    assert client.get('/properties.compact.json', headers={'If-None-Match': first.headers['etag']}).status_code == 304
+    client.patch('/api/properties/a/note', json={'favorite': True, 'rating': 4, 'user_notes': 'private-packed-note'})
+    changed = client.get('/properties.compact.json')
+    assert changed.headers['etag'] != first.headers['etag']
+    assert unpack_listings(changed.json())[0]['rating'] == 4
+    monkeypatch.setenv('WHS_READ_ONLY', '1')
+    public = client.get('/properties.compact.json')
+    assert 'private-packed-note' not in public.text
+    assert public.headers['etag'] != changed.headers['etag']
+    assert unpack_listings(public.json())[0]['favorite'] is False
+
+
+def test_pinned_map_assets_are_available_without_a_cdn(client):
+    for asset in ('leaflet/leaflet.js', 'leaflet/leaflet.css', 'leaflet/images/marker-icon.png',
+                  'markercluster/leaflet.markercluster.js', 'markercluster/MarkerCluster.css'):
+        assert client.get('/vendor/' + asset).status_code == 200
+    assert client.get('/vendor/../app.py').status_code == 404
 
 
 def test_public_read_only_routes_do_not_expose_private_research(client, monkeypatch):
@@ -194,6 +218,9 @@ def test_search_rejects_concurrent_jobs_and_merges_results(client, monkeypatch):
     bundle = open(app_module.DATA_JS_FILE, encoding="utf-8").read()
     assert json.loads(bundle.removeprefix("window.WASHINGTON_PROPERTIES = ").removesuffix(";")) == on_disk
     assert all(not p["user_notes"] and not p["favorite"] for p in on_disk)
+    from compact_data import unpack_listings
+    with open(app_module.COMPACT_FILE, encoding='utf-8') as handle:
+        assert unpack_listings(json.load(handle)) == on_disk
 
 
 def test_invalid_search_criteria_rejected(client):

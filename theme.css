@@ -1,7 +1,7 @@
 /* Shared semantic colors keep every research surface legible in both modes. */
 :root {
     color-scheme: light;
-    --action-primary: #c82026;
+    --action-primary: #24547a;
     --positive-solid: #15803d;
     --positive-bg: #ecfdf5;
     --positive-border: #a7e5c4;
@@ -40,14 +40,14 @@
     --border-subtle: #304151;
     --border-medium: #465b70;
     --border-strong: #8195ab;
-    --border-focus: #ff959a;
+    --border-focus: #91c6ee;
     --text-primary: #edf3f8;
     --text-secondary: #c6d3df;
     --text-muted: #a4b5c6;
-    --brand-primary: #ff959a;
-    --brand-primary-hover: #b81b23;
-    --brand-primary-light: #563039;
-    --brand-primary-subtle: #35232d;
+    --brand-primary: #91c6ee;
+    --brand-primary-hover: #193e5c;
+    --brand-primary-light: #2b465c;
+    --brand-primary-subtle: #203445;
     --brand-zillow-blue: #88bdff;
     --accent-emerald: #7ce4b1;
     --accent-emerald-light: #173a30;
@@ -98,7 +98,7 @@ html { scrollbar-color: var(--border-strong) var(--bg-page); }
 .topbar-brand { flex-shrink: 0; }
 .brand-badge { background: var(--action-primary); box-shadow: none; }
 .app-title { white-space: nowrap; font-size: 14px; }
-.brand-tagline { font-size: 9px; letter-spacing: .065em; }
+.brand-tagline { font-size: 9px; letter-spacing: .065em; color: var(--text-muted); }
 .topbar-actions { flex-shrink: 0; gap: 6px; }
 .topbar-stats { flex-shrink: 0; }
 .stat-pill { border-radius: 5px; }
@@ -115,6 +115,18 @@ html { scrollbar-color: var(--border-strong) var(--bg-page); }
 .btn-primary:hover { border-color: var(--brand-primary-hover); }
 .btn-emerald { color: white; }
 .property-card { border-radius: 7px; box-shadow: none; transition: border-color .12s, box-shadow .12s; }
+.card-research-facts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 5px; margin: 0; }
+.card-research-facts dt { color: var(--text-muted); font-size: 10px; margin-bottom: 3px; }
+.card-research-facts dd { color: var(--text-primary); font-size: 11px; font-weight: 600; margin: 0; overflow-wrap: anywhere; }
+.card-value-signals { display: flex; flex-wrap: wrap; gap: 4px; }
+.card-value-signals .chip { background: transparent; border: 0; padding: 0; }
+.card-broadband-block { border-width: 0 0 0 2px; border-radius: 0; }
+.btn-primary, .pill-btn.active, .card-view-drawer-btn { box-shadow: none; }
+.btn-primary:hover, .card-view-drawer-btn:hover { box-shadow: none; }
+.workspace-heading { font-weight: 650; }
+.card-price { letter-spacing: -.035em; }
+.toast-msg { color: var(--bg-surface); animation-duration: .15s; }
+.toast-msg.toast-error { background: var(--negative-bg); color: var(--negative-ink); border: 1px solid var(--negative-border); }
 .property-card:hover { transform: none; box-shadow: var(--shadow-sm); border-color: var(--border-strong); }
 .property-card:hover .card-img { transform: none; }
 .card-view-drawer-btn, .card-view-drawer-btn:hover { background: var(--action-primary); transform: none; box-shadow: none; }
@@ -132,7 +144,7 @@ html { scrollbar-color: var(--border-strong) var(--bg-page); }
 .card-favorite-btn.favorited { color: #be123c; }
 .card-score-badge { background: var(--bg-surface); }
 .listing-source-link { font-size: 11px; }
-.dataset-notice { background: var(--warning-bg); color: var(--warning-ink); border-bottom: 1px solid var(--warning-border); padding: 6px 18px; }
+.dataset-notice { background: var(--bg-surface-secondary); color: var(--text-secondary); border-bottom: 1px solid var(--border-subtle); padding: 6px 18px; line-height: 1.55; }
 .workspace-title-row { flex-wrap: wrap; }
 .sort-wrapper { flex-shrink: 0; }
 .sort-wrapper label { white-space: nowrap; }

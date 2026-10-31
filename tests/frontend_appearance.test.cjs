@@ -63,9 +63,10 @@ test('backend capability detection requires a writable, authorized, healthy serv
         [{ status: 'something-else', read_only: false, scraping_authorized: true }, false],
     ]) {
         let hidden = true;
-        const ctx = context(['detectBackendCapabilities'], {
+        const ctx = context(['fetchJson', 'detectBackendCapabilities'], {
             API_CANDIDATE: true, API_WRITES_ENABLED: false, scraperAvailable: false,
             AbortSignal: { timeout: () => null },
+            AbortController, setTimeout, clearTimeout,
             fetch: async () => ({ ok: true, json: async () => health }),
             document: { getElementById: () => ({ classList: { toggle: (_, value) => { hidden = value; } } }) },
         });
@@ -118,7 +119,7 @@ test('semantic text colors meet AA contrast on both primary and tinted surfaces'
     const css = readFileSync(join(__dirname, '..', 'theme.css'), 'utf8');
     const sections = css.split(':root[data-theme="dark"]');
     const base = { '--bg-surface': '#ffffff', '--bg-page': '#f8fafc', '--bg-surface-secondary': '#f1f5f9',
-        '--text-primary': '#0f172a', '--text-secondary': '#334155', '--brand-primary': '#c82026' };
+        '--text-primary': '#0f172a', '--text-secondary': '#334155', '--brand-primary': '#24547a' };
     const tokens = section => Object.fromEntries([...section.matchAll(/(--[\w-]+):\s*(#[a-fA-F0-9]{6})/g)].map(m => [m[1], m[2]]));
     const light = { ...base, ...tokens(sections[0]) };
     const dark = { ...light, ...tokens(sections[1].slice(0, sections[1].indexOf('}'))) };

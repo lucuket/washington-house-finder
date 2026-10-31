@@ -42,9 +42,7 @@ document.addEventListener('DOMContentLoaded', () => {
     async function detectBackendCapabilities() {
         if (!API_CANDIDATE) return;
         try {
-            const response = await fetch('/api/health', { signal: AbortSignal.timeout(3000) });
-            if (!response.ok) return;
-            const health = await response.json();
+            const health = await fetchJson('/api/health', 3000);
             if (health.status !== 'ok' || typeof health.read_only !== 'boolean') return;
             API_WRITES_ENABLED = !health.read_only;
             scraperAvailable = API_WRITES_ENABLED && health.scraping_authorized === true;
@@ -58,12 +56,61 @@ document.addEventListener('DOMContentLoaded', () => {
     let activePhotoIndices = {}; // propId -> current image index
     let comparisonSet = new Set(); // Set of propIds (max 4)
     let activeView = 'grid'; // 'split' | 'grid' | 'map' | 'deals' | 'analytics' | 'odd'
+    let galleryDirty = false;
+    let galleryNeedsReset = false;
     let selectedPropId = null; // currently selected property in drawer
     let currentDrawerIndex = 0;
     let recentPropertyIds = [];
 
     function getPropertyById(propId) {
         return propertyById.get(propId) || allProperties.find(p => p.id === propId) || null;
+    }
+
+    // Use AbortController instead of requiring the newer AbortSignal.timeout.
+    // Keep the deadline active through body decoding, and release every timer.
+    async function fetchJson(url, timeout = 10000) {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), timeout);
+        try {
+            const response = await fetch(url, { signal: controller.signal });
+            if (!response.ok) throw new Error(`Request failed (${response.status})`);
+            return await response.json();
+        } finally {
+            clearTimeout(timer);
+        }
+    }
+
+    function listenMedia(media, listener) {
+        if (typeof media.addEventListener === 'function') media.addEventListener('change', listener);
+        else if (typeof media.addListener === 'function') media.addListener(listener);
+    }
+
+    function decodeListingPayload(payload) {
+        const packed = payload?.format === 'whs-photos-v1';
+        const records = packed ? payload.listings : payload;
+        if (!Array.isArray(records)) throw new Error('Invalid listing payload');
+        return records.map(record => {
+            if (!record || typeof record !== 'object' || typeof record.id !== 'string') throw new Error('Invalid listing record');
+            const property = { ...record, photos: Array.isArray(record.photos) ? record.photos : [] };
+            const photos = property.photos;
+            if (packed && photos.length === 3 && Array.isArray(photos[2])) {
+                const [prefix, suffix, parts] = photos;
+                if (typeof prefix !== 'string' || typeof suffix !== 'string' || !parts.every(part => typeof part === 'string')) {
+                    throw new Error('Invalid packed gallery');
+                }
+                // Expand a gallery only when a card/drawer actually uses it.
+                // Off-screen homes retain short URL parts until then.
+                Object.defineProperty(property, 'photos', {
+                    enumerable: true, configurable: true,
+                    get() {
+                        const urls = parts.map(part => prefix + part + suffix);
+                        Object.defineProperty(property, 'photos', { value: urls, enumerable: true, configurable: true, writable: true });
+                        return urls;
+                    }
+                });
+            }
+            return property;
+        });
     }
 
     // Filter Criteria Defaults & Active State
@@ -771,8 +818,13 @@ document.addEventListener('DOMContentLoaded', () => {
     // -------------------------------------------------------------------------
     function showToast(message, type = 'info') {
         if (!toastContainer) return;
+        // Repeated actions should not cover the workstation with duplicates.
+        if ([...toastContainer.children].some(toast => toast.dataset.message === message && toast.dataset.type === type)) return;
+        while (toastContainer.children.length >= 3) toastContainer.firstElementChild.remove();
         const toast = document.createElement('div');
         toast.className = `toast-msg toast-${type}`;
+        toast.dataset.message = message;
+        toast.dataset.type = type;
         
         let iconSvg = `<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>`;
         if (type === 'error') {
@@ -1177,24 +1229,49 @@ document.addEventListener('DOMContentLoaded', () => {
     let cityBroadband = {};
     let nearbyBroadband = {};
     let nearbyBroadbandMeta = {};
+    let broadbandLoading = true;
+    let broadbandVersion = 0;
+    let loadGeneration = 0;
 
     async function loadProperties() {
-        const broadbandRequest = fetch("data/fcc_wa_broadband_by_city.json", { signal: AbortSignal.timeout(5000) })
-            .then(res => res.ok ? res.json() : {})
-            .catch(() => ({}));
-        const nearbyRequest = fetch("data/ispmap_top_deals.json", { signal: AbortSignal.timeout(5000) })
-            .then(res => res.ok ? res.json() : {})
-            .catch(() => ({}));
+        const generation = ++loadGeneration;
+        let initialized = false;
+        const filePreview = window.location.protocol === 'file:';
+        broadbandLoading = !filePreview;
+        const broadbandRequest = filePreview ? Promise.resolve({}) : fetchJson('data/fcc_wa_broadband_by_city.json', 5000).catch(() => ({}));
+        const nearbyRequest = filePreview ? Promise.resolve({}) : fetchJson('data/ispmap_top_deals.json', 5000).catch(() => ({}));
+        // Coverage enriches the workstation, but a slow optional file must not
+        // hold all listings behind its timeout. Refresh only the affected UI.
+        const coverageRequest = Promise.all([broadbandRequest, nearbyRequest]).then(([city, nearby]) => {
+            if (generation !== loadGeneration) return;
+            cityBroadband = city && typeof city === 'object' ? city : {};
+            nearbyBroadbandMeta = nearby && typeof nearby === 'object' ? nearby : {};
+            nearbyBroadband = nearbyBroadbandMeta.listings || {};
+            broadbandLoading = false;
+            broadbandVersion++;
+            if (initialized) {
+                applyFilters(false);
+                const selected = getPropertyById(selectedPropId);
+                if (selected && !propertyDetailDrawer.classList.contains('hidden')) renderDrawerBroadband(selected);
+                if (!comparisonModal.classList.contains('hidden')) openComparisonMatrix();
+            }
+        });
         try {
             if (resultsCountLabel) resultsCountLabel.textContent = "Loading Washington listings...";
             
             let data = null;
 
-            // 1. Try relative static JSON (async; does not block first paint)
-            try {
-                const res = await fetch('properties.json?v=20261028', { signal: AbortSignal.timeout(10000) });
-                if (res.ok) data = await res.json();
-            } catch (e) {}
+            // Prefer the lossless compact payload. Older static copies can
+            // still serve the full JSON or the existing offline JS bundle.
+            if (!filePreview) {
+                try {
+                    data = decodeListingPayload(await fetchJson('properties.compact.json?v=20261028', 60000));
+                } catch (e) {}
+            }
+
+            if (!data && !filePreview) {
+                try { data = decodeListingPayload(await fetchJson('properties.json?v=20261028', 60000)); } catch (_) {}
+            }
 
             // 2. Load the fallback only if JSON failed; never download both copies
             // during a normal page load. This also supports file:// previews.
@@ -1210,33 +1287,26 @@ document.addEventListener('DOMContentLoaded', () => {
                         });
                     } catch (error) { /* Continue to the optional backend. */ }
                 }
-                if (Array.isArray(window.WASHINGTON_PROPERTIES)) data = window.WASHINGTON_PROPERTIES;
+                if (Array.isArray(window.WASHINGTON_PROPERTIES)) data = decodeListingPayload(window.WASHINGTON_PROPERTIES);
             }
 
             // 3. Try API if backend is running (local dev only)
-            if (!data) {
+            if (!data && API_CANDIDATE) {
                 try {
-                    const apiRes = await fetch('/api/properties');
-                    if (apiRes.ok) data = await apiRes.json();
+                    data = decodeListingPayload(await fetchJson('/api/properties'));
                 } catch (e) {}
             }
 
-            if (!data) {
+            if (!data && !filePreview) {
                 try {
-                    const absRes = await fetch('./properties.json');
-                    if (absRes.ok) data = await absRes.json();
+                    data = decodeListingPayload(await fetchJson('./properties.json'));
                 } catch (e) {}
             }
 
             if (!data || !Array.isArray(data)) {
                 throw new Error("Could not load properties data.");
             }
-
-            // Shallow-copy each record so downstream mutations (favorite, rating,
-            // notes, derived _fields) never touch the shared source array.
-            // Nested arrays (photos) are never mutated in place, so a deep
-            // clone (2x parse cost on ~20MB) is unnecessary.
-            data = data.map(p => ({ ...p, photos: Array.isArray(p.photos) ? p.photos : [] }));
+            if (generation !== loadGeneration) return;
 
             // Merge local storage user data (favorites, notes, ratings)
             const localUserData = getUserDataRegistry();
@@ -1263,9 +1333,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 p._searchCorpus = `${p.address} ${p.city} ${p.zip || ''} ${p.description || ''} ${p.user_notes || ''}`.toLowerCase();
             });
 
-            cityBroadband = await broadbandRequest;
-            nearbyBroadbandMeta = await nearbyRequest;
-            nearbyBroadband = nearbyBroadbandMeta.listings || {};
             try {
                 const savedComparison = JSON.parse(localStorage.getItem(STORAGE_COMPARE_KEY) || '[]');
                 if (Array.isArray(savedComparison)) comparisonSet = new Set(savedComparison.filter(id => propertyById.has(id)).slice(0, 4));
@@ -1275,9 +1342,13 @@ document.addEventListener('DOMContentLoaded', () => {
             computeMarketMedians();
             populateCityDropdown();
             loadStateFromUrl();
+            if (filterState.fiberOnly || filterState.broadbandType !== 'all') await coverageRequest;
+            if (generation !== loadGeneration) return;
             applyFilters();
+            initialized = true;
             loadSavedPresets();
         } catch (err) {
+            if (generation !== loadGeneration) return;
             console.error("Critical error loading listings:", err);
             if (resultsCountLabel) resultsCountLabel.textContent = "Unable to load listings";
             showToast("Failed to load listings data.", "error");
@@ -1293,7 +1364,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
         };
         const dateLabel = dates.length ? dates.length === 1 ? `Recorded ${formatDate(dates[0])}`
-            : `Mixed snapshots: ${formatDate(dates[0])}–${formatDate(dates.at(-1))}` : 'Snapshot date unavailable';
+            : `Mixed snapshots: ${formatDate(dates[0])}–${formatDate(dates[dates.length - 1])}` : 'Snapshot date unavailable';
         notice.textContent = `${allProperties.length.toLocaleString()} saved listings · ${new Set(allProperties.map(p => p.city)).size} cities · ${dateLabel}. Partial coverage; verify current price and availability at the source. Unreported specifications are Unknown. *Payment estimates assume $0 for unknown HOA and exclude PMI.`;
     }
 
@@ -1410,7 +1481,13 @@ document.addEventListener('DOMContentLoaded', () => {
         sortFilteredProperties();
 
         // Render UI
-        renderGalleryCards(resetLimit);
+        if (activeView === 'grid' || activeView === 'split') {
+            renderGalleryCards(resetLimit);
+            galleryDirty = galleryNeedsReset = false;
+        } else {
+            galleryDirty = true;
+            galleryNeedsReset = galleryNeedsReset || !!resetLimit;
+        }
         // Rebuilding hundreds of Leaflet markers while the map is hidden
         // (grid/deals/analytics views) is wasted work; defer until visible.
         if (isMapVisible()) {
@@ -1486,7 +1563,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         displayBatch.forEach(p => {
             const previous = existingCards.get(`card-${p.id}`);
-            const renderKey = `${!!p.favorite}:${p.rating || 0}:${!!p.user_notes}:${p._score?.total}:${assumptionsKey}`;
+            const renderKey = `${!!p.favorite}:${p.rating || 0}:${!!p.user_notes}:${p._score?.total}:${assumptionsKey}:${broadbandVersion}`;
             if (previous?._listing === p) {
                 if (previous._renderKey !== renderKey) updateExistingCard(previous, p);
                 previous._renderKey = renderKey;
@@ -1500,6 +1577,7 @@ document.addEventListener('DOMContentLoaded', () => {
             card.setAttribute('role', 'group');
             card._listing = p;
             card._renderKey = renderKey;
+            card._broadbandVersion = broadbandVersion;
             card.setAttribute('aria-label', `${p.address}, ${p.city}, WA. Listing price $${p.price.toLocaleString()}`);
 
             const photoIdx = activePhotoIndices[p.id] || 0;
@@ -1527,7 +1605,6 @@ document.addEventListener('DOMContentLoaded', () => {
             });
 
             const acres = (p.lot_sqft / 43560).toFixed(2);
-            const bbSummary = getCardBroadbandSummary(p);
             const safeAddr = escapeHtml(p.address);
             const safeCity = escapeHtml(p.city);
             const safeZip = escapeHtml(p.zip || '');
@@ -1592,27 +1669,15 @@ document.addEventListener('DOMContentLoaded', () => {
                         </div>
                     </div>
 
-                    <div class="card-extra-chips">
-                        <span class="chip mono">${listingPpsqft(p)}</span>
-                        <span class="chip mono">${hasListingMetric(p, 'lot_sqft') ? `${acres} Ac Lot` : 'Lot unknown'}</span>
-                        <span class="chip">Built ${listingMetric(p, 'year_built')}</span>
-                        <span class="chip">${listingHoa(p)}</span>
-                        ${signalsHtml}
-                    </div>
+                    <dl class="card-research-facts">
+                        <div><dt>Price / sqft</dt><dd class="mono">${hasListingMetric(p, 'sqft') && p.sqft > 0 ? `$${ppsqft}` : 'Unknown'}</dd></div>
+                        <div title="${listingMetric(p, 'lot_sqft', ' sqft')}"><dt>Lot size</dt><dd class="mono">${hasListingMetric(p, 'lot_sqft') ? `${acres} ac` : 'Unknown'}</dd></div>
+                        <div><dt>Year built</dt><dd class="mono">${listingMetric(p, 'year_built')}</dd></div>
+                        <div><dt>HOA / mo</dt><dd class="mono">${hasListingMetric(p, 'hoa') ? `$${p.hoa.toLocaleString()}` : 'Unknown'}</dd></div>
+                    </dl>
+                    ${signalsHtml ? `<div class="card-value-signals">${signalsHtml}</div>` : ''}
 
-                    <!-- FCC city coverage, not address-level availability -->
-                    <div class="card-broadband-block ${bbSummary.isCableOnly ? 'cable-only-block' : 'fiber-ready-block'}">
-                        <div class="bb-card-top-row">
-                            <span class="bb-type-pill ${bbSummary.badgeClass}" title="${bbSummary.badgeTitle}">
-                                ${escapeHtml(bbSummary.badgeText)}
-                            </span>
-                            <span class="bb-speed-tag mono" title="${escapeHtml(bbSummary.badgeTitle)}">${escapeHtml(bbSummary.speedText)}</span>
-                        </div>
-                        <div class="bb-card-providers-row">
-                            <span class="bb-prov-prefix">Service:</span>
-                            <span class="bb-prov-names" title="${escapeHtml(bbSummary.providersText)}">${escapeHtml(bbSummary.providersText)}</span>
-                        </div>
-                    </div>
+                    ${renderCardBroadbandHtml(p)}
 
                     <div class="card-user-meta">
                         <div class="card-star-rating" data-id="${p.id}" title="Set rating">
@@ -1671,6 +1736,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function updateExistingCard(card, p) {
+        if (card._broadbandVersion !== broadbandVersion) {
+            card.querySelector('.card-broadband-block').outerHTML = renderCardBroadbandHtml(p);
+            card._broadbandVersion = broadbandVersion;
+        }
         const favorite = card.querySelector('.card-favorite-btn');
         favorite.classList.toggle('favorited', !!p.favorite);
         favorite.setAttribute('aria-pressed', String(!!p.favorite));
@@ -1973,6 +2042,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function getCardBroadbandSummary(prop) {
         const regional = getRegionalBroadbandDetails(prop);
+        if (broadbandLoading) return {
+            isCableOnly: false, badgeClass: 'badge-fiber-ready', badgeText: 'Loading coverage…',
+            badgeTitle: 'Loading saved broadband coverage; address service remains unverified.',
+            speedText: '', providersText: 'Saved coverage loading', fccUrl: regional.fccMapUrl
+        };
         const nearby = getNearbyBroadband(prop);
         if (nearby) {
             const fiber = nearbyProviders(nearby, 'fiber');
@@ -2008,28 +2082,20 @@ document.addEventListener('DOMContentLoaded', () => {
     // -------------------------------------------------------------------------
     // Property Detail Workstation Drawer
     // -------------------------------------------------------------------------
-    function openPropertyDrawer(propId) {
-        const prop = getPropertyById(propId);
-        if (!prop) return;
+    function renderCardBroadbandHtml(prop) {
+        const summary = getCardBroadbandSummary(prop);
+        return `<div class="card-broadband-block ${summary.isCableOnly ? 'cable-only-block' : 'fiber-ready-block'}">
+            <div class="bb-card-top-row">
+                <span class="bb-type-pill ${summary.badgeClass}" title="${escapeHtml(summary.badgeTitle)}">${escapeHtml(summary.badgeText)}</span>
+                <span class="bb-speed-tag mono" title="${escapeHtml(summary.badgeTitle)}">${escapeHtml(summary.speedText)}</span>
+            </div>
+            <div class="bb-card-providers-row"><span class="bb-prov-prefix">Service:</span>
+                <span class="bb-prov-names" title="${escapeHtml(summary.providersText)}">${escapeHtml(summary.providersText)}</span>
+            </div>
+        </div>`;
+    }
 
-        selectedPropId = propId;
-        currentDrawerIndex = filteredProperties.findIndex(p => p.id === propId);
-        if (currentDrawerIndex === -1) currentDrawerIndex = 0;
-
-        recordRecentlyViewed(propId);
-
-        // Header
-        if (drawerAddress) drawerAddress.textContent = prop.address;
-        if (drawerCityZip) drawerCityZip.textContent = `${prop.city}, WA ${prop.zip || ''}`;
-        if (btnDrawerFavorite) {
-            btnDrawerFavorite.classList.toggle('favorited', !!prop.favorite);
-            btnDrawerFavorite.innerHTML = `
-                <svg viewBox="0 0 24 24" width="18" height="18" fill="${prop.favorite ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2">
-                    <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
-                </svg>
-            `;
-        }
-
+    function renderDrawerBroadband(prop) {
         // Broadband & High-Speed Internet (FCC National Broadband Map & Carrier Verification)
         const bbInfo = getRegionalBroadbandDetails(prop);
         if (drawerFccBroadbandLink) drawerFccBroadbandLink.href = bbInfo.fccMapUrl;
@@ -2107,7 +2173,10 @@ document.addEventListener('DOMContentLoaded', () => {
             btnCopyAddress.onclick = (e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                navigator.clipboard.writeText(cleanAddr).then(() => {
+                const copy = navigator.clipboard?.writeText
+                    ? navigator.clipboard.writeText(cleanAddr)
+                    : Promise.reject(new Error('Clipboard unavailable'));
+                copy.then(() => {
                     btnCopyAddress.classList.add('copied');
                     btnCopyAddressLabel.textContent = '✓ Copied!';
                     setTimeout(() => {
@@ -2143,6 +2212,31 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             if (notice) notice.textContent = 'FCC percentages describe residential coverage across the city, not this property. Check the address with the FCC map and provider; availability and speeds can vary by location.';
         }
+    }
+
+    function openPropertyDrawer(propId) {
+        const prop = getPropertyById(propId);
+        if (!prop) return;
+
+        selectedPropId = propId;
+        currentDrawerIndex = filteredProperties.findIndex(p => p.id === propId);
+        if (currentDrawerIndex === -1) currentDrawerIndex = 0;
+
+        recordRecentlyViewed(propId);
+
+        // Header
+        if (drawerAddress) drawerAddress.textContent = prop.address;
+        if (drawerCityZip) drawerCityZip.textContent = `${prop.city}, WA ${prop.zip || ''}`;
+        if (btnDrawerFavorite) {
+            btnDrawerFavorite.classList.toggle('favorited', !!prop.favorite);
+            btnDrawerFavorite.innerHTML = `
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="${prop.favorite ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2">
+                    <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+                </svg>
+            `;
+        }
+
+        renderDrawerBroadband(prop);
 
         // Gallery Stage
         const photoIdx = activePhotoIndices[prop.id] || 0;
@@ -3538,6 +3632,10 @@ document.addEventListener('DOMContentLoaded', () => {
             btn.setAttribute('aria-selected', String(isActive));
         });
         workspaceViewport.className = `workspace-viewport view-${mode}`;
+        if ((mode === 'grid' || mode === 'split') && galleryDirty && !clearMapBounds) {
+            renderGalleryCards(galleryNeedsReset);
+            galleryDirty = galleryNeedsReset = false;
+        }
 
         if (mode === 'split' && viewTabSplit) viewTabSplit.classList.add('active');
         if (mode === 'grid' && viewTabGrid) viewTabGrid.classList.add('active');
@@ -3594,7 +3692,7 @@ document.addEventListener('DOMContentLoaded', () => {
         };
         const updateOrientation = () => divider.setAttribute('aria-orientation', stacked.matches ? 'horizontal' : 'vertical');
         updateOrientation();
-        stacked.addEventListener('change', updateOrientation);
+        listenMedia(stacked, updateOrientation);
         divider.addEventListener('pointerdown', (event) => {
             if (event.button !== 0 || activeView !== 'split') return;
             event.preventDefault();
@@ -3625,13 +3723,15 @@ document.addEventListener('DOMContentLoaded', () => {
             updateShare(event.key === 'Home' ? 30 : event.key === 'End' ? 75 : listingShare + (event.key === increase ? 5 : -5));
         });
         // Leaflet needs its viewport updated when the divider changes either pane.
-        new ResizeObserver(() => {
+        const resizeMap = () => {
             if (!map || !isMapVisible() || resizeFrame !== null) return;
             resizeFrame = requestAnimationFrame(() => {
                 resizeFrame = null;
                 map.invalidateSize({ pan: false });
             });
-        }).observe(mapPanel);
+        };
+        if (typeof ResizeObserver === 'function') new ResizeObserver(resizeMap).observe(mapPanel);
+        else window.addEventListener('resize', resizeMap);
     }
 
     // -------------------------------------------------------------------------
@@ -3863,7 +3963,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const syncInert = () => {
             inertRoots.forEach((value, node) => { node.inert = value; });
             inertRoots.clear();
-            const top = opened.at(-1);
+            const top = opened[opened.length - 1];
             propertyDetailDrawer.setAttribute('aria-modal', String(mobileDrawer.matches));
             if (!top || !isModal(top)) return;
             let branch = top;
@@ -3879,9 +3979,9 @@ document.addEventListener('DOMContentLoaded', () => {
         };
         const focusables = layer => [...layer.querySelectorAll('button, a[href], input, select, textarea, [tabindex="0"]')]
             .filter(el => !el.disabled && el.getClientRects().length);
-        mobileDrawer.addEventListener('change', () => {
+        listenMedia(mobileDrawer, () => {
             syncInert();
-            const top = opened.at(-1);
+            const top = opened[opened.length - 1];
             if (top && isModal(top) && !top.contains(document.activeElement)) (focusables(top)[0] || top).focus();
         });
         syncInert();
@@ -3901,21 +4001,21 @@ document.addEventListener('DOMContentLoaded', () => {
                     syncInert();
                     const previous = returnFocus.get(target);
                     if (wasTop && previous?.isConnected && previous.getClientRects().length
-                        && (!opened.length || opened.at(-1).contains(previous))) previous.focus();
+                        && (!opened.length || opened[opened.length - 1].contains(previous))) previous.focus();
                 }
             }
         });
         layers.filter(Boolean).forEach(layer => observer.observe(layer, { attributes: true, attributeFilter: ['class'] }));
         document.addEventListener('keydown', event => {
-            const top = opened.at(-1);
+            const top = opened[opened.length - 1];
             if (!top) return;
             if (event.key === 'Tab' && isModal(top)) {
                 const items = focusables(top);
                 if (!items.length) return;
                 if (!top.contains(document.activeElement) || (event.shiftKey && document.activeElement === items[0])
-                    || (!event.shiftKey && document.activeElement === items.at(-1))) {
+                    || (!event.shiftKey && document.activeElement === items[items.length - 1])) {
                     event.preventDefault();
-                    (event.shiftKey ? items.at(-1) : items[0]).focus();
+                    (event.shiftKey ? items[items.length - 1] : items[0]).focus();
                 }
             } else if (event.key === 'Escape') {
                 event.preventDefault();
@@ -4625,11 +4725,11 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!mobileLayout.matches && appSidebar?.classList.contains('mobile-open')) closeMobileSidebar();
         if (appSidebar) appSidebar.inert = mobileLayout.matches && !appSidebar.classList.contains('mobile-open');
     };
-    mobileLayout.addEventListener('change', syncSidebarAccess);
+    listenMedia(mobileLayout, syncSidebarAccess);
     syncSidebarAccess();
     applyTheme(document.documentElement.dataset.theme);
     const systemTheme = matchMedia('(prefers-color-scheme: dark)');
-    systemTheme.addEventListener('change', (event) => {
+    listenMedia(systemTheme, (event) => {
         let saved;
         try { saved = localStorage.getItem(STORAGE_THEME_KEY); } catch (_) {}
         if (saved !== 'light' && saved !== 'dark') applyTheme(event.matches ? 'dark' : 'light');

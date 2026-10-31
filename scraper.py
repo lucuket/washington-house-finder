@@ -15,6 +15,7 @@ import asyncio
 import sys
 
 from build_data_js import DATA_JS_FILE, load_listings, render_data_js
+from compact_data import COMPACT_FILE, render_compact_json
 from datastore import PropertyStore, atomic_write_text
 from models import SearchCriteria
 from scraper_service import ScrapeError, run_live_scraper
@@ -25,7 +26,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--markets", nargs="+", metavar="CITY, WA",
                         help="markets to query (default: statewide set in scraper_service.py)")
     parser.add_argument("--dry-run", action="store_true", help="collect and report without saving")
-    parser.add_argument("--no-build", action="store_true", help="skip regenerating data.js")
+    parser.add_argument("--no-build", action="store_true", help="skip regenerating browser listing bundles")
     for name, field in SearchCriteria.model_fields.items():
         if name == "location":
             continue
@@ -60,8 +61,10 @@ async def refresh(args: argparse.Namespace) -> int:
     print(f"Merged {result.total} listings ({result.added} new, {result.updated} updated); "
           f"dataset now {len(store)}.")
     if not args.no_build:
-        atomic_write_text(DATA_JS_FILE, render_data_js(load_listings()))
-        print("Rebuilt data.js.")
+        publishable = load_listings()
+        atomic_write_text(DATA_JS_FILE, render_data_js(publishable))
+        atomic_write_text(COMPACT_FILE, render_compact_json(publishable))
+        print("Rebuilt data.js and properties.compact.json.")
     print("Next: update the snapshot date in index.html and data/listing_snapshot.json, "
           "then run python validate_data.py.")
     return 0
