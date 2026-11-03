@@ -79,9 +79,14 @@ async function check(name, run) { await run(); checks.push(name); console.log('P
     await page.click('#btn-reset-filters');
   });
   await check('gallery, nested lightbox, Escape and focused notes are stable', async () => {
+    const cardImage=page.locator('.property-card').first().locator('.card-img');
     await page.locator('.card-view-drawer-btn').first().click();
     await page.click('#btn-drawer-img-next');
     assert.equal(await page.locator('#drawer-img-cur').textContent(),'2');
+    assert.match(await cardImage.getAttribute('src'),/-w600_h450_x1\./,'drawer steps retain a thumbnail-sized card image');
+    await page.locator('.drawer-thumb').nth(2).click();
+    assert.equal(await page.locator('#drawer-img-cur').textContent(),'3');
+    assert.match(await cardImage.getAttribute('src'),/-w600_h450_x1\./,'thumbnail clicks retain a thumbnail-sized card image');
     await page.click('#btn-drawer-fullscreen');await visible(page,'#photo-lightbox-modal');
     await page.click('#btn-lightbox-next');
     await page.keyboard.press('Escape');await hidden(page,'#photo-lightbox-modal');
@@ -165,6 +170,47 @@ async function check(name, run) { await run(); checks.push(name); console.log('P
     await legacy.keyboard.press('Escape');
     await legacy.click('#view-tab-split');await visible(legacy,'.leaflet-container');
     await legacy.close();
+  });
+  await check('unknown area stays unranked in comparison, lightbox and Top Deals', async () => {
+    const unknown=await openPage(context,'unknown area');
+    // Test fixtures only; leave the source dataset untouched.
+    const fixtures=listings.map((p,i)=>i<2 ? {...p, address:`${i+1} QA-unreported-area`, price:450000,
+      sqft:0, unknown_fields:[...new Set([...(p.unknown_fields||[]),'sqft'])]} : p);
+    await unknown.route('**/properties.compact.json*',r=>r.fulfill({contentType:'application/json',body:JSON.stringify(fixtures)}));
+    await unknown.goto(base);await ready(unknown);
+    await unknown.fill('#search-input','qa-unreported-area');
+    await unknown.waitForFunction(()=>document.querySelectorAll('.property-card').length===2);
+    await unknown.locator('.compare-check').nth(0).check();await unknown.locator('.compare-check').nth(1).check();
+    await unknown.click('#btn-open-comparison-matrix');await visible(unknown,'#comparison-modal');
+    for(const label of ['Price / SqFt','Living Area']) {
+      const row=unknown.locator('.comparison-table tr').filter({has:unknown.locator('th',{hasText:label})});
+      assert.equal(await row.locator('.best-metric-cell').count(),0);
+      assert.deepEqual(await row.locator('td').allTextContents(),['Unknown','Unknown']);
+    }
+    await unknown.setViewportSize({width:375,height:900});
+    const position=await unknown.locator('#comparison-table-wrapper').evaluate(wrapper=>{
+      wrapper.scrollLeft=200;
+      return {scroll:wrapper.scrollLeft, wrapper:wrapper.getBoundingClientRect().left,
+        label:wrapper.querySelector('tbody th').getBoundingClientRect().left};
+    });
+    assert.ok(position.scroll>0,'comparison should scroll horizontally on mobile');
+    assert.ok(Math.abs(position.label-position.wrapper)<=25,'row label stays pinned inside the padded wrapper');
+    await unknown.screenshot({path:path.join(out,`${engine}-375-comparison-unknown.png`),animations:'disabled'});
+    await unknown.keyboard.press('Escape');
+    await unknown.setViewportSize({width:1280,height:900});
+    await unknown.locator('.card-view-drawer-btn').first().click();
+    await unknown.click('#btn-drawer-fullscreen');await visible(unknown,'#photo-lightbox-modal');
+    assert.match(await unknown.locator('#lightbox-specs').textContent(),/Unknown/);
+    assert.doesNotMatch(await unknown.locator('#lightbox-specs').textContent(),/0 sqft/);
+    await unknown.keyboard.press('Escape');await unknown.keyboard.press('Escape');
+    await unknown.click('#view-tab-deals');
+    assert.equal(await unknown.locator('.deal-eval-card-item').count(),2);
+    const deals=await unknown.locator('#deals-evaluation-grid').textContent();
+    assert.match(deals,/Benchmark unavailable/);
+    assert.doesNotMatch(deals,/At benchmark|\$450000\/sf|\$null|NaN/);
+    assert.equal(await unknown.locator('#deals-avg-discount').textContent(),'Unavailable');
+    assert.equal(await unknown.locator('#deals-avg-dollar-savings').textContent(),'Unavailable');
+    await unknown.close();
   });
   await check('malformed compact payload falls back to the original JSON', async () => {
     const fallback=await openPage(context,'fallback');

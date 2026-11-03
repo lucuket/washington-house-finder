@@ -337,4 +337,8 @@ input[type="range"]:focus-visible { outline: 2px solid var(--border-focus); outl
 .comparison-assumptions { caption-side: bottom; padding: 14px; text-align: left; color: var(--text-secondary); font-size: 11px; line-height: 1.6; }
 .drawer-panel, .modal-box, .lightbox-container { animation-duration: 120ms; }
 .drawer-thumb:focus-visible, .strip-thumb:focus-visible { outline: 2px solid var(--brand-primary); outline-offset: 2px; }
+.realtor-cluster-pin, .progress-bar-fill { background: var(--action-primary); background-image: none; box-shadow: var(--shadow-md); }
+.realtor-cluster-pin:hover { background: var(--brand-primary-hover); background-image: none; box-shadow: var(--shadow-lg); }
+.pill-btn.active, .map-region-pill.active, .deal-pill.active { background: var(--action-primary); box-shadow: var(--shadow-xs); }
+.comparison-table th:first-child { position: sticky; left: 0; z-index: 2; background-color: var(--bg-surface-secondary); }
 @media (max-width: 768px) { .card-mortgage-badge { min-height: 44px; } }

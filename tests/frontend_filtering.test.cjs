@@ -27,7 +27,7 @@ function context(text = source) {
     });
     const defaults = text.match(/const FILTER_DEFAULTS = Object.freeze\((\{[\s\S]*?\})\)/)[1];
     vm.runInContext(`const FILTER_DEFAULTS = ${defaults}; var filterState = { ...FILTER_DEFAULTS };`, ctx);
-    vm.runInContext(['hasListingMetric', 'computeMarketMedians', 'computeSmartScore', 'applyFilters', 'sortFilteredProperties']
+    vm.runInContext(['hasListingMetric', 'listingMetric', 'listingHoa', 'computeMarketMedians', 'calculateValueSignals', 'computeExecutiveDealEvaluation', 'computeSmartScore', 'applyFilters', 'sortFilteredProperties']
         .map(name => fn(text, name)).join('\n'), ctx);
     ctx.computeMarketMedians();
     return ctx;
@@ -109,6 +109,57 @@ test('score cache invalidates when rating or score weights change', () => {
     assert.deepEqual(p._score, ctx.computeSmartScore(p));
 });
 
+test('deal evaluation and value signals memoize and invalidate on metric changes', () => {
+    const ctx = context();
+    const p = { ...ctx.allProperties[0] };
+    const firstEval = ctx.computeExecutiveDealEvaluation(p);
+    const secondEval = ctx.computeExecutiveDealEvaluation(p);
+    assert.equal(firstEval, secondEval, 'unchanged listing reuses cached deal evaluation object');
+    const firstSignals = ctx.calculateValueSignals(p);
+    const secondSignals = ctx.calculateValueSignals(p);
+    assert.equal(firstSignals, secondSignals, 'unchanged listing reuses cached value signals array');
+    p.price = Math.round(p.price * 0.75);
+    const updatedEval = ctx.computeExecutiveDealEvaluation(p);
+    const updatedSignals = ctx.calculateValueSignals(p);
+    assert.notEqual(updatedEval, firstEval, 'price change invalidates cached deal evaluation');
+    assert.notEqual(updatedSignals, firstSignals, 'price change invalidates cached value signals');
+});
+
+test('deal caches refresh when benchmarks or metric verification change', () => {
+    const ctx = context();
+    const p = { ...ctx.allProperties[0], unknown_fields: [] };
+    const first = ctx.computeExecutiveDealEvaluation(p);
+    const signals = ctx.calculateValueSignals(p);
+    ctx.cityMedians[p.city].ppsqft += 100;
+    const benchmarkChanged = ctx.computeExecutiveDealEvaluation(p);
+    assert.notEqual(benchmarkChanged, first);
+    assert.notEqual(ctx.calculateValueSignals(p), signals);
+    ctx.cityMedians[p.city].count += 1;
+    const countChanged = ctx.computeExecutiveDealEvaluation(p);
+    assert.notEqual(countChanged, benchmarkChanged);
+    assert.match(countChanged.narrative, new RegExp(`${ctx.cityMedians[p.city].count} listings`));
+    p.unknown_fields.push('sqft');
+    const unverified = ctx.computeExecutiveDealEvaluation(p);
+    assert.notEqual(unverified, countChanged);
+    assert.equal(unverified.hasBenchmark, false);
+    assert.equal(unverified.factors.space.desc, 'Unknown SqFt');
+});
+
+test('unverified metrics never produce deal advantages or positive value signals', () => {
+    const ctx = context();
+    for (const sqft of [0, 3000]) {
+        const p = { ...ctx.allProperties[0], sqft, lot_sqft: 43560, garage: 3, hoa: 25, year_built: 2025,
+            unknown_fields: ['sqft', 'lot_sqft', 'garage', 'hoa', 'year_built'] };
+        const evaluation = ctx.computeExecutiveDealEvaluation(p);
+        assert.equal(evaluation.hasBenchmark, false);
+        assert.equal(evaluation.ppsqft, null);
+        assert.equal(evaluation.estDollarSavings, 0);
+        assert.equal(evaluation.factors.price.desc, 'Benchmark unavailable');
+        for (const factor of Object.values(evaluation.factors)) assert.equal(factor.score, 50);
+        assert.equal(ctx.calculateValueSignals(p).length, 0);
+    }
+});
+
 test('record baseline and current filtering/scoring/sorting throughput', t => {
     const baseline = execFileSync('git', ['show', 'HEAD:app.js'], { encoding: 'utf8', maxBuffer: 1000000 });
     const measure = text => {
@@ -120,4 +171,18 @@ test('record baseline and current filtering/scoring/sorting throughput', t => {
         return ctx.durations[Math.floor(ctx.durations.length / 2)].toFixed(2);
     };
     t.diagnostic(`4,225 listings, median of 20 warmed runs, rendering stubbed: baseline ${measure(baseline)}ms; current ${measure(source)}ms`);
+});
+
+test('record baseline and memoized deal evaluation throughput', t => {
+    const baseline = execFileSync('git', ['show', 'HEAD:app.js'], { encoding: 'utf8', maxBuffer: 1000000 });
+    const measure = text => {
+        const ctx = context(text);
+        vm.runInContext(`var durations = []; for (var i = 0; i < 30; i++) {
+            var start = performance.now();
+            for (var p of allProperties) { computeExecutiveDealEvaluation(p); calculateValueSignals(p); }
+            if (i >= 10) durations.push(performance.now() - start);
+        } durations.sort((a,b) => a-b);`, ctx);
+        return ctx.durations[Math.floor(ctx.durations.length / 2)].toFixed(2);
+    };
+    t.diagnostic(`4,225 listings, median of 20 warmed runs, no DOM: baseline ${measure(baseline)}ms; current ${measure(source)}ms`);
 });

@@ -29,7 +29,7 @@ records the subsequent startup-payload, browser-compatibility, and UI improvemen
 - **[`scraper_service.py`](scraper_service.py)** & **[`scraper.py`](scraper.py)**: Permission-gated CLI and service (`REALTOR_SCRAPING_AUTHORIZED=yes`) that merges refreshed listings into `PropertyStore` without overwriting saved IDs or user notes/ratings.
 - **[`build_data_js.py`](build_data_js.py)** & **[`compact_data.py`](compact_data.py)**: Generate both browser bundles from the source JSON, with `--check` verification and lossless photo packing.
 - **[`validate_data.py`](validate_data.py)**: Dataset & static bundle integrity validator (`--strict`, `--json`).
-- **[`tests/`](tests/)**: 101 Python tests, 37 frontend tests, and an optional real-browser workflow runner covering datastore, analytics, API routes, scraper normalization, dataset integrity, startup formats, appearance, persistence, incremental rendering, and workstation controls.
+- **[`tests/`](tests/)**: 101 Python tests, 43 frontend tests, and an optional real-browser workflow runner covering datastore, analytics, API routes, scraper normalization, dataset integrity, startup formats, appearance, persistence, incremental rendering, and workstation controls.
 
 ## Common Commands
 

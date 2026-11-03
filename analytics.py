@@ -47,7 +47,8 @@ def _at_most(listing: Listing, field: str, maximum: Optional[float]) -> bool:
     return maximum is None or (field == "price" or has_metric(listing, field)) and listing[field] <= maximum
 
 
-def matches(listing: Listing, f: ListingFilter, *, city: Optional[str], query: Optional[str]) -> bool:
+def matches(listing: Listing, f: ListingFilter, *, city: Optional[str], query: Optional[str] = None,
+            query_terms: Optional[tuple[str, ...]] = None) -> bool:
     if city is not None and listing["city"].lower() != city:
         return False
     if not (_at_least(listing, "price", f.min_price) and _at_most(listing, "price", f.max_price)):
@@ -66,10 +67,11 @@ def matches(listing: Listing, f: ListingFilter, *, city: Optional[str], query: O
         return False
     if f.favorites_only and not listing.get("favorite"):
         return False
-    if query:
+    terms = query_terms if query_terms is not None else (tuple(query.split()) if query else ())
+    if terms:
         corpus = " ".join(str(listing.get(field, "")) for field in
                           ("address", "city", "zip", "description", "user_notes")).lower()
-        if not all(term in corpus for term in query.split()):
+        if not all(term in corpus for term in terms):
             return False
     return True
 
@@ -78,7 +80,8 @@ def apply_filters(listings: Iterable[Listing], f: ListingFilter) -> List[Listing
     """Return listings satisfying every active filter (input order preserved)."""
     city = f.city.strip().lower() if f.city and f.city.strip().lower() != "all" else None
     query = f.search.strip().lower() if f.search and f.search.strip() else None
-    return [p for p in listings if matches(p, f, city=city, query=query)]
+    query_terms = tuple(query.split()) if query else ()
+    return [p for p in listings if matches(p, f, city=city, query=query, query_terms=query_terms)]
 
 
 def price_per_sqft(listing: Listing) -> Optional[float]:
@@ -127,17 +130,24 @@ def _price_buckets(prices: List[int]) -> Dict[str, int]:
     """Histogram whose edges adapt to the data instead of assuming a range."""
     if not prices:
         return {}
+    min_p = min(prices)
+    max_p = max(prices)
     step = 50_000
-    lo = (min(prices) // step) * step
-    while (max(prices) - lo) // step + 1 > 12:
+    lo = (min_p // step) * step
+    while (max_p - lo) // step + 1 > 12:
         step *= 2
-        lo = (min(prices) // step) * step
+        lo = (min_p // step) * step
+    num_buckets = (max_p - lo) // step + 1
+    counts = [0] * num_buckets
+    for p in prices:
+        if p >= lo:
+            idx = (p - lo) // step
+            if 0 <= idx < num_buckets:
+                counts[idx] += 1
     buckets: Dict[str, int] = {}
-    edge = lo
-    while edge <= max(prices):
-        count = sum(1 for p in prices if edge <= p < edge + step)
+    for idx, count in enumerate(counts):
+        edge = lo + idx * step
         buckets[f"${edge // 1000}k - ${(edge + step) // 1000}k"] = count
-        edge += step
     return buckets
 
 

@@ -892,9 +892,13 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function calculateValueSignals(p) {
+        const cityMed = cityMedians[p.city] || marketMedians;
+        const unkKey = Array.isArray(p.unknown_fields) ? p.unknown_fields.join(',') : '';
+        const sigKey = `${p.price}|${p.sqft}|${p.lot_sqft}|${p.hoa}|${p.garage}|${p.year_built}|${cityMed?.ppsqft || 0}|${unkKey}`;
+        if (p._signalsKey === sigKey && p._valueSignals) return p._valueSignals;
+
         const signals = [];
         const ppsqft = Math.round(p.price / Math.max(1, p.sqft));
-        const cityMed = cityMedians[p.city] || marketMedians;
 
         // $/sqft vs city median
         if (hasListingMetric(p, 'sqft') && p.sqft > 0 && cityMed.ppsqft > 0) {
@@ -907,26 +911,28 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // Lot Size signal
-        if (p.lot_sqft >= 10000) {
+        if (hasListingMetric(p, 'lot_sqft') && p.lot_sqft >= 10000) {
             const acres = (p.lot_sqft / 43560).toFixed(2);
             signals.push({ label: `★ ${acres} Ac Lot`, type: 'good' });
         }
 
         // Garage capacity
-        if (p.garage >= 3) {
+        if (hasListingMetric(p, 'garage') && p.garage >= 3) {
             signals.push({ label: `★ ${p.garage}-Car Garage`, type: 'good' });
         }
 
         // Low / No HOA
-        if (p.hoa > 0 && p.hoa <= 35) {
+        if (hasListingMetric(p, 'hoa') && p.hoa > 0 && p.hoa <= 35) {
             signals.push({ label: `★ Low HOA ($${p.hoa}/mo)`, type: 'good' });
         }
 
         // Newer construction
-        if (p.year_built >= 2018) {
+        if (hasListingMetric(p, 'year_built') && p.year_built >= 2018) {
             signals.push({ label: `★ Built ${p.year_built}`, type: 'good' });
         }
 
+        p._signalsKey = sigKey;
+        p._valueSignals = signals;
         return signals;
     }
 
@@ -1019,11 +1025,17 @@ document.addEventListener('DOMContentLoaded', () => {
     // -------------------------------------------------------------------------
     function computeExecutiveDealEvaluation(p) {
         if (!p) return null;
-        const ppsqft = Math.round(p.price / Math.max(1, p.sqft));
         const cityMed = cityMedians[p.city] || marketMedians;
         const cityMedPpsqft = cityMed?.ppsqft || 0;
-        const hasBenchmark = hasListingMetric(p, 'sqft') && p.sqft > 0 && cityMedPpsqft > 0;
-        const ppsqftDiff = cityMedPpsqft - ppsqft;
+        const cityCount = cityMed?.count || allProperties.length;
+        const unkKey = Array.isArray(p.unknown_fields) ? p.unknown_fields.join(',') : '';
+        const cacheKey = `${p.price}|${p.sqft}|${p.lot_sqft}|${p.hoa}|${p.garage}|${p.year_built}|${p.city}|${cityMedPpsqft}|${cityCount}|${unkKey}`;
+        if (p._dealEvalKey === cacheKey && p._dealEval) return p._dealEval;
+
+        const knownSqft = hasListingMetric(p, 'sqft') && p.sqft > 0;
+        const ppsqft = knownSqft ? Math.round(p.price / p.sqft) : null;
+        const hasBenchmark = knownSqft && cityMedPpsqft > 0;
+        const ppsqftDiff = hasBenchmark ? cityMedPpsqft - ppsqft : 0;
         const ppsqftPct = hasBenchmark ? Math.round((ppsqftDiff / cityMedPpsqft) * 100) : 0;
         const estDollarSavings = hasBenchmark ? Math.round(ppsqftDiff * p.sqft) : 0;
 
@@ -1034,10 +1046,12 @@ document.addEventListener('DOMContentLoaded', () => {
         // 2. Lot Value Score (0-100)
         const acres = p.lot_sqft / 43560;
         let lotScore = 50;
-        if (acres >= 0.5) lotScore = 100;
-        else if (acres >= 0.25) lotScore = 85 + Math.round((acres - 0.25) * 60);
-        else if (acres >= 0.15) lotScore = 70 + Math.round((acres - 0.15) * 150);
-        else if (hasListingMetric(p, 'lot_sqft')) lotScore = Math.max(20, Math.round(acres * 400));
+        if (hasListingMetric(p, 'lot_sqft')) {
+            if (acres >= 0.5) lotScore = 100;
+            else if (acres >= 0.25) lotScore = 85 + Math.round((acres - 0.25) * 60);
+            else if (acres >= 0.15) lotScore = 70 + Math.round((acres - 0.15) * 150);
+            else lotScore = Math.max(20, Math.round(acres * 400));
+        }
         lotScore = Math.min(100, lotScore);
 
         // 3. Carrying Cost (HOA) Score (0-100)
@@ -1051,24 +1065,30 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // 4. Garage & Workshop Capacity (0-100)
         let garageScore = 50;
-        if (p.garage >= 3) garageScore = 100;
-        else if (p.garage === 2) garageScore = 85;
-        else if (p.garage === 1) garageScore = 60;
+        if (hasListingMetric(p, 'garage')) {
+            if (p.garage >= 3) garageScore = 100;
+            else if (p.garage === 2) garageScore = 85;
+            else if (p.garage === 1) garageScore = 60;
+        }
 
         // 5. Living Space Efficiency (0-100)
-        let spaceScore = 60;
-        if (p.sqft >= 2400) spaceScore = 98;
-        else if (p.sqft >= 1800) spaceScore = 85 + Math.round((p.sqft - 1800) / 40);
-        else if (p.sqft >= 1400) spaceScore = 70 + Math.round((p.sqft - 1400) / 26);
-        else spaceScore = Math.max(30, 40 + Math.round((p.sqft - 800) / 20));
+        let spaceScore = 50;
+        if (knownSqft) {
+            if (p.sqft >= 2400) spaceScore = 98;
+            else if (p.sqft >= 1800) spaceScore = 85 + Math.round((p.sqft - 1800) / 40);
+            else if (p.sqft >= 1400) spaceScore = 70 + Math.round((p.sqft - 1400) / 26);
+            else spaceScore = Math.max(30, 40 + Math.round((p.sqft - 800) / 20));
+        }
         spaceScore = Math.min(100, spaceScore);
 
         // 6. Age & Modern Efficiency (0-100)
         let ageScore = 50;
-        if (p.year_built >= 2015) ageScore = 100;
-        else if (p.year_built >= 2000) ageScore = 85 + Math.round((p.year_built - 2000));
-        else if (p.year_built >= 1980) ageScore = 65 + Math.round((p.year_built - 1980));
-        else if (hasListingMetric(p, 'year_built')) ageScore = Math.max(30, 40 + Math.round((p.year_built - 1940) / 2));
+        if (hasListingMetric(p, 'year_built')) {
+            if (p.year_built >= 2015) ageScore = 100;
+            else if (p.year_built >= 2000) ageScore = 85 + Math.round((p.year_built - 2000));
+            else if (p.year_built >= 1980) ageScore = 65 + Math.round((p.year_built - 1980));
+            else ageScore = Math.max(30, 40 + Math.round((p.year_built - 1940) / 2));
+        }
         ageScore = Math.min(100, ageScore);
 
         // Weighted composite deal score
@@ -1089,7 +1109,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const hoaText = hasListingMetric(p, 'hoa') ? `$${p.hoa}/mo in reported HOA dues` : `unverified HOA dues`;
         const garageText = !hasListingMetric(p, 'garage') ? 'unreported garage capacity' : p.garage >= 2 ? `a ${p.garage}-car garage` : `${p.garage} garage space`;
 
-        const narrative = `This ${p.city} property offers ${listingMetric(p, 'sqft', ' sqft')} ${ppsqftText}, paired with ${lotText}, ${hoaText}, and ${garageText}. The benchmark uses ${cityMed.count || allProperties.length} listings in this snapshot; it does not estimate condition or resale value.`;
+        const narrative = `This ${p.city} property offers ${listingMetric(p, 'sqft', ' sqft')} ${ppsqftText}, paired with ${lotText}, ${hoaText}, and ${garageText}. The benchmark uses ${cityCount} listings in this snapshot; it does not estimate condition or resale value.`;
 
         let grade = "C";
         let gradeLabel = "Fair Value";
@@ -1098,7 +1118,7 @@ document.addEventListener('DOMContentLoaded', () => {
         else if (dealScore >= 74) { grade = "B+"; gradeLabel = "Above Average Value"; }
         else if (dealScore >= 65) { grade = "B"; gradeLabel = "Market Parity"; }
 
-        return {
+        const result = {
             dealScore,
             hasBenchmark,
             grade,
@@ -1110,15 +1130,18 @@ document.addEventListener('DOMContentLoaded', () => {
             estDollarSavings,
             acres,
             factors: {
-                price: { label: "$/SqFt Advantage", score: priceScore, desc: `${ppsqftPct > 0 ? '-' + ppsqftPct + '%' : '+' + Math.abs(ppsqftPct) + '%'} vs median` },
+                price: { label: "$/SqFt Advantage", score: priceScore, desc: hasBenchmark ? `${ppsqftPct > 0 ? '-' + ppsqftPct + '%' : '+' + Math.abs(ppsqftPct) + '%'} vs median` : 'Benchmark unavailable' },
                 lot: { label: "Lot & Acreage Space", score: lotScore, desc: hasListingMetric(p, 'lot_sqft') ? `${acres.toFixed(2)} Acres (${p.lot_sqft.toLocaleString()} sf)` : 'Lot size unknown' },
                 hoa: { label: "Carrying Cost Efficiency", score: hoaScore, desc: listingHoa(p) },
-                space: { label: "Living Area Usability", score: spaceScore, desc: `${p.sqft.toLocaleString()} SqFt` },
+                space: { label: "Living Area Usability", score: spaceScore, desc: knownSqft ? `${p.sqft.toLocaleString()} SqFt` : 'Unknown SqFt' },
                 garage: { label: "Garage & Workshop", score: garageScore, desc: listingMetric(p, 'garage', '-Car Garage') },
                 age: { label: "Construction & Era", score: ageScore, desc: `Built ${listingMetric(p, 'year_built')}` }
             },
             narrative
         };
+        p._dealEvalKey = cacheKey;
+        p._dealEval = result;
+        return result;
     }
 
     function sanitizeMortgageAssumptions(values) {
@@ -1204,16 +1227,27 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!API_WRITES_ENABLED) return Promise.resolve(false);
         // Keep writes for each home in order, including rapid rating/favorite changes.
         const pending = (apiSaveQueues.get(propId) || Promise.resolve()).then(async () => {
+            let timer;
+            let signal;
+            if (typeof AbortSignal !== 'undefined' && typeof AbortSignal.timeout === 'function') {
+                signal = AbortSignal.timeout(10000);
+            } else if (typeof AbortController === 'function') {
+                const controller = new AbortController();
+                timer = setTimeout(() => controller.abort(), 10000);
+                signal = controller.signal;
+            }
             try {
                 const response = await fetch(`/api/properties/${encodeURIComponent(propId)}/note`, {
                     method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(updates), signal: AbortSignal.timeout(10000)
+                    body: JSON.stringify(updates), signal
                 });
                 if (!response.ok) throw new Error(`Save failed (${response.status})`);
                 return true;
             } catch (_) {
                 showToast('Server save failed. Your research is still available in this browser; use Export CSV to back it up.', 'error');
                 return false;
+            } finally {
+                if (timer) clearTimeout(timer);
             }
         });
         apiSaveQueues.set(propId, pending);
@@ -1953,12 +1987,20 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function computeMarketStats(properties) {
-        const prices = properties.map(p => p.price).filter(Number.isFinite);
-        const sqfts = properties.filter(p => hasListingMetric(p, 'sqft') && p.sqft > 0).map(p => p.sqft);
-        const lots = properties.filter(p => hasListingMetric(p, 'lot_sqft')).map(p => p.lot_sqft);
-        const ppsqfts = properties
-            .filter(p => Number.isFinite(p.price) && hasListingMetric(p, 'sqft') && p.sqft > 0)
-            .map(p => p.price / p.sqft);
+        const prices = [];
+        const sqfts = [];
+        const lots = [];
+        const ppsqfts = [];
+        for (let i = 0; i < properties.length; i++) {
+            const p = properties[i];
+            const validPrice = Number.isFinite(p.price);
+            if (validPrice) prices.push(p.price);
+            if (hasListingMetric(p, 'sqft') && p.sqft > 0) {
+                sqfts.push(p.sqft);
+                if (validPrice) ppsqfts.push(p.price / p.sqft);
+            }
+            if (hasListingMetric(p, 'lot_sqft')) lots.push(p.lot_sqft);
+        }
 
         const median = (values) => {
             if (!values.length) return 0;
@@ -1986,7 +2028,10 @@ document.addEventListener('DOMContentLoaded', () => {
         if (totalCountBadge) totalCountBadge.textContent = allProperties.length;
         if (matchedCountBadge) matchedCountBadge.textContent = filteredProperties.length;
         
-        const favCount = allProperties.filter(p => p.favorite).length;
+        let favCount = 0;
+        for (let i = 0; i < allProperties.length; i++) {
+            if (allProperties[i].favorite) favCount++;
+        }
         if (favoritesCountBadge) favoritesCountBadge.textContent = favCount;
         if (resultsCountLabel) resultsCountLabel.textContent = `${filteredProperties.length} homes matched`;
 
@@ -2214,6 +2259,16 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    function preloadAdjacentPhoto(photos, currentIndex) {
+        if (!Array.isArray(photos) || photos.length <= 1 || typeof Image !== 'function') return;
+        const nextSrc = photos[(currentIndex + 1) % photos.length];
+        if (nextSrc) {
+            const img = new Image();
+            img.decoding = 'async';
+            img.src = nextSrc;
+        }
+    }
+
     function openPropertyDrawer(propId) {
         const prop = getPropertyById(propId);
         if (!prop) return;
@@ -2245,6 +2300,7 @@ document.addEventListener('DOMContentLoaded', () => {
         drawerActiveImg.onerror = () => { drawerActiveImg.onerror = null; drawerActiveImg.src = PHOTO_PLACEHOLDER; };
         drawerImgCur.textContent = photoIdx + 1;
         drawerImgTot.textContent = totalPhotos;
+        preloadAdjacentPhoto(prop.photos, photoIdx);
 
         drawerThumbnailsStrip.innerHTML = '';
         prop.photos.forEach((src, idx) => {
@@ -2266,6 +2322,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 drawerActiveImg.src = src;
                 drawerImgCur.textContent = idx + 1;
                 drawerThumbnailsStrip.querySelectorAll('.drawer-thumb').forEach((t, i) => t.classList.toggle('active', i === idx));
+                const cardImg = document.getElementById(`img-${prop.id}`);
+                const cardCounter = document.getElementById(`counter-${prop.id}`);
+                if (cardImg) cardImg.src = thumbUrl(src, 600);
+                if (cardCounter) cardCounter.innerHTML = `<span>${idx + 1}/${prop.photos.length}</span>`;
+                preloadAdjacentPhoto(prop.photos, idx);
             });
             drawerThumbnailsStrip.appendChild(thumb);
         });
@@ -2565,8 +2626,10 @@ document.addEventListener('DOMContentLoaded', () => {
         if (props.length < 2) return;
 
         const minPrice = Math.min(...props.map(p => p.price));
-        const minPpsqft = Math.min(...props.map(p => Math.round(p.price / Math.max(1, p.sqft))));
-        const maxSqft = Math.max(...props.map(p => p.sqft));
+        const knownPpsqftValues = props.filter(p => hasListingMetric(p, 'sqft') && p.sqft > 0).map(p => Math.round(p.price / p.sqft));
+        const minPpsqft = knownPpsqftValues.length ? Math.min(...knownPpsqftValues) : -1;
+        const knownSqftValues = props.filter(p => hasListingMetric(p, 'sqft') && p.sqft > 0).map(p => p.sqft);
+        const maxSqft = knownSqftValues.length ? Math.max(...knownSqftValues) : -1;
         const knownLotValues = props.filter(p => hasListingMetric(p, 'lot_sqft')).map(p => p.lot_sqft);
         const maxLot = knownLotValues.length ? Math.max(...knownLotValues) : -1;
         const knownYearValues = props.filter(p => hasListingMetric(p, 'year_built')).map(p => p.year_built);
@@ -2611,8 +2674,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     <tr>
                         <th>Price / SqFt</th>
                         ${props.map(p => {
-                            const ppsqft = Math.round(p.price / Math.max(1, p.sqft));
-                            return `<td class="${ppsqft === minPpsqft ? 'best-metric-cell' : ''}">$${ppsqft}/sqft ${ppsqft === minPpsqft ? '★ (Lowest)' : ''}</td>`;
+                            const knownSqft = hasListingMetric(p, 'sqft') && p.sqft > 0;
+                            const ppsqft = knownSqft ? Math.round(p.price / p.sqft) : -1;
+                            const isBest = knownSqft && ppsqft === minPpsqft;
+                            return `<td class="${isBest ? 'best-metric-cell' : ''}">${knownSqft ? `$${ppsqft}/sqft` : 'Unknown'}${isBest ? ' ★ (Lowest)' : ''}</td>`;
                         }).join('')}
                     </tr>
                     <tr>
@@ -2621,7 +2686,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     </tr>
                     <tr>
                         <th>Living Area</th>
-                        ${props.map(p => `<td class="${p.sqft === maxSqft ? 'best-metric-cell' : ''}">${listingMetric(p, 'sqft', ' sqft')} ${p.sqft === maxSqft ? '★ (Largest)' : ''}</td>`).join('')}
+                        ${props.map(p => {
+                            const isBest = hasListingMetric(p, 'sqft') && p.sqft > 0 && p.sqft === maxSqft;
+                            return `<td class="${isBest ? 'best-metric-cell' : ''}">${listingMetric(p, 'sqft', ' sqft')}${isBest ? ' ★ (Largest)' : ''}</td>`;
+                        }).join('')}
                     </tr>
                     <tr>
                         <th>Lot Size</th>
@@ -2778,7 +2846,7 @@ document.addEventListener('DOMContentLoaded', () => {
         currentLightboxIndex = startIdx;
 
         lightboxAddress.textContent = `${prop.address}, ${prop.city}, WA`;
-        lightboxSpecs.textContent = `${listingMetric(prop, 'beds')} Beds • ${listingMetric(prop, 'baths')} Baths • ${prop.sqft.toLocaleString()} sqft • Built ${listingMetric(prop, 'year_built')}`;
+        lightboxSpecs.textContent = `${listingMetric(prop, 'beds')} Beds • ${listingMetric(prop, 'baths')} Baths • ${listingMetric(prop, 'sqft', ' sqft')} • Built ${listingMetric(prop, 'year_built')}`;
         lightboxPrice.textContent = `$${prop.price.toLocaleString()}`;
         lightboxExternalLink.href = safeUrl(prop.url);
 
@@ -2797,6 +2865,7 @@ document.addEventListener('DOMContentLoaded', () => {
         lightboxActiveImg.onerror = () => { lightboxActiveImg.onerror = null; lightboxActiveImg.src = PHOTO_PLACEHOLDER; };
         lightboxCurrentNum.textContent = currentLightboxIndex + 1;
         lightboxTotalNum.textContent = total;
+        preloadAdjacentPhoto(photos, currentLightboxIndex);
 
         const rebuildThumbnails = lightboxThumbnailsStrip.dataset.propertyId !== currentLightboxProp.id;
         if (rebuildThumbnails) {
@@ -3182,7 +3251,7 @@ document.addEventListener('DOMContentLoaded', () => {
         priceRangeDisplay.textContent = `$${Math.round(filterState.minPrice/1000)}k – $${Math.round(filterState.maxPrice/1000)}k`;
         sqftMinSlider.value = filterState.minSqft;
         sqftMaxSlider.value = filterState.maxSqft;
-        sqftRangeDisplay.textContent = `${filterState.minSqft.toLocaleString()} – ${filterState.maxSqft.toLocaleString()} sqft`;
+        sqftRangeDisplay.textContent = `${filterState.minSqft.toLocaleString()} – ${filterState.maxSqft >= FILTER_DEFAULTS.maxSqft ? '6,000+' : filterState.maxSqft.toLocaleString()} sqft`;
         hoaSlider.value = filterState.maxHoa;
         hoaDisplay.textContent = filterState.maxHoa >= FILTER_DEFAULTS.maxHoa ? 'No Limit' : (filterState.maxHoa === 0 ? '$0/mo (known dues only)' : `≤ $${filterState.maxHoa}/mo`);
         lotSlider.value = filterState.minLot;
@@ -3352,10 +3421,11 @@ document.addEventListener('DOMContentLoaded', () => {
         // Calculate Summary Stats
         if (dealsTotalCount) dealsTotalCount.textContent = topDeals.length;
         if (topDeals.length > 0) {
-            const avgDiscount = Math.round(topDeals.reduce((sum, d) => sum + Math.max(0, d.eval.ppsqftPct), 0) / topDeals.length);
-            const avgSavings = Math.round(topDeals.reduce((sum, d) => sum + Math.max(0, d.eval.estDollarSavings), 0) / topDeals.length);
-            if (dealsAvgDiscount) dealsAvgDiscount.textContent = `${avgDiscount}%`;
-            if (dealsAvgDollarSavings) dealsAvgDollarSavings.textContent = `~$${avgSavings.toLocaleString()}`;
+            const benchmarkedDeals = topDeals.filter(d => d.eval.hasBenchmark);
+            const avgDiscount = benchmarkedDeals.length ? Math.round(benchmarkedDeals.reduce((sum, d) => sum + Math.max(0, d.eval.ppsqftPct), 0) / benchmarkedDeals.length) : null;
+            const avgSavings = benchmarkedDeals.length ? Math.round(benchmarkedDeals.reduce((sum, d) => sum + Math.max(0, d.eval.estDollarSavings), 0) / benchmarkedDeals.length) : null;
+            if (dealsAvgDiscount) dealsAvgDiscount.textContent = avgDiscount === null ? 'Unavailable' : `${avgDiscount}%`;
+            if (dealsAvgDollarSavings) dealsAvgDollarSavings.textContent = avgSavings === null ? 'Unavailable' : `~$${avgSavings.toLocaleString()}`;
             
             const cityCounts = {};
             topDeals.forEach(d => {
@@ -3430,18 +3500,18 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div class="deal-savings-highlight-row">
                         <div class="savings-block">
                             <span class="savings-label">$/SqFt vs ${safeCity} Median</span>
-                            <span class="savings-val mono">${benchmarkLabel(ev)} ($${ev.ppsqft}/sf)</span>
+                            <span class="savings-val mono">${benchmarkLabel(ev)}${ev.ppsqft === null ? '' : ` ($${ev.ppsqft}/sf)`}</span>
                         </div>
                         <div class="savings-block">
                             <span class="savings-label">Gap at City Median $/SqFt</span>
-                            <span class="savings-val mono">${ev.estDollarSavings === 0 ? 'At benchmark' : (ev.estDollarSavings > 0 ? '+' : '−') + '$' + Math.abs(ev.estDollarSavings).toLocaleString() + ' gap'}</span>
+                            <span class="savings-val mono">${!ev.hasBenchmark ? 'Benchmark unavailable' : ev.estDollarSavings === 0 ? 'At benchmark' : (ev.estDollarSavings > 0 ? '+' : '−') + '$' + Math.abs(ev.estDollarSavings).toLocaleString() + ' gap'}</span>
                         </div>
                     </div>
 
                     <div class="deal-factor-bars-list">
                         <div class="deal-bar-row">
                             <div class="deal-bar-labels">
-                                <span>$/SqFt Advantage ($${ev.ppsqft}/sf vs $${ev.cityMedPpsqft}/sf)</span>
+                                <span>$/SqFt Advantage (${ev.hasBenchmark ? `$${ev.ppsqft}/sf vs $${ev.cityMedPpsqft}/sf` : 'Benchmark unavailable'})</span>
                                 <span class="mono">${ev.factors.price.score}/100</span>
                             </div>
                             <div class="deal-bar-track">
@@ -3748,7 +3818,7 @@ document.addEventListener('DOMContentLoaded', () => {
         priceRangeDisplay.textContent = '$200k – $750k';
         sqftMinSlider.value = FILTER_DEFAULTS.minSqft;
         sqftMaxSlider.value = FILTER_DEFAULTS.maxSqft;
-        sqftRangeDisplay.textContent = '0 – 6,000 sqft';
+        sqftRangeDisplay.textContent = '0 – 6,000+ sqft';
         hoaSlider.value = FILTER_DEFAULTS.maxHoa;
         hoaDisplay.textContent = 'No Limit';
         lotSlider.value = FILTER_DEFAULTS.minLot;
@@ -4117,7 +4187,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     sqftMinSlider.value = min;
                 }
                 filterState.minSqft = min;
-                if (sqftRangeDisplay) sqftRangeDisplay.textContent = `${min.toLocaleString()} – ${max.toLocaleString()} sqft`;
+                if (sqftRangeDisplay) sqftRangeDisplay.textContent = `${min.toLocaleString()} – ${max >= FILTER_DEFAULTS.maxSqft ? '6,000+' : max.toLocaleString()} sqft`;
                 sqftMinSlider.style.zIndex = min > 2400 ? '3' : '2';
                 updateDualRangeTracks();
                 triggerFilterDebounced(40);
@@ -4134,7 +4204,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     sqftMaxSlider.value = max;
                 }
                 filterState.maxSqft = max;
-                if (sqftRangeDisplay) sqftRangeDisplay.textContent = `${min.toLocaleString()} – ${max.toLocaleString()} sqft`;
+                if (sqftRangeDisplay) sqftRangeDisplay.textContent = `${min.toLocaleString()} – ${max >= FILTER_DEFAULTS.maxSqft ? '6,000+' : max.toLocaleString()} sqft`;
                 sqftMinSlider.style.zIndex = min > 2400 ? '3' : '2';
                 updateDualRangeTracks();
                 triggerFilterDebounced(40);
@@ -4506,8 +4576,9 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             const cardImg = document.getElementById(`img-${prop.id}`);
             const cardCounter = document.getElementById(`counter-${prop.id}`);
-            if (cardImg) cardImg.src = prop.photos[photoIdx];
+            if (cardImg) cardImg.src = thumbUrl(prop.photos[photoIdx], 600);
             if (cardCounter) cardCounter.innerHTML = `<span>${photoIdx + 1}/${prop.photos.length}</span>`;
+            preloadAdjacentPhoto(prop.photos, photoIdx);
         }
 
         if (btnDrawerImgPrev) {

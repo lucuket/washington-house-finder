@@ -92,6 +92,33 @@ test('server saves for one home are serialized, including after a failed request
     assert.equal(ctx.apiSaveQueues.size, 0);
 });
 
+test('legacy server-save deadlines abort stalled requests and always clear their timers', async () => {
+    for (const outcome of ['success', 'failure', 'timeout']) {
+        const timers = new Map();
+        let signal, warnings = 0;
+        const ctx = context(['queueUserUpdate'], {
+            API_WRITES_ENABLED: true, apiSaveQueues: new Map(), AbortSignal: {}, AbortController,
+            setTimeout(callback, ms) { assert.equal(ms, 10000); timers.set(1, callback); return 1; },
+            clearTimeout(id) { timers.delete(id); }, showToast() { warnings++; },
+            fetch: async (_, options) => {
+                signal = options.signal;
+                if (outcome === 'timeout') {
+                    return new Promise((_, reject) => signal.addEventListener('abort', () => reject(new Error('timeout'))));
+                }
+                return { ok: outcome === 'success', status: 500 };
+            }
+        });
+        const result = ctx.queueUserUpdate('a', { user_notes: 'Keep this note' });
+        await Promise.resolve();
+        assert.ok(signal instanceof AbortSignal);
+        if (outcome === 'timeout') { timers.get(1)(); assert.equal(signal.aborted, true); }
+        assert.equal(await result, outcome === 'success');
+        assert.equal(timers.size, 0);
+        assert.equal(ctx.apiSaveQueues.size, 0);
+        assert.equal(warnings, outcome === 'success' ? 0 : 1);
+    }
+});
+
 test('unavailable storage preserves research for the session and reports the failure', () => {
     let warnings = 0;
     const ctx = context(['getUserDataRegistry', 'persistUserData'], {
@@ -281,4 +308,27 @@ test('drawer navigation follows the current sort after a rating moves the select
     ctx.selectedPropId = 'excluded';
     ctx.stepDrawerProperty(1);
     assert.deepEqual(opened, ['b', 'c']);
+});
+
+test('comparison matrix excludes unknown sqft from best-metric highlights and displays Unknown', () => {
+    const wrapper = { innerHTML: '', querySelectorAll: () => [] };
+    const modal = { classList: { remove() {} } };
+    const items = {
+        a: { id: 'a', address: '100 Main St', city: 'Spokane', zip: '99201', price: 450000, beds: 3, baths: 2, sqft: 0, lot_sqft: 8000, garage: 2, hoa: 0, year_built: 2005, rating: 0, user_notes: '', photos: [], unknown_fields: ['sqft'] },
+        b: { id: 'b', address: '200 Oak Ave', city: 'Tacoma', zip: '98402', price: 500000, beds: 4, baths: 2.5, sqft: 2000, lot_sqft: 7500, garage: 2, hoa: 25, year_built: 2010, rating: 4, user_notes: '', photos: [], unknown_fields: [] }
+    };
+    const ctx = context(['hasListingMetric', 'listingMetric', 'listingHoa', 'escapeHtml', 'safeUrl', 'thumbUrl', 'calculateEstimatedMonthly', 'openComparisonMatrix'], {
+        comparisonSet: new Set(['a', 'b']),
+        getPropertyById: id => items[id],
+        mortgageAssumptions: { downPct: 20, rate: 6.65, termYears: 30, taxRate: 1.02, insurance: 1200 },
+        PHOTO_PLACEHOLDER: 'placeholder.svg',
+        getCardBroadbandSummary: () => ({ isCableOnly: false, badgeText: 'Fiber', speedText: '1 Gbps', providersText: 'ISP', fccUrl: 'https://broadbandmap.fcc.gov' }),
+        comparisonTableWrapper: wrapper,
+        comparisonModal: modal
+    });
+    ctx.openComparisonMatrix();
+    assert.ok(!wrapper.innerHTML.includes('$450000/sqft'), 'unknown sqft must not divide price by 1');
+    assert.ok(wrapper.innerHTML.includes('<td class="">Unknown</td>'), 'unknown sqft must render as Unknown without best-metric highlight');
+    assert.ok(wrapper.innerHTML.includes('$250/sqft ★ (Lowest)'), 'known sqft listing receives the lowest $/sqft highlight');
+    assert.ok(wrapper.innerHTML.includes('2,000 sqft ★ (Largest)'), 'known sqft listing receives the largest area highlight');
 });
