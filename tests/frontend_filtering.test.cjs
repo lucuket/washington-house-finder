@@ -21,7 +21,7 @@ function context(text = source) {
     })), filteredProperties: [], cityMedians: {}, marketMedians: {},
     scoreWeights: { ppsqft: 30, sqft: 15, lot: 15, garage: 10, year: 10, hoa: 10, rating: 10 },
     updateDualRangeTracks: noop, renderGalleryCards: noop, renderActiveFilterTags: noop,
-    updateHeaderAndMarketStats: noop, renderDealsView: noop, renderOddFinds: noop, syncStateToUrl: noop,
+    updateHeaderAndMarketStats: noop, renderDealsView: noop, renderAnalytics: noop, renderOddFinds: noop, syncStateToUrl: noop,
     isMapVisible: () => false, mapMarkersDirty: false, map: null, activeView: 'grid', galleryDirty: false, galleryNeedsReset: false,
     getRegionalBroadbandDetails: () => ({ hasFiber: false, hasGigabit: false }),
     });

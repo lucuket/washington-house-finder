@@ -22,6 +22,7 @@ document.addEventListener('DOMContentLoaded', () => {
         && (!isLocalHost || ['', '5000', '8000'].includes(window.location.port));
     let API_WRITES_ENABLED = false;
     let scraperAvailable = false;
+    let backendCapabilitiesPromise = null;
     const STORAGE_THEME_KEY = 'wa_home_search_theme_v1';
 
     function applyTheme(theme) {
@@ -242,6 +243,24 @@ document.addEventListener('DOMContentLoaded', () => {
         '<text x="200" y="210" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="600" fill="#64748b" text-anchor="middle">No Photo Available</text>' +
         '</svg>'
     );
+
+    function safePhotoSrc(url, width = 0) {
+        const candidate = width > 0 ? thumbUrl(url, width) : url;
+        const clean = safeUrl(candidate);
+        return clean !== '#' ? clean : PHOTO_PLACEHOLDER;
+    }
+
+    function applySafeImgSrc(imgEl, url, width = 0) {
+        if (!imgEl) return;
+        delete imgEl.dataset.fallback;
+        imgEl.onerror = () => {
+            if (!imgEl.dataset.fallback) {
+                imgEl.dataset.fallback = '1';
+                imgEl.src = PHOTO_PLACEHOLDER;
+            }
+        };
+        imgEl.src = safePhotoSrc(url, width);
+    }
 
     // -------------------------------------------------------------------------
     // DOM Element References
@@ -650,10 +669,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const bbSummary = getCardBroadbandSummary(p);
         const safeAddr = escapeHtml(p.address);
         const safeFcc = safeUrl(getRegionalBroadbandDetails(p).fccMapUrl);
-        const safePhoto = safeUrl(thumbUrl(p.photos && p.photos[0] ? p.photos[0] : '', 600));
+        const safePhoto = safePhotoSrc(p.photos?.[0] || '', 600);
         return `
             <div class="map-popup-card" onclick="window.HouseFinderApp.openDrawerById('${escapeHtml(p.id)}')" style="cursor: pointer;">
-                <img src="${safePhoto}" alt="${safeAddr}" class="popup-img" loading="lazy" onerror="this.onerror=null;this.src='${PHOTO_PLACEHOLDER}'">
+                <img src="${safePhoto}" alt="${safeAddr}" class="popup-img" loading="lazy" onerror="if(!this.dataset.fallback){this.dataset.fallback='1';this.src='${PHOTO_PLACEHOLDER}';}">
                 <div class="popup-info">
                     <span class="popup-price">$${p.price.toLocaleString()}</span>
                     <strong class="popup-address">${safeAddr}</strong>
@@ -1295,16 +1314,20 @@ document.addEventListener('DOMContentLoaded', () => {
             
             let data = null;
 
+            const fallbackSrc = document.querySelector('script[data-listings-fallback]')?.dataset.listingsFallback || 'data.js';
+            const dataVersionMatch = fallbackSrc.match(/\?v=(\d{8})/);
+            const dataVersionQuery = dataVersionMatch ? `?v=${dataVersionMatch[1]}` : '';
+
             // Prefer the lossless compact payload. Older static copies can
             // still serve the full JSON or the existing offline JS bundle.
             if (!filePreview) {
                 try {
-                    data = decodeListingPayload(await fetchJson('properties.compact.json?v=20261028', 60000));
+                    data = decodeListingPayload(await fetchJson(`properties.compact.json${dataVersionQuery}`, 60000));
                 } catch (e) {}
             }
 
             if (!data && !filePreview) {
-                try { data = decodeListingPayload(await fetchJson('properties.json?v=20261028', 60000)); } catch (_) {}
+                try { data = decodeListingPayload(await fetchJson(`properties.json${dataVersionQuery}`, 60000)); } catch (_) {}
             }
 
             // 2. Load the fallback only if JSON failed; never download both copies
@@ -1314,7 +1337,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     try {
                         await new Promise((resolve, reject) => {
                             const script = document.createElement('script');
-                            script.src = document.querySelector('script[data-listings-fallback]')?.dataset.listingsFallback || 'data.js';
+                            script.src = fallbackSrc;
                             script.onload = resolve;
                             script.onerror = reject;
                             document.head.appendChild(script);
@@ -1342,16 +1365,24 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             if (generation !== loadGeneration) return;
 
-            // Merge local storage user data (favorites, notes, ratings)
-            const localUserData = getUserDataRegistry();
-            data.forEach(p => {
-                if (localUserData[p.id]) {
-                    const u = localUserData[p.id];
-                    if (typeof u.favorite === 'boolean') p.favorite = u.favorite;
-                    if (Number.isInteger(u.rating) && u.rating >= 0 && u.rating <= 5) p.rating = u.rating;
-                    if (typeof u.user_notes === 'string') p.user_notes = u.user_notes;
-                }
-            });
+            if (isLocalHost && backendCapabilitiesPromise) {
+                await backendCapabilitiesPromise;
+                if (generation !== loadGeneration) return;
+            }
+
+            // Merge local storage user data (favorites, notes, ratings) only when
+            // running statically/read-only; writable backend state comes from user_state.json.
+            if (!API_WRITES_ENABLED) {
+                const localUserData = getUserDataRegistry();
+                data.forEach(p => {
+                    if (localUserData[p.id]) {
+                        const u = localUserData[p.id];
+                        if (typeof u.favorite === 'boolean') p.favorite = u.favorite;
+                        if (Number.isInteger(u.rating) && u.rating >= 0 && u.rating <= 5) p.rating = u.rating;
+                        if (typeof u.user_notes === 'string') p.user_notes = u.user_notes;
+                    }
+                });
+            }
 
             allProperties = data;
             updateDatasetNotice();
@@ -1375,10 +1406,12 @@ document.addEventListener('DOMContentLoaded', () => {
             updatePaymentAssumptionsLabel();
             computeMarketMedians();
             populateCityDropdown();
-            loadStateFromUrl();
+            const initialView = loadStateFromUrl(false);
             if (filterState.fiberOnly || filterState.broadbandType !== 'all') await coverageRequest;
             if (generation !== loadGeneration) return;
+            if (initialView !== 'grid') activeView = initialView;
             applyFilters();
+            if (initialView !== 'grid') setViewMode(initialView, false);
             initialized = true;
             loadSavedPresets();
         } catch (err) {
@@ -1454,7 +1487,8 @@ document.addEventListener('DOMContentLoaded', () => {
             if (filterState.minGarage > 0 && (!hasListingMetric(p, 'garage') || p.garage < filterState.minGarage)) return false;
 
             // Living Area SqFt
-            if (p.sqft < filterState.minSqft || (filterState.maxSqft < FILTER_DEFAULTS.maxSqft && p.sqft > filterState.maxSqft)) return false;
+            if (filterState.minSqft > 0 && (!hasListingMetric(p, 'sqft') || p.sqft < filterState.minSqft)) return false;
+            if (filterState.maxSqft < FILTER_DEFAULTS.maxSqft && (!hasListingMetric(p, 'sqft') || p.sqft > filterState.maxSqft)) return false;
 
             // HOA Fee (300 = No Limit; when capped, unknown HOA does not pass)
             if (filterState.maxHoa < FILTER_DEFAULTS.maxHoa && (!hasListingMetric(p, 'hoa') || p.hoa > filterState.maxHoa)) return false;
@@ -1524,7 +1558,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         // Rebuilding hundreds of Leaflet markers while the map is hidden
         // (grid/deals/analytics views) is wasted work; defer until visible.
-        if (isMapVisible()) {
+        if (isMapVisible() && map) {
             updateMapMarkers(filteredProperties);
         } else {
             mapMarkersDirty = true;
@@ -1532,11 +1566,17 @@ document.addEventListener('DOMContentLoaded', () => {
         renderActiveFilterTags();
         updateHeaderAndMarketStats();
         if (activeView === 'deals') renderDealsView();
+        if (activeView === 'analytics') renderAnalytics();
         if (activeView === 'odd') renderOddFinds();
         syncStateToUrl();
     }
 
     function sortFilteredProperties() {
+        const compareMetricDesc = (a, b, field) => {
+            const av = hasListingMetric(a, field) ? a[field] : -Infinity;
+            const bv = hasListingMetric(b, field) ? b[field] : -Infinity;
+            return bv === av ? 0 : (bv - av);
+        };
         switch (filterState.sortBy) {
             case 'smart_score':
                 filteredProperties.sort((a, b) => (b._score?.total || 0) - (a._score?.total || 0));
@@ -1548,16 +1588,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 filteredProperties.sort((a, b) => b.price - a.price);
                 break;
             case 'price_per_sqft_asc':
-                filteredProperties.sort((a, b) => (hasListingMetric(a, 'sqft') && a.sqft > 0 ? a.price / a.sqft : Infinity) - (hasListingMetric(b, 'sqft') && b.sqft > 0 ? b.price / b.sqft : Infinity));
+                filteredProperties.sort((a, b) => {
+                    const av = hasListingMetric(a, 'sqft') && a.sqft > 0 ? a.price / a.sqft : Infinity;
+                    const bv = hasListingMetric(b, 'sqft') && b.sqft > 0 ? b.price / b.sqft : Infinity;
+                    return av === bv ? 0 : (av - bv);
+                });
                 break;
             case 'sqft_desc':
-                filteredProperties.sort((a, b) => b.sqft - a.sqft);
+                filteredProperties.sort((a, b) => compareMetricDesc(a, b, 'sqft'));
                 break;
             case 'lot_desc':
-                filteredProperties.sort((a, b) => b.lot_sqft - a.lot_sqft);
+                filteredProperties.sort((a, b) => compareMetricDesc(a, b, 'lot_sqft'));
                 break;
             case 'year_desc':
-                filteredProperties.sort((a, b) => b.year_built - a.year_built);
+                filteredProperties.sort((a, b) => compareMetricDesc(a, b, 'year_built'));
                 break;
             case 'rating_desc':
                 filteredProperties.sort((a, b) => (b.rating || 0) - (a.rating || 0));
@@ -1615,7 +1659,7 @@ document.addEventListener('DOMContentLoaded', () => {
             card.setAttribute('aria-label', `${p.address}, ${p.city}, WA. Listing price $${p.price.toLocaleString()}`);
 
             const photoIdx = activePhotoIndices[p.id] || 0;
-            const currentPhoto = thumbUrl(p.photos[photoIdx], 600) || PHOTO_PLACEHOLDER;
+            const currentPhoto = safePhotoSrc(p.photos[photoIdx], 600);
             const totalPhotos = p.photos.length || 1;
             const ppsqft = Math.round(p.price / Math.max(1, p.sqft));
             const estMonthly = calculateEstimatedMonthly(p.price, p.hoa);
@@ -1643,14 +1687,13 @@ document.addEventListener('DOMContentLoaded', () => {
             const safeCity = escapeHtml(p.city);
             const safeZip = escapeHtml(p.zip || '');
             const safeFccUrl = safeUrl(getRegionalBroadbandDetails(p).fccMapUrl);
-            const safePhotoUrl = safeUrl(currentPhoto);
             const svUrl = (p.latitude && p.longitude)
                 ? `https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${p.latitude},${p.longitude}`
                 : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${p.address}, ${p.city}, WA ${p.zip || ''}`.trim())}`;
 
             card.innerHTML = `
                 <div class="card-media">
-                    <img src="${currentPhoto === PHOTO_PLACEHOLDER ? PHOTO_PLACEHOLDER : safePhotoUrl}" alt="${safeAddr}" class="card-img" id="img-${p.id}" loading="lazy" decoding="async" width="600" height="375" onerror="this.onerror=null;this.src='${PHOTO_PLACEHOLDER}'">
+                    <img src="${currentPhoto}" alt="${safeAddr}" class="card-img" id="img-${p.id}" loading="lazy" decoding="async" width="600" height="375" onerror="if(!this.dataset.fallback){this.dataset.fallback='1';this.src='${PHOTO_PLACEHOLDER}';}">
                     <div class="card-media-tags-top">
                         <span class="card-city-badge">${safeCity}, WA</span>
                         ${isTopDeal ? `<span class="card-deal-badge" title="${escapeHtml(dealEval.gradeLabel)}">TOP DEAL</span>` : ''}
@@ -1860,7 +1903,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const imgEl = document.getElementById(`img-${propId}`);
         const counterEl = document.getElementById(`counter-${propId}`);
-        if (imgEl) imgEl.src = thumbUrl(prop.photos[curIdx], 600);
+        if (imgEl) applySafeImgSrc(imgEl, prop.photos[curIdx], 600);
         if (counterEl) counterEl.innerHTML = `<span>${curIdx + 1}/${prop.photos.length}</span>`;
     }
 
@@ -2110,15 +2153,17 @@ document.addEventListener('DOMContentLoaded', () => {
             };
         }
         const city = regional.city;
-        const coverage = city ? `${city.fiber_100mbps_pct}% of city homes` : 'City data unavailable';
+        const fiberPct = city ? Number(city.fiber_100mbps_pct || 0) : 0;
+        const coverage = city ? `${fiberPct}% of city homes` : 'Not in FCC city table';
+        const hasCityFiber = Boolean(city && fiberPct > 0);
         return {
-            isCableOnly: false,
-            badgeClass: 'badge-fiber-ready',
-            badgeText: 'City fiber coverage',
+            isCableOnly: !hasCityFiber,
+            badgeClass: hasCityFiber ? 'badge-fiber-ready' : 'badge-cable-only',
+            badgeText: city ? (hasCityFiber ? 'City fiber coverage' : 'No city fiber reported') : 'City data unavailable',
             badgeTitle: 'FCC city-level residential coverage at 100 Mbps or faster; not address verification',
             speedText: coverage,
             providersText: 'Address service unverified',
-            chipLabel: 'City fiber coverage',
+            chipLabel: city ? (hasCityFiber ? 'City fiber coverage' : 'No city fiber reported') : 'Coverage unavailable',
             chipTitle: coverage,
             fccUrl: safeUrl(regional.fccMapUrl)
         };
@@ -2296,8 +2341,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Gallery Stage
         const photoIdx = activePhotoIndices[prop.id] || 0;
         const totalPhotos = prop.photos.length || 1;
-        drawerActiveImg.src = prop.photos[photoIdx] || PHOTO_PLACEHOLDER;
-        drawerActiveImg.onerror = () => { drawerActiveImg.onerror = null; drawerActiveImg.src = PHOTO_PLACEHOLDER; };
+        applySafeImgSrc(drawerActiveImg, prop.photos[photoIdx]);
         drawerImgCur.textContent = photoIdx + 1;
         drawerImgTot.textContent = totalPhotos;
         preloadAdjacentPhoto(prop.photos, photoIdx);
@@ -2319,12 +2363,12 @@ document.addEventListener('DOMContentLoaded', () => {
             thumb.alt = `Photo ${idx + 1}`;
             thumb.addEventListener('click', () => {
                 activePhotoIndices[prop.id] = idx;
-                drawerActiveImg.src = src;
+                applySafeImgSrc(drawerActiveImg, src);
                 drawerImgCur.textContent = idx + 1;
                 drawerThumbnailsStrip.querySelectorAll('.drawer-thumb').forEach((t, i) => t.classList.toggle('active', i === idx));
                 const cardImg = document.getElementById(`img-${prop.id}`);
                 const cardCounter = document.getElementById(`counter-${prop.id}`);
-                if (cardImg) cardImg.src = thumbUrl(src, 600);
+                if (cardImg) applySafeImgSrc(cardImg, src, 600);
                 if (cardCounter) cardCounter.innerHTML = `<span>${idx + 1}/${prop.photos.length}</span>`;
                 preloadAdjacentPhoto(prop.photos, idx);
             });
@@ -2493,9 +2537,9 @@ document.addEventListener('DOMContentLoaded', () => {
             item.className = 'similar-home-item';
             const safeAddr = escapeHtml(p.address);
             const safeCity = escapeHtml(p.city);
-            const safePhoto = safeUrl(thumbUrl(p.photos && p.photos[0] ? p.photos[0] : '', 400));
+            const safePhoto = safePhotoSrc(p.photos?.[0] || '', 400);
             item.innerHTML = `
-                <img src="${safePhoto}" alt="${safeAddr}" class="sim-thumb" loading="lazy" onerror="this.onerror=null;this.src='${PHOTO_PLACEHOLDER}'">
+                <img src="${safePhoto}" alt="${safeAddr}" class="sim-thumb" loading="lazy" onerror="if(!this.dataset.fallback){this.dataset.fallback='1';this.src='${PHOTO_PLACEHOLDER}';}">
                 <div class="sim-info">
                     <span class="sim-price mono">$${p.price.toLocaleString()} • ${safeCity}</span>
                     <strong class="sim-address">${safeAddr}</strong>
@@ -2600,10 +2644,10 @@ document.addEventListener('DOMContentLoaded', () => {
             if (i < propArray.length) {
                 const p = propArray[i];
                 const safeAddr = escapeHtml(p.address);
-                const safePhoto = safeUrl(thumbUrl(p.photos[0] || '', 400));
+                const safePhoto = safePhotoSrc(p.photos?.[0] || '', 400);
                 slot.classList.add('filled');
                 slot.innerHTML = `
-                    <img src="${safePhoto}" alt="${safeAddr}" class="dock-thumb-img" title="${safeAddr} ($${p.price.toLocaleString()})" loading="lazy" onerror="this.onerror=null;this.src='${PHOTO_PLACEHOLDER}'">
+                    <img src="${safePhoto}" alt="${safeAddr}" class="dock-thumb-img" title="${safeAddr} ($${p.price.toLocaleString()})" loading="lazy" onerror="if(!this.dataset.fallback){this.dataset.fallback='1';this.src='${PHOTO_PLACEHOLDER}';}">
                     <button class="dock-thumb-remove" data-id="${escapeHtml(p.id)}" title="Remove" aria-label="Remove">✕</button>
                 `;
             } else {
@@ -2648,10 +2692,11 @@ document.addEventListener('DOMContentLoaded', () => {
                             const safeAddr = escapeHtml(p.address);
                             const safeCity = escapeHtml(p.city);
                             const safeZip = escapeHtml(p.zip || '');
-                            const safePhoto = safeUrl(thumbUrl(p.photos[0] || '', 600));
+                            const cleanPhoto = safeUrl(thumbUrl(p.photos?.[0] || '', 600));
+                            const safePhoto = cleanPhoto !== '#' ? cleanPhoto : PHOTO_PLACEHOLDER;
                             return `
                             <td>
-                                <img src="${safePhoto}" class="comp-img-header" alt="${safeAddr}" loading="lazy" onerror="this.onerror=null;this.src='${PHOTO_PLACEHOLDER}'">
+                                <img src="${safePhoto}" class="comp-img-header" alt="${safeAddr}" loading="lazy" onerror="if(!this.dataset.fallback){this.dataset.fallback='1';this.src='${PHOTO_PLACEHOLDER}';}">
                                 <div class="comp-price">$${p.price.toLocaleString()}</div>
                                 <strong>${safeAddr}</strong><br>
                                 <span style="font-size: 11px; color: var(--text-secondary);">${safeCity}, WA ${safeZip}</span>
@@ -2812,12 +2857,18 @@ document.addEventListener('DOMContentLoaded', () => {
             localStorage.setItem(STORAGE_MORTGAGE_KEY, JSON.stringify(mortgageAssumptions));
         } catch (e) {}
         if (previousAssumptions !== JSON.stringify(mortgageAssumptions)) {
-            renderGalleryCards(false);
+            if (activeView === 'grid' || activeView === 'split') {
+                renderGalleryCards(false);
+                galleryDirty = false;
+            } else {
+                galleryDirty = true;
+            }
             if (activeView === 'deals') renderDealsView();
+            if (activeView === 'odd') renderOddFinds();
             if (selectedPropId) {
                 const selected = getPropertyById(selectedPropId);
                 updateDrawerMortgageBreakdown(selected);
-                drawerEstMonthly.textContent = `Est. $${calculateEstimatedMonthly(selected.price, selected.hoa).total.toLocaleString()}/mo${hasListingMetric(selected, 'hoa') ? '' : '*'}`;
+                drawerEstMonthly.textContent = `~$${calculateEstimatedMonthly(selected.price, selected.hoa).total.toLocaleString()}/mo${hasListingMetric(selected, 'hoa') ? '' : '*'} est.`;
             }
             if (!comparisonModal.classList.contains('hidden')) openComparisonMatrix();
         }
@@ -2861,8 +2912,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (currentLightboxIndex >= total) currentLightboxIndex = 0;
         if (currentLightboxIndex < 0) currentLightboxIndex = total - 1;
 
-        lightboxActiveImg.src = photos[currentLightboxIndex];
-        lightboxActiveImg.onerror = () => { lightboxActiveImg.onerror = null; lightboxActiveImg.src = PHOTO_PLACEHOLDER; };
+        applySafeImgSrc(lightboxActiveImg, photos[currentLightboxIndex]);
         lightboxCurrentNum.textContent = currentLightboxIndex + 1;
         lightboxTotalNum.textContent = total;
         preloadAdjacentPhoto(photos, currentLightboxIndex);
@@ -3260,7 +3310,7 @@ document.addEventListener('DOMContentLoaded', () => {
         ratingFilter.value = String(filterState.minRating || 0);
         filterFavoritesToggle.checked = !!filterState.favoritesOnly;
         if (filterFiberToggle) filterFiberToggle.checked = filterState.fiberOnly || filterState.broadbandType === 'fiber';
-        if (broadbandFilter) broadbandFilter.value = filterState.broadbandType || (filterState.fiberOnly ? 'fiber' : 'all');
+        if (broadbandFilter) broadbandFilter.value = filterState.broadbandType !== 'all' ? filterState.broadbandType : (filterState.fiberOnly ? 'fiber' : 'all');
 
         bedsPillGroup.querySelectorAll('.pill-btn').forEach(b => b.classList.toggle('active', b.getAttribute('data-beds') === String(filterState.minBeds)));
         bathsPillGroup.querySelectorAll('.pill-btn').forEach(b => b.classList.toggle('active', b.getAttribute('data-baths') === String(filterState.minBaths)));
@@ -3345,7 +3395,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    function loadStateFromUrl() {
+    function loadStateFromUrl(applyView = true) {
         const params = new URLSearchParams(window.location.hash.replace('#', ''));
         const state = {};
         for (const key of ['minPrice', 'maxPrice', 'minSqft', 'maxSqft', 'maxHoa', 'minLot', 'minYear', 'maxPpsqft', 'minRating']) {
@@ -3358,7 +3408,10 @@ document.addEventListener('DOMContentLoaded', () => {
         state.fiberOnly = params.get('fiber') === '1';
         Object.assign(filterState, normalizeFilterState(state));
         syncFilterControls();
-        setViewMode(params.get('view') || 'grid');
+        const requestedView = params.get('view') || 'grid';
+        const targetView = ['split', 'grid', 'map', 'deals', 'analytics', 'odd'].includes(requestedView) ? requestedView : 'grid';
+        if (applyView) setViewMode(targetView);
+        return targetView;
     }
 
     // -------------------------------------------------------------------------
@@ -3454,7 +3507,7 @@ document.addEventListener('DOMContentLoaded', () => {
         topDeals.forEach((item, index) => {
             const p = item.property;
             const ev = item.eval;
-            const primaryPhoto = safeUrl((p.photos && p.photos.length) ? thumbUrl(p.photos[0], 600) : PHOTO_PLACEHOLDER);
+            const primaryPhoto = safePhotoSrc(p.photos?.[0] || '', 600);
             const estMonthly = calculateEstimatedMonthly(p.price, p.hoa);
             const hoaKnown = hasListingMetric(p, 'hoa');
             const safeAddr = escapeHtml(p.address);
@@ -3467,7 +3520,7 @@ document.addEventListener('DOMContentLoaded', () => {
             card.innerHTML = `
                 <div class="deal-card-top">
                     <div class="deal-thumb-box">
-                        <img src="${primaryPhoto}" alt="${safeAddr}" loading="lazy" onerror="this.onerror=null;this.src='${PHOTO_PLACEHOLDER}'">
+                        <img src="${primaryPhoto}" alt="${safeAddr}" loading="lazy" onerror="if(!this.dataset.fallback){this.dataset.fallback='1';this.src='${PHOTO_PLACEHOLDER}';}">
                         <span class="deal-rank-badge">#${index + 1} TOP VALUE</span>
                     </div>
                     <div class="deal-top-info">
@@ -3640,13 +3693,13 @@ document.addEventListener('DOMContentLoaded', () => {
             const card = document.createElement('article');
             card.className = 'odd-find-card';
             const address = escapeHtml(p.address);
-            const photo = safeUrl(thumbUrl(p.photos?.[0] || PHOTO_PLACEHOLDER, 600));
+            const photo = safePhotoSrc(p.photos?.[0] || '', 600);
             const monthly = calculateEstimatedMonthly(p.price, p.hoa);
             card.innerHTML = `
-                <div class="odd-photo"><img src="${photo}" alt="${address}" loading="lazy" decoding="async" width="600" height="400" onerror="this.onerror=null;this.src='${PHOTO_PLACEHOLDER}'"><span class="odd-feature-label">${escapeHtml(feature.label)}</span></div>
+                <div class="odd-photo"><img src="${photo}" alt="${address}" loading="lazy" decoding="async" width="600" height="400" onerror="if(!this.dataset.fallback){this.dataset.fallback='1';this.src='${PHOTO_PLACEHOLDER}';}"><span class="odd-feature-label">${escapeHtml(feature.label)}</span></div>
                 <div class="odd-card-body">
                     <h3>${escapeHtml(feature.title)}</h3>
-                    <div class="odd-price mono">$${p.price.toLocaleString()} <span>$${Math.round(p.price / Math.max(1, p.sqft)).toLocaleString()}/sqft</span></div>
+                    <div class="odd-price mono">$${p.price.toLocaleString()} <span>${listingPpsqft(p)}</span></div>
                     <p class="odd-monthly mono">Est. $${monthly.total.toLocaleString()}/mo${hasListingMetric(p, 'hoa') ? '' : '*'}</p>
                     <p class="odd-address"><strong>${address}</strong><br>${escapeHtml(p.city)}, WA ${escapeHtml(p.zip || '')}</p>
                     <a class="listing-source-link" href="${safeUrl(p.url)}" target="_blank" rel="noopener noreferrer" aria-label="View ${address} on Realtor.com (opens in a new tab)">View home on Realtor.com ↗</a>
@@ -3686,7 +3739,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // -------------------------------------------------------------------------
     // View Switcher
     // -------------------------------------------------------------------------
-    function setViewMode(mode) {
+    function setViewMode(mode, shouldRenderView = true) {
         if (!['split', 'grid', 'map', 'deals', 'analytics', 'odd'].includes(mode)) return;
         activeView = mode;
         // Hidden map bounds must not silently restrict a listings-only search.
@@ -3702,7 +3755,7 @@ document.addEventListener('DOMContentLoaded', () => {
             btn.setAttribute('aria-selected', String(isActive));
         });
         workspaceViewport.className = `workspace-viewport view-${mode}`;
-        if ((mode === 'grid' || mode === 'split') && galleryDirty && !clearMapBounds) {
+        if (shouldRenderView && (mode === 'grid' || mode === 'split') && galleryDirty && !clearMapBounds) {
             renderGalleryCards(galleryNeedsReset);
             galleryDirty = galleryNeedsReset = false;
         }
@@ -3712,13 +3765,13 @@ document.addEventListener('DOMContentLoaded', () => {
         if (mode === 'map' && viewTabMap) viewTabMap.classList.add('active');
         if (mode === 'deals' && viewTabDeals) {
             viewTabDeals.classList.add('active');
-            renderDealsView();
+            if (shouldRenderView) renderDealsView();
         }
         if (mode === 'analytics' && viewTabAnalytics) {
             viewTabAnalytics.classList.add('active');
-            renderAnalytics();
+            if (shouldRenderView) renderAnalytics();
         }
-        if (mode === 'odd') renderOddFinds();
+        if (mode === 'odd' && shouldRenderView) renderOddFinds();
 
         // Sync Mobile Bottom Navigation Tabs
         const mobButtons = [
@@ -4365,6 +4418,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (!presetDropdownMenu.contains(e.target)) setPresetMenuOpen(false);
             });
             window.addEventListener('resize', () => setPresetMenuOpen(false));
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape' && !presetDropdownMenu.classList.contains('hidden')) {
+                    e.preventDefault();
+                    e.stopImmediatePropagation();
+                    setPresetMenuOpen(false, true);
+                }
+            }, true);
             presetDropdownMenu.addEventListener('keydown', (e) => {
                 if (e.key === 'Escape') {
                     e.stopPropagation();
@@ -4567,7 +4627,7 @@ document.addEventListener('DOMContentLoaded', () => {
             let photoIdx = activePhotoIndices[prop.id] || 0;
             photoIdx = (photoIdx + direction + prop.photos.length) % prop.photos.length;
             activePhotoIndices[prop.id] = photoIdx;
-            if (drawerActiveImg) drawerActiveImg.src = prop.photos[photoIdx];
+            if (drawerActiveImg) applySafeImgSrc(drawerActiveImg, prop.photos[photoIdx]);
             if (drawerImgCur) drawerImgCur.textContent = photoIdx + 1;
             if (drawerThumbnailsStrip) {
                 drawerThumbnailsStrip.querySelectorAll('.drawer-thumb').forEach((t, i) => {
@@ -4576,7 +4636,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             const cardImg = document.getElementById(`img-${prop.id}`);
             const cardCounter = document.getElementById(`counter-${prop.id}`);
-            if (cardImg) cardImg.src = thumbUrl(prop.photos[photoIdx], 600);
+            if (cardImg) applySafeImgSrc(cardImg, prop.photos[photoIdx], 600);
             if (cardCounter) cardCounter.innerHTML = `<span>${photoIdx + 1}/${prop.photos.length}</span>`;
             preloadAdjacentPhoto(prop.photos, photoIdx);
         }
@@ -4624,7 +4684,6 @@ document.addEventListener('DOMContentLoaded', () => {
             btnCompareClear.addEventListener('click', () => {
                 comparisonSet.clear();
                 updateCompareDock();
-                renderGalleryCards();
             });
         }
 
@@ -4822,7 +4881,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (event.key === STORAGE_THEME_KEY) applyTheme(event.newValue === 'light' || event.newValue === 'dark'
             ? event.newValue : (systemTheme.matches ? 'dark' : 'light'));
     });
-    detectBackendCapabilities();
+    backendCapabilitiesPromise = detectBackendCapabilities();
     setupMapResize();
     loadProperties();
 });
