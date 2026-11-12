@@ -354,7 +354,7 @@ async def run_scraper_job(criteria: Dict[str, Any]) -> None:
         collected = await run_live_scraper(
             criteria=criteria, log_callback=scrape_job.log, progress_callback=scrape_job.progress)
         merged = await asyncio.to_thread(store.merge, collected) if collected else None
-        if merged:
+        if merged and merged.total:
             def rebuild_bundle():
                 publishable = [{**listing, **USER_DEFAULTS} for listing in store.all()]
                 atomic_write_text(DATA_JS_FILE, render_data_js(publishable))

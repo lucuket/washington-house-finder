@@ -142,9 +142,14 @@ def check_repository(listings: List[Any]) -> Tuple[List[str], List[str]]:
             stamp = day.strftime("%Y%m%d")
             # UI releases and listing acquisitions have independent versions.
             # Only data-resource cache tokens must match the snapshot date.
-            stale = set(re.findall(r"(?:data\.js|properties\.json)\?v=(\d{8})", html)) - {stamp}
+            pattern = r"(?:data\.js|properties(?:\.compact)?\.json)\?v=(\d{8})"
+            stale = set(re.findall(pattern, html)) - {stamp}
+            app_js_path = os.path.join(BASE_DIR, "app.js")
+            if os.path.exists(app_js_path):
+                with open(app_js_path, "r", encoding="utf-8") as handle:
+                    stale |= set(re.findall(pattern, handle.read())) - {stamp}
             if stale:
-                errors.append(f"index.html cache-busting tokens {sorted(stale)} != {stamp}")
+                errors.append(f"cache-busting tokens {sorted(stale)} != {stamp}")
 
     if os.path.exists(BROADBAND_FILE):
         with open(BROADBAND_FILE, "r", encoding="utf-8") as handle:
