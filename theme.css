@@ -234,7 +234,7 @@ input[type="range"]:focus-visible { outline: 2px solid var(--border-focus); outl
 .lightbox-header-info { flex-wrap: wrap; gap: 10px; }
 .l-info-actions { display: flex; align-items: center; gap: 12px; }
 .l-price { font-size: 20px; }
-.l-info-actions a { color: white; }
+.l-info-actions a.btn-secondary { color: var(--text-primary); }
 .deals-header-hero { background: var(--bg-surface); color: var(--text-primary); padding: 16px; gap: 12px; border: 1px solid var(--border-subtle); border-radius: 6px; box-shadow: none; }
 .deals-hero-badge { display: none; }
 .deals-hero-content h2 { color: var(--text-primary); font-size: 18px; }

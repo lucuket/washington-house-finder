@@ -917,7 +917,6 @@ html, body {
     flex: 1;
     display: flex;
     overflow: hidden;
-    height: calc(100% - var(--toolbar-height));
     width: 100%;
     position: relative;
     min-height: 0;
@@ -1577,14 +1576,6 @@ html, body {
 .card-note-trigger.has-note {
     color: var(--brand-primary);
     font-weight: 700;
-}
-
-/* Card Footer Actions */
-.card-footer-actions {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding-top: 4px;
 }
 
 .compare-checkbox-label {
@@ -2259,40 +2250,6 @@ html, body {
     font-size: 11.5px;
 }
 
-/* Specs Table */
-.drawer-specs-table {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 8px;
-}
-
-.d-spec-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 7px 10px;
-    background-color: var(--bg-surface);
-    border: 1px solid var(--border-subtle);
-    border-radius: var(--radius-md);
-}
-
-.d-spec-row span {
-    font-size: 11.5px;
-    color: var(--text-muted);
-}
-
-.d-spec-row strong {
-    font-size: 12px;
-    font-weight: 700;
-    color: var(--text-primary);
-}
-
-.drawer-description-text {
-    font-size: 12.5px;
-    color: var(--text-secondary);
-    line-height: 1.55;
-}
-
 /* Rating Picker */
 .drawer-rating-row {
     display: flex;
@@ -2336,45 +2293,12 @@ html, body {
     outline: none;
 }
 
-/* Mortgage Breakdown in Drawer */
-.mortgage-total-row {
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-}
-
-.mortgage-total-val {
-    font-size: 20px;
-    font-weight: 800;
-    color: var(--accent-emerald);
-}
-
-.mortgage-bar-track {
-    height: 10px;
-    border-radius: var(--radius-full);
-    overflow: hidden;
-    display: flex;
-    background-color: var(--border-subtle);
-}
-
+/* Mortgage Breakdown Segments & Indicators */
 .d-seg { height: 100%; }
 .d-seg-pi { background-color: var(--action-primary); }
 .d-seg-tax { background-color: #f59e0b; }
 .d-seg-ins { background-color: #3b82f6; }
 .d-seg-hoa { background-color: #8b5cf6; }
-
-.mortgage-legend-grid {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 6px;
-    font-size: 11px;
-}
-
-.legend-item {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-}
 
 .dot-indicator {
     width: 8px;
@@ -4393,7 +4317,8 @@ body.density-compact .card-price {
 
     /* Workspace Viewport */
     .workspace-viewport {
-        height: calc(100% - 48px);
+        flex: 1;
+        min-height: 0;
         width: 100%;
         display: block;
         position: relative;
@@ -4662,7 +4587,8 @@ body.density-compact .card-price {
         gap: 14px;
     }
 
-    .drawer-gallery-stage {
+    .drawer-gallery-stage .gallery-image-wrapper {
+        aspect-ratio: auto;
         height: 220px;
     }
 
@@ -4675,11 +4601,11 @@ body.density-compact .card-price {
     }
 
     /* Lightbox & Comparison on iPhone */
-    .lightbox-image-stage {
+    .lightbox-stage {
         height: 60vh;
     }
 
-    .comparison-modal-card {
+    #comparison-modal .modal-box {
         width: 96vw;
         max-height: 90dvh;
         padding: 14px;
