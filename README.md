@@ -40,6 +40,26 @@ confirms scraping authorization; the public static site uses the saved snapshot.
 Public Render, Docker, and tunnel configurations default to `WHS_READ_ONLY=1`;
 read-only API responses omit private research. Use writable mode only for private use.
 
+### Windows QA environment
+
+From the repository root, use an external Python virtual environment to keep
+dependencies out of the checkout and OneDrive.
+
+```powershell
+$qaEnv = Join-Path $env:LOCALAPPDATA 'venvs\washington-house-finder'
+py -3.13 -m venv $qaEnv
+$env:WHF_PY = Join-Path $qaEnv 'Scripts\python.exe'
+& $env:WHF_PY -m pip install -r requirements.txt
+& $env:WHF_PY -m pytest -q
+node --test tests/frontend_*.test.cjs
+```
+
+In a new PowerShell session, set `WHF_PY` to the same interpreter. Use
+`& $env:WHF_PY` in place of `python` in the commands below to use the same
+environment for local development and dataset checks.
+
+### Development and verification
+
 ```powershell
 # Run the local FastAPI workstation server (http://127.0.0.1:8000)
 python app.py
