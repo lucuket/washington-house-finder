@@ -186,3 +186,49 @@ test('record baseline and memoized deal evaluation throughput', t => {
     };
     t.diagnostic(`4,225 listings, median of 20 warmed runs, no DOM: baseline ${measure(baseline)}ms; current ${measure(source)}ms`);
 });
+
+test('quickselect medians match full sort on odd/even sets and lazy search builds corpus on demand', () => {
+    const ctx = vm.createContext({
+        performance,
+        allProperties: listings.map(p => ({ ...p, _cityLower: p.city.toLowerCase(), _ppsqft: Math.round(p.price / Math.max(1, p.sqft)) })),
+        filteredProperties: [], cityMedians: {}, marketMedians: {},
+        scoreWeights: { ppsqft: 30, sqft: 15, lot: 15, garage: 10, year: 10, hoa: 10, rating: 10 },
+        updateDualRangeTracks() {}, renderGalleryCards() {}, renderActiveFilterTags() {},
+        updateHeaderAndMarketStats() {}, renderDealsView() {}, renderOddFinds() {}, syncStateToUrl() {},
+        isMapVisible: () => false, mapMarkersDirty: false, map: null, activeView: 'grid', galleryDirty: false, galleryNeedsReset: false,
+        getRegionalBroadbandDetails: () => ({ hasFiber: false, hasGigabit: false }),
+    });
+    const defaults = source.match(/const FILTER_DEFAULTS = Object.freeze\((\{[\s\S]*?\})\)/)[1];
+    vm.runInContext(`const FILTER_DEFAULTS = ${defaults}; var filterState = { ...FILTER_DEFAULTS };`, ctx);
+    vm.runInContext(['hasListingMetric', 'computeMarketMedians', 'computeMarketStats', 'computeSmartScore', 'findSimilarHomes', 'applyFilters', 'sortFilteredProperties']
+        .map(name => fn(source, name)).join('\n'), ctx);
+
+    // Quickselect median parity on odd (4225) and even (4224) datasets
+    const exactMed = arr => {
+        const s = [...arr].sort((a, b) => a - b);
+        const m = Math.floor(s.length / 2);
+        return Math.round(s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2);
+    };
+    for (const subset of [ctx.allProperties, ctx.allProperties.slice(0, 4224)]) {
+        const st = ctx.computeMarketStats(subset);
+        assert.equal(st.medPrice, exactMed(subset.map(p => p.price)));
+        const sqfts = subset.filter(p => !p.unknown_fields.includes('sqft') && p.sqft > 0).map(p => p.sqft);
+        assert.equal(st.medSqft, exactMed(sqfts));
+    }
+
+    // Lazy search corpus starts undefined and only populates on keyword search
+    assert.equal(ctx.allProperties[0]._searchCorpus, undefined);
+    ctx.applyFilters();
+    assert.equal(ctx.allProperties[0]._searchCorpus, undefined, 'non-search filter keeps _searchCorpus unallocated');
+    ctx.filterState.city = ctx.allProperties[0]._cityLower;
+    ctx.filterState.search = ctx.allProperties[0].address.split(' ')[0];
+    ctx.applyFilters();
+    assert.ok(ctx.filteredProperties.some(p => p.id === ctx.allProperties[0].id));
+    assert.equal(typeof ctx.allProperties[0]._searchCorpus, 'string');
+
+    // Top-K findSimilarHomes excludes target and returns ascending distance order
+    const target = ctx.allProperties[0];
+    const similar = ctx.findSimilarHomes(target, 4);
+    assert.equal(similar.length, 4);
+    assert.ok(similar.every(p => p.id !== target.id));
+});

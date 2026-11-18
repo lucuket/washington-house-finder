@@ -29,8 +29,24 @@
     <link rel="stylesheet" href="vendor/markercluster/MarkerCluster.Default.css">
 
     <!-- Application Stylesheet -->
-    <link rel="stylesheet" href="styles.css?v=20261112-fix1">
-    <link rel="stylesheet" href="theme.css?v=20261112-fix1">
+    <link rel="stylesheet" href="styles.css?v=20261118-opt1">
+    <link rel="stylesheet" href="theme.css?v=20261118-opt1">
+    <script>
+        // Start fetching the compact listing bundle immediately while CSS/JS parse.
+        (() => {
+            if (typeof location === 'undefined' || !location.protocol.startsWith('http') || typeof fetch !== 'function') return;
+            const url = 'properties.compact.json?v=20261028';
+            try {
+                const controller = typeof AbortController === 'function' ? new AbortController() : null;
+                const timer = controller ? setTimeout(() => controller.abort(), 60000) : null;
+                const promise = fetch(url, controller ? { signal: controller.signal } : undefined)
+                    .then(res => { if (!res.ok) throw new Error('HTTP ' + res.status); return res.json(); })
+                    .finally(() => { if (timer !== null) clearTimeout(timer); });
+                promise.catch(() => {});
+                window.__WHS_PREFETCH_LISTINGS__ = { url, promise };
+            } catch (_) {}
+        })();
+    </script>
 </head>
 <body class="density-comfortable">
 
@@ -908,7 +924,7 @@
                     <div class="internet-tech-grid">
                         <div class="internet-tech-cell" id="drawer-fiber-cell">
                             <div class="tech-cell-top">
-                                <span class="tech-tag tag-fiber">FIBER (FTTP / FTTH)</span>
+                                <span class="tech-tag tag-fiber">FIBER (FTTH)</span>
                                 <span class="tech-avail-badge avail-yes" id="drawer-fiber-avail">City coverage</span>
                             </div>
                             <div class="tech-speed-specs">
@@ -1407,6 +1423,6 @@
     
     <!-- Primary data loads asynchronously. The generated bundle is loaded only
          if JSON loading fails, including offline file:// previews. -->
-    <script defer src="app.js?v=20261112-fix1" data-listings-fallback="data.js?v=20261028"></script>
+    <script defer src="app.js?v=20261118-opt1" data-listings-fallback="data.js?v=20261028"></script>
 </body>
 </html>

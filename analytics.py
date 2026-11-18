@@ -154,37 +154,66 @@ def _price_buckets(prices: List[int]) -> Dict[str, int]:
 def compute_stats(listings: List[Listing]) -> Dict[str, Any]:
     """Aggregate market analytics over ``listings`` (already filtered)."""
     total = len(listings)
-    prices = [p["price"] for p in listings]
-    sqfts = [p["sqft"] for p in listings if has_metric(p, "sqft")]
-    lots = [p["lot_sqft"] for p in listings if has_metric(p, "lot_sqft")]
-    ppsf = [v for v in map(price_per_sqft, listings) if v is not None]
-
+    prices: List[int] = []
+    sqfts: List[int] = []
+    lots: List[int] = []
+    ppsf: List[float] = []
     city_counts: Dict[str, int] = {}
+    garage_dist: Dict[str, int] = {}
+    year_pre_1980 = year_1980_1999 = year_2000_2015 = year_2016_plus = year_unknown = 0
+    favorites_count = 0
+    rated_count = 0
+
     for p in listings:
+        price = p["price"]
+        prices.append(price)
+        if has_metric(p, "sqft"):
+            sqft = p["sqft"]
+            sqfts.append(sqft)
+            if price > 0:
+                ppsf.append(price / sqft)
+        if has_metric(p, "lot_sqft"):
+            lots.append(p["lot_sqft"])
+
         name = p.get("city") or "Other"
         city_counts[name] = city_counts.get(name, 0) + 1
 
-    garage_dist: Dict[str, int] = {}
-    for p in listings:
         if not has_metric(p, "garage"):
             label = "Unknown"
         else:
             label = f"{p['garage']} Car" if p["garage"] > 0 else "No Garage"
         garage_dist[label] = garage_dist.get(label, 0) + 1
 
-    years = [p["year_built"] for p in listings if has_metric(p, "year_built")]
+        if not has_metric(p, "year_built"):
+            year_unknown += 1
+        else:
+            y = p["year_built"]
+            if y < 1980:
+                year_pre_1980 += 1
+            elif y < 2000:
+                year_1980_1999 += 1
+            elif y < 2016:
+                year_2000_2015 += 1
+            else:
+                year_2016_plus += 1
+
+        if p.get("favorite"):
+            favorites_count += 1
+        if p.get("rating", 0) > 0:
+            rated_count += 1
+
     year_dist = {
-        "Pre-1980": sum(1 for y in years if y < 1980),
-        "1980 - 1999": sum(1 for y in years if 1980 <= y < 2000),
-        "2000 - 2015": sum(1 for y in years if 2000 <= y < 2016),
-        "2016+": sum(1 for y in years if y >= 2016),
-        "Unknown": total - len(years),
+        "Pre-1980": year_pre_1980,
+        "1980 - 1999": year_1980_1999,
+        "2000 - 2015": year_2000_2015,
+        "2016+": year_2016_plus,
+        "Unknown": year_unknown,
     }
 
     return {
         "total_listings": total,
-        "favorites_count": sum(1 for p in listings if p.get("favorite")),
-        "rated_count": sum(1 for p in listings if p.get("rating", 0) > 0),
+        "favorites_count": favorites_count,
+        "rated_count": rated_count,
         "avg_price": _round_stat(statistics.mean, prices),
         "median_price": _round_stat(statistics.median, prices),
         "min_price": min(prices) if prices else 0,

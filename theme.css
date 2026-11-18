@@ -83,6 +83,8 @@
     --shadow-lg: 0 10px 28px rgba(0,0,0,.4);
     --shadow-xl: 0 20px 40px rgba(0,0,0,.5);
     --shadow-drawer: -8px 0 32px rgba(0,0,0,.4);
+    --photo-control-bg: rgba(15, 23, 42, .86);
+    --photo-control-ink: #e2e8f0;
 }
 
 /* Functional, compact chrome with stable space for the research controls. */
@@ -141,18 +143,41 @@ html { scrollbar-color: var(--border-strong) var(--bg-page); }
 .card-favorite-btn, .card-favorite-btn.favorited, .card-nav-arrow, .card-nav-arrow:hover {
     background: var(--photo-control-bg); color: var(--photo-control-ink);
 }
+[data-theme="dark"] .card-favorite-btn,
+[data-theme="dark"] .card-nav-arrow { border: 1px solid rgba(255, 255, 255, .16); }
 .card-favorite-btn.favorited { color: #be123c; }
+[data-theme="dark"] .card-favorite-btn.favorited { color: #fb7185; }
 .card-score-badge { background: var(--bg-surface); }
 .listing-source-link { font-size: 11px; }
-.dataset-notice { background: var(--bg-surface-secondary); color: var(--text-secondary); border-bottom: 1px solid var(--border-subtle); padding: 6px 18px; line-height: 1.55; }
+.dataset-notice { background: var(--bg-surface-secondary); color: var(--text-secondary); border-bottom: 1px solid var(--border-subtle); padding: 5px 18px; font-size: 11px; line-height: 1.45; }
 .workspace-title-row { flex-wrap: wrap; }
 .sort-wrapper { flex-shrink: 0; }
 .sort-wrapper label { white-space: nowrap; }
+.app-workspace:has(.view-analytics) .sort-wrapper,
+.app-workspace:has(.view-deals) .sort-wrapper { display: none; }
 .view-mode-tabs { flex-wrap: wrap; }
 .view-tab-btn { white-space: nowrap; }
+[data-theme="dark"] .view-tab-btn.active { background-color: var(--bg-surface-tertiary); color: var(--text-primary); box-shadow: inset 0 0 0 1px var(--border-medium); }
 .theme-icon-sun, [data-theme="dark"] .theme-icon-moon { display: none; }
-[data-theme="dark"] .theme-icon-sun { display: block; }
+[data-theme="dark"] .theme-icon-sun { display: block; color: var(--accent-amber); }
 #btn-theme-toggle { width: 32px; height: 32px; padding: 0; }
+
+/* Card render containment skips off-screen layout/paint for large batches. */
+.property-card, .deal-eval-card-item, .odd-find-card {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 470px;
+    contain: layout style;
+}
+.analytics-grid { align-items: start; }
+.dist-share-pct { color: var(--text-muted); font-weight: 500; font-size: 10.5px; }
+.tech-cell-top { flex-wrap: nowrap; gap: 4px; }
+.tech-tag, .tech-avail-badge { white-space: nowrap; }
+
+/* Match scrollbars cleanly in dark mode across Chromium/WebKit browsers. */
+[data-theme="dark"] ::-webkit-scrollbar { width: 10px; height: 10px; }
+[data-theme="dark"] ::-webkit-scrollbar-track { background: var(--bg-page); }
+[data-theme="dark"] ::-webkit-scrollbar-thumb { background: var(--border-medium); border-radius: 5px; border: 2px solid var(--bg-page); }
+[data-theme="dark"] ::-webkit-scrollbar-thumb:hover { background: var(--border-strong); }
 
 /* Fixed to the viewport, bounded in both axes; saved names cannot widen it. */
 .preset-selector-wrapper { position: relative; min-width: 0; }
@@ -183,9 +208,10 @@ html { scrollbar-color: var(--border-strong) var(--bg-page); }
 .leaflet-control-attribution { background: var(--bg-surface) !important; color: var(--text-secondary); }
 .leaflet-control-attribution a { color: var(--brand-primary); }
 .map-basemap-btn.active { background: var(--text-primary); color: var(--bg-surface); }
-.map-quick-actions { flex-wrap: wrap; border-radius: 8px; max-width: 100%; }
+.map-quick-actions { flex-wrap: wrap; border-radius: 8px; max-width: 100%; padding: 2px 5px; gap: 4px; }
 .map-region-pills { border-radius: 8px; }
-.map-overlay-bar { gap: 6px; }
+.map-region-pill { padding: 3px 8px; font-size: 10.5px; }
+.map-overlay-bar { gap: 4px; left: 8px; right: 8px; }
 [data-theme="dark"] .theme-street-tiles { filter: invert(1) hue-rotate(180deg) brightness(.82) saturate(.65); }
 [data-theme="dark"] .marker-cluster-small, [data-theme="dark"] .marker-cluster-small div { background: var(--positive-bg); color: var(--positive-ink); }
 [data-theme="dark"] .marker-cluster-medium, [data-theme="dark"] .marker-cluster-medium div { background: var(--warning-bg); color: var(--warning-ink); }
@@ -284,8 +310,11 @@ input[type="range"]:focus-visible { outline: 2px solid var(--border-focus); outl
     .active-filter-tags-row { display: flex; }
     .filter-tag { min-height: 28px; }
     .filter-tag-remove { min-width: 28px; min-height: 28px; }
-    .toolbar-left { gap: 5px; }
-    .workspace-toolbar { padding-block: 8px; }
+    .toolbar-left { gap: 5px; flex: 1 1 auto; min-width: 0; overflow: hidden; }
+    .workspace-toolbar { padding-block: 6px; flex-wrap: nowrap; justify-content: space-between; gap: 6px; }
+    .results-chip { overflow: hidden; text-overflow: ellipsis; }
+    .sort-wrapper { margin-right: 0; gap: 4px; flex-shrink: 0; }
+    .sort-wrapper .form-select-sm { width: auto; max-width: 175px; height: auto; min-height: 44px; padding: 11px 24px 11px 10px; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .dataset-notice { font-size: 10px; padding: 6px 10px; }
     .pill-btn { min-height: 44px; }
     .btn-text-reset, .btn-toggle-advanced, .form-select { min-height: 44px; }
@@ -311,6 +340,10 @@ input[type="range"]:focus-visible { outline: 2px solid var(--border-focus); outl
 @media (max-width: 359px) {
     .topbar-stats { display: none; }
 }
+@media (max-width: 480px) {
+    .sort-wrapper label { display: none; }
+    .sort-wrapper .form-select-sm { max-width: 165px; }
+}
 @media (max-width: 430px) {
     #active-preset-label { display: none; }
     #btn-presets-menu > svg:first-child { display: block; }
@@ -321,8 +354,9 @@ input[type="range"]:focus-visible { outline: 2px solid var(--border-focus); outl
 
 /* Research controls share the workstation's compact, explicit visual language. */
 .payment-settings {
-    width: 100%; display: grid; gap: 5px; padding: 10px 0; margin: 0 0 12px;
+    width: 100%; display: grid; gap: 5px; padding: 10px 8px; margin: 0 0 12px;
     border: 0; border-top: 1px solid var(--border-subtle); border-bottom: 1px solid var(--border-subtle);
+    border-radius: 4px;
     background: transparent; color: var(--text-secondary); text-align: left; cursor: pointer;
     font: inherit; font-size: 11px;
 }

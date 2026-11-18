@@ -176,9 +176,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Security & Sanitization Utilities
     function hasListingMetric(property, field) {
-        return Number.isFinite(property[field]) && (Array.isArray(property.unknown_fields)
-            ? !property.unknown_fields.includes(field)
-            : property[field] > 0);
+        if (!Number.isFinite(property[field])) return false;
+        const unknown = property.unknown_fields;
+        if (Array.isArray(unknown)) return unknown.length === 0 || !unknown.includes(field);
+        return property[field] > 0;
     }
 
     function listingMetric(property, field, suffix = '') {
@@ -609,6 +610,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 showCoverageOnHover: false,
                 maxClusterRadius: 40,
                 spiderfyOnMaxZoom: true,
+                chunkedLoading: true,
+                chunkInterval: 100,
+                chunkDelay: 25,
+                removeOutsideVisibleBounds: true,
                 iconCreateFunction: function (cluster) {
                     const count = cluster.getChildCount();
                     return L.divIcon({
@@ -691,13 +696,16 @@ document.addEventListener('DOMContentLoaded', () => {
         const started = performance.now();
         const wanted = new Set();
         const newMarkers = [];
+        const fmt = typeof Intl !== 'undefined' ? new Intl.NumberFormat('en-US') : null;
+        const fmtPrice = value => fmt ? fmt.format(value) : value.toLocaleString();
 
-        propertiesToDisplay.forEach(p => {
+        for (let i = 0; i < propertiesToDisplay.length; i++) {
+            const p = propertiesToDisplay[i];
             if (p.latitude && p.longitude) {
                 wanted.add(p.id);
                 const existing = markerInstances[p.id];
                 const markerKey = `${p.latitude},${p.longitude}:${p.price}:${!!p.favorite}`;
-                if (existing?._listingKey === markerKey) return;
+                if (existing?._listingKey === markerKey) continue;
                 const formattedPrice = '$' + Math.round(p.price / 1000) + 'k';
                 const isFavorited = p.favorite ? '♥ ' : '';
 
@@ -709,14 +717,15 @@ document.addEventListener('DOMContentLoaded', () => {
                     popupAnchor: [0, -14]
                 });
 
+                const title = `${p.address}, $${fmtPrice(p.price)}`;
                 if (existing) {
-                    existing.options = { ...existing.options, title: `${p.address}, $${p.price.toLocaleString()}` };
+                    existing.options = { ...existing.options, title };
                     existing.setLatLng([p.latitude, p.longitude]);
                     existing.setIcon(customIcon);
                     existing._listingKey = markerKey;
-                    return;
+                    continue;
                 }
-                const marker = L.marker([p.latitude, p.longitude], { icon: customIcon, title: `${p.address}, $${p.price.toLocaleString()}` });
+                const marker = L.marker([p.latitude, p.longitude], { icon: customIcon, title });
                 marker._listingKey = markerKey;
                 marker.bindPopup(() => buildMarkerPopupHtml(getPropertyById(p.id) || p), { maxWidth: 240, className: 'realtor-map-popup' });
 
@@ -732,15 +741,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 newMarkers.push(marker);
                 markerInstances[p.id] = marker;
             }
-        });
+        }
 
         const removed = [];
-        Object.keys(markerInstances).forEach(id => {
+        for (const id of Object.keys(markerInstances)) {
             if (!wanted.has(id)) {
                 removed.push(markerInstances[id]);
                 delete markerInstances[id];
             }
-        });
+        }
         if (removed.length && markersLayer.removeLayers) markersLayer.removeLayers(removed);
         else removed.forEach(marker => markersLayer.removeLayer(marker));
         if (newMarkers.length && typeof markersLayer.addLayers === 'function') {
@@ -751,7 +760,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (mapMarkerCount) {
             const unmapped = propertiesToDisplay.length - wanted.size;
-            mapMarkerCount.textContent = `${wanted.size.toLocaleString()} mapped${unmapped ? ` · ${unmapped} without coordinates` : ''}`;
+            mapMarkerCount.textContent = `${fmtPrice(wanted.size)} mapped${unmapped ? ` · ${unmapped} without coordinates` : ''}`;
         }
         document.getElementById('leaflet-map').dataset.updateMs = (performance.now() - started).toFixed(2);
     }
@@ -799,6 +808,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function fitMapToResults() {
         if (!map || !markersLayer) return;
+        let minLat = Infinity, maxLat = -Infinity, minLng = Infinity, maxLng = -Infinity;
+        for (let i = 0; i < filteredProperties.length; i++) {
+            const p = filteredProperties[i];
+            if (p.latitude && p.longitude) {
+                if (p.latitude < minLat) minLat = p.latitude;
+                if (p.latitude > maxLat) maxLat = p.latitude;
+                if (p.longitude < minLng) minLng = p.longitude;
+                if (p.longitude > maxLng) maxLng = p.longitude;
+            }
+        }
+        if (minLat <= maxLat && minLng <= maxLng && HAS_LEAFLET) {
+            map.fitBounds(L.latLngBounds([minLat, minLng], [maxLat, maxLng]), { padding: [35, 35], maxZoom: 13 });
+            return;
+        }
         const bounds = (markersLayer.getBounds && typeof markersLayer.getBounds === 'function') ? markersLayer.getBounds() : null;
         if (bounds && bounds.isValid && bounds.isValid()) {
             map.fitBounds(bounds, { padding: [35, 35], maxZoom: 13 });
@@ -868,23 +891,60 @@ document.addEventListener('DOMContentLoaded', () => {
 
         cityMedians = {};
         const cityBuckets = {};
+        const allPrices = [];
+        const allSqfts = [];
+        const allLots = [];
+        const allPpsqfts = [];
 
-        allProperties.forEach(p => {
+        for (let i = 0; i < allProperties.length; i++) {
+            const p = allProperties[i];
             const city = p.city || 'Other';
-            if (!cityBuckets[city]) cityBuckets[city] = { prices: [], ppsqfts: [], sqfts: [], lots: [] };
-            cityBuckets[city].prices.push(p.price);
+            let bucket = cityBuckets[city];
+            if (!bucket) bucket = cityBuckets[city] = { prices: [], ppsqfts: [], sqfts: [], lots: [] };
+            bucket.prices.push(p.price);
+            allPrices.push(p.price);
             if (hasListingMetric(p, 'sqft') && p.sqft > 0) {
-                cityBuckets[city].sqfts.push(p.sqft);
-                cityBuckets[city].ppsqfts.push(p.price / p.sqft);
+                const ppsqft = p.price / p.sqft;
+                bucket.sqfts.push(p.sqft);
+                bucket.ppsqfts.push(ppsqft);
+                allSqfts.push(p.sqft);
+                allPpsqfts.push(ppsqft);
             }
-            if (hasListingMetric(p, 'lot_sqft') && p.lot_sqft > 0) cityBuckets[city].lots.push(p.lot_sqft);
-        });
+            if (hasListingMetric(p, 'lot_sqft') && p.lot_sqft > 0) {
+                bucket.lots.push(p.lot_sqft);
+                allLots.push(p.lot_sqft);
+            }
+        }
+
+        // In-place O(n) quickselect avoids O(n log n) full sorts and array copies.
+        const quickselect = (arr, k) => {
+            let left = 0, right = arr.length - 1;
+            while (left < right) {
+                const pivot = arr[(left + right) >>> 1];
+                let i = left, j = right;
+                while (i <= j) {
+                    while (arr[i] < pivot) i++;
+                    while (arr[j] > pivot) j--;
+                    if (i <= j) {
+                        const tmp = arr[i]; arr[i] = arr[j]; arr[j] = tmp;
+                        i++; j--;
+                    }
+                }
+                if (j < k) left = i;
+                if (k < i) right = j;
+            }
+            return arr[k];
+        };
 
         const medianOf = (arr) => {
-            if (!arr || !arr.length) return 0;
-            const sorted = [...arr].sort((a, b) => a - b);
-            const mid = Math.floor(sorted.length / 2);
-            return sorted.length % 2 !== 0 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+            const n = arr ? arr.length : 0;
+            if (!n) return 0;
+            const mid = n >>> 1;
+            const hi = quickselect(arr, mid);
+            if (n & 1) return hi;
+            let lo = arr[0];
+            for (let i = 1; i < mid; i++) if (arr[i] > lo) lo = arr[i];
+            return (lo + hi) / 2;
         };
 
         for (const [city, data] of Object.entries(cityBuckets)) {
@@ -896,11 +956,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 count: data.prices.length
             };
         }
-
-        const allPrices = allProperties.map(p => p.price);
-        const allSqfts = allProperties.filter(p => hasListingMetric(p, 'sqft') && p.sqft > 0).map(p => p.sqft);
-        const allLots = allProperties.filter(p => hasListingMetric(p, 'lot_sqft') && p.lot_sqft > 0).map(p => p.lot_sqft);
-        const allPpsqfts = allProperties.filter(p => hasListingMetric(p, 'sqft') && p.sqft > 0).map(p => p.price / p.sqft);
 
         marketMedians = {
             price: Math.round(medianOf(allPrices)),
@@ -1014,29 +1069,36 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function findSimilarHomes(targetProp, limit = 4) {
-        if (!allProperties.length || !targetProp) return [];
+        if (!allProperties.length || !targetProp || limit <= 0) return [];
 
-        const targetPpsqft = targetProp.price / Math.max(1, targetProp.sqft);
+        const targetCity = targetProp._cityLower || (targetProp.city || '').toLowerCase();
+        const tPrice = targetProp.price;
+        const tSqft = targetProp.sqft;
+        const tLot = targetProp.lot_sqft;
+        const tBeds = targetProp.beds;
+        const tGarage = targetProp.garage;
+        const top = [];
 
-        const scored = allProperties
-            .filter(p => p.id !== targetProp.id)
-            .map(p => {
-                const ppsqft = p.price / Math.max(1, p.sqft);
-                
-                // Normalized feature distances
-                const dPrice = Math.abs(p.price - targetProp.price) / 150000;
-                const dSqft = Math.abs(p.sqft - targetProp.sqft) / 600;
-                const dLot = Math.abs(p.lot_sqft - targetProp.lot_sqft) / 8000;
-                const dBeds = Math.abs(p.beds - targetProp.beds) / 2;
-                const dGarage = Math.abs(p.garage - targetProp.garage) / 2;
-                const dCity = p.city.toLowerCase() === targetProp.city.toLowerCase() ? 0 : 0.8;
+        for (let i = 0; i < allProperties.length; i++) {
+            const p = allProperties[i];
+            if (p.id === targetProp.id) continue;
 
-                const distance = dPrice * 0.3 + dSqft * 0.25 + dCity * 0.2 + dLot * 0.1 + dBeds * 0.1 + dGarage * 0.05;
-                return { prop: p, distance };
-            });
+            const dCity = (p._cityLower || (p.city || '').toLowerCase()) === targetCity ? 0 : 0.8;
+            const distance = (Math.abs(p.price - tPrice) / 150000) * 0.3
+                + (Math.abs(p.sqft - tSqft) / 600) * 0.25
+                + dCity * 0.2
+                + (Math.abs(p.lot_sqft - tLot) / 8000) * 0.1
+                + (Math.abs(p.beds - tBeds) / 2) * 0.1
+                + (Math.abs(p.garage - tGarage) / 2) * 0.05;
 
-        scored.sort((a, b) => a.distance - b.distance);
-        return scored.slice(0, limit).map(item => item.prop);
+            if (top.length === limit && distance >= top[limit - 1].distance) continue;
+            let pos = top.length;
+            while (pos > 0 && distance < top[pos - 1].distance) pos--;
+            top.splice(pos, 0, { prop: p, distance });
+            if (top.length > limit) top.pop();
+        }
+
+        return top.map(item => item.prop);
     }
 
     // -------------------------------------------------------------------------
@@ -1318,11 +1380,16 @@ document.addEventListener('DOMContentLoaded', () => {
             const dataVersionMatch = fallbackSrc.match(/\?v=(\d{8})/);
             const dataVersionQuery = dataVersionMatch ? `?v=${dataVersionMatch[1]}` : '';
 
-            // Prefer the lossless compact payload. Older static copies can
-            // still serve the full JSON or the existing offline JS bundle.
+            // Prefer the lossless compact payload (reusing the early <head> prefetch when available).
             if (!filePreview) {
+                const compactUrl = `properties.compact.json${dataVersionQuery}`;
                 try {
-                    data = decodeListingPayload(await fetchJson(`properties.compact.json${dataVersionQuery}`, 60000));
+                    const prefetched = window.__WHS_PREFETCH_LISTINGS__;
+                    delete window.__WHS_PREFETCH_LISTINGS__;
+                    const rawCompact = (prefetched && prefetched.url === compactUrl)
+                        ? await prefetched.promise
+                        : await fetchJson(compactUrl, 60000);
+                    data = decodeListingPayload(rawCompact);
                 } catch (e) {}
             }
 
@@ -1389,13 +1456,13 @@ document.addEventListener('DOMContentLoaded', () => {
             propertyById = new Map();
             oddFindsCache.clear();
 
-            // Initialize photo index registry and precompute derived metrics
+            // Initialize photo index registry and lightweight derived metrics.
+            // _searchCorpus is built lazily on first keyword search to save ~9.5 MB heap at startup.
             allProperties.forEach(p => {
                 propertyById.set(p.id, p);
                 if (!(p.id in activePhotoIndices)) activePhotoIndices[p.id] = 0;
                 p._ppsqft = Math.round(p.price / Math.max(1, p.sqft));
                 p._cityLower = (p.city || '').toLowerCase();
-                p._searchCorpus = `${p.address} ${p.city} ${p.zip || ''} ${p.description || ''} ${p.user_notes || ''}`.toLowerCase();
             });
 
             try {
@@ -1432,7 +1499,7 @@ document.addEventListener('DOMContentLoaded', () => {
         };
         const dateLabel = dates.length ? dates.length === 1 ? `Recorded ${formatDate(dates[0])}`
             : `Mixed snapshots: ${formatDate(dates[0])}–${formatDate(dates[dates.length - 1])}` : 'Snapshot date unavailable';
-        notice.textContent = `${allProperties.length.toLocaleString()} saved listings · ${new Set(allProperties.map(p => p.city)).size} cities · ${dateLabel}. Partial coverage; verify current price and availability at the source. Unreported specifications are Unknown. *Payment estimates assume $0 for unknown HOA and exclude PMI.`;
+        notice.textContent = `${allProperties.length.toLocaleString()} saved listings · ${new Set(allProperties.map(p => p.city)).size} cities · ${dateLabel}. Partial snapshot; verify price and availability at the source. Unreported specs are Unknown. *Est. payments assume $0 for unknown HOA and exclude PMI.`;
     }
 
     function populateCityDropdown() {
@@ -1523,11 +1590,14 @@ document.addEventListener('DOMContentLoaded', () => {
             // Map Bounds Filter
             if (mapBounds && (!p.latitude || !p.longitude || !mapBounds.contains([p.latitude, p.longitude]))) return false;
 
-            // Keyword Search (multi-term matching on pre-indexed corpus)
+            // Keyword Search (lazy multi-term matching; builds & caches corpus only when searched)
             if (searchTerms.length > 0) {
-                const corpus = p._searchCorpus || `${p.address} ${p.city} ${p.zip} ${p.description} ${p.user_notes}`.toLowerCase();
-                for (const term of searchTerms) {
-                    if (!corpus.includes(term)) return false;
+                let corpus = p._searchCorpus;
+                if (corpus === undefined) {
+                    corpus = p._searchCorpus = `${p.address || ''} ${p.city || ''} ${p.zip || ''} ${p.description || ''} ${p.user_notes || ''}`.toLowerCase();
+                }
+                for (let t = 0; t < searchTerms.length; t++) {
+                    if (!corpus.includes(searchTerms[t])) return false;
                 }
             }
 
@@ -1566,7 +1636,6 @@ document.addEventListener('DOMContentLoaded', () => {
         renderActiveFilterTags();
         updateHeaderAndMarketStats();
         if (activeView === 'deals') renderDealsView();
-        if (activeView === 'analytics') renderAnalytics();
         if (activeView === 'odd') renderOddFinds();
         syncStateToUrl();
     }
@@ -2045,11 +2114,34 @@ document.addEventListener('DOMContentLoaded', () => {
             if (hasListingMetric(p, 'lot_sqft')) lots.push(p.lot_sqft);
         }
 
+        const quickselect = (arr, k) => {
+            let left = 0, right = arr.length - 1;
+            while (left < right) {
+                const pivot = arr[(left + right) >>> 1];
+                let i = left, j = right;
+                while (i <= j) {
+                    while (arr[i] < pivot) i++;
+                    while (arr[j] > pivot) j--;
+                    if (i <= j) {
+                        const tmp = arr[i]; arr[i] = arr[j]; arr[j] = tmp;
+                        i++; j--;
+                    }
+                }
+                if (j < k) left = i;
+                if (k < i) right = j;
+            }
+            return arr[k];
+        };
+
         const median = (values) => {
-            if (!values.length) return 0;
-            const sorted = [...values].sort((a, b) => a - b);
-            const mid = Math.floor(sorted.length / 2);
-            return sorted.length % 2 !== 0 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+            const n = values.length;
+            if (!n) return 0;
+            const mid = n >>> 1;
+            const hi = quickselect(values, mid);
+            if (n & 1) return hi;
+            let lo = values[0];
+            for (let i = 1; i < mid; i++) if (values[i] > lo) lo = values[i];
+            return (lo + hi) / 2;
         };
 
         return {
@@ -2068,15 +2160,15 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function updateHeaderAndMarketStats() {
-        if (totalCountBadge) totalCountBadge.textContent = allProperties.length;
-        if (matchedCountBadge) matchedCountBadge.textContent = filteredProperties.length;
+        if (totalCountBadge) totalCountBadge.textContent = allProperties.length.toLocaleString();
+        if (matchedCountBadge) matchedCountBadge.textContent = filteredProperties.length.toLocaleString();
         
         let favCount = 0;
         for (let i = 0; i < allProperties.length; i++) {
             if (allProperties[i].favorite) favCount++;
         }
-        if (favoritesCountBadge) favoritesCountBadge.textContent = favCount;
-        if (resultsCountLabel) resultsCountLabel.textContent = `${filteredProperties.length} homes matched`;
+        if (favoritesCountBadge) favoritesCountBadge.textContent = favCount.toLocaleString();
+        if (resultsCountLabel) resultsCountLabel.textContent = `${filteredProperties.length.toLocaleString()} homes matched`;
 
         const stats = computeMarketStats(filteredProperties);
         if (marketAvgPrice) marketAvgPrice.textContent = `$${stats.medPrice.toLocaleString()}`;
@@ -2144,9 +2236,9 @@ document.addEventListener('DOMContentLoaded', () => {
             return {
                 isCableOnly: !fiber.length && !!cable.length,
                 badgeClass: fiber.length ? 'badge-fiber-ready' : 'badge-cable-only',
-                badgeText: fiber.length ? 'Fiber reported nearby' : cable.length ? 'Cable reported nearby' : 'Nearby wireline unverified',
+                badgeText: fiber.length ? 'Fiber nearby' : cable.length ? 'Cable nearby' : 'Wireline unverified',
                 badgeTitle: 'ISPMap neighborhood cell; service at this address is unverified',
-                speedText: !wireline.length ? 'No wireline reported nearby' : speed.endsWith(' Mbps') ? `Up to ${speed} nearby` : `${speed} nearby`,
+                speedText: !wireline.length ? 'No wireline nearby' : speed.endsWith(' Mbps') ? `Up to ${speed}` : speed,
                 providersText: wireline.length ? [...new Set(wireline.map(p => p.name))].join(', ') : 'Verify at address',
                 chipLabel: 'Nearby broadband', chipTitle: 'ISPMap neighborhood coverage',
                 fccUrl: safeUrl(regional.fccMapUrl)
@@ -2286,7 +2378,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const cableLabels = drawerCableCell?.querySelectorAll('.speed-lbl');
         if (nearby) {
             const setNearby = (providers, avail, down, up, names, labels) => {
-                if (avail) avail.textContent = providers.length ? 'Reported nearby' : 'None reported nearby';
+                if (avail) {
+                    avail.textContent = providers.length ? 'Reported nearby' : 'None nearby';
+                    avail.className = `tech-avail-badge ${providers.length ? 'avail-yes' : 'avail-no'}`;
+                }
                 if (down) down.textContent = nearbySpeed(providers, 'download_mbps');
                 if (up) up.textContent = nearbySpeed(providers, 'upload_mbps');
                 if (names) names.textContent = providers.length ? [...new Set(providers.map(p => p.name))].join(', ') : 'None reported in cell';
@@ -2977,117 +3072,93 @@ document.addEventListener('DOMContentLoaded', () => {
         const garageDistributionList = document.getElementById('garage-distribution-list');
         const yearDistributionList = document.getElementById('year-distribution-list');
 
-        if (anSampleSize) anSampleSize.textContent = filteredList.length;
+        const total = filteredList.length;
+        let priceSum = 0;
+        let minPrice = Infinity;
+        let maxPrice = -Infinity;
+        let favs = 0;
+        let rated = 0;
+        const brackets = { '< $375k': 0, '$375k–$425k': 0, '$425k–$475k': 0, '$475k–$550k': 0, '$550k+': 0 };
+        const cityCounts = {};
+        const garageCounts = { '2 Car': 0, '3+ Car': 0, 'Other': 0, 'Unknown': 0 };
+        const yearCounts = { 'Pre-1990': 0, '1990–2009': 0, '2010+ (Modern)': 0, 'Unknown': 0 };
+
+        for (let i = 0; i < total; i++) {
+            const p = filteredList[i];
+            const price = p.price;
+            priceSum += price;
+            if (price < minPrice) minPrice = price;
+            if (price > maxPrice) maxPrice = price;
+            if (p.favorite) favs++;
+            if ((p.rating || 0) > 0) rated++;
+
+            if (price < 375000) brackets['< $375k']++;
+            else if (price < 425000) brackets['$375k–$425k']++;
+            else if (price < 475000) brackets['$425k–$475k']++;
+            else if (price < 550000) brackets['$475k–$550k']++;
+            else brackets['$550k+']++;
+
+            const city = p.city || 'Other';
+            cityCounts[city] = (cityCounts[city] || 0) + 1;
+
+            if (!hasListingMetric(p, 'garage')) garageCounts['Unknown']++;
+            else if (p.garage >= 3) garageCounts['3+ Car']++;
+            else if (p.garage === 2) garageCounts['2 Car']++;
+            else garageCounts['Other']++;
+
+            if (!hasListingMetric(p, 'year_built')) yearCounts['Unknown']++;
+            else if (p.year_built < 1990) yearCounts['Pre-1990']++;
+            else if (p.year_built < 2010) yearCounts['1990–2009']++;
+            else yearCounts['2010+ (Modern)']++;
+        }
+
+        if (anSampleSize) anSampleSize.textContent = total.toLocaleString();
         if (anMedianPrice) anMedianPrice.textContent = `$${stats.medPrice.toLocaleString()}`;
-        
-        const meanPrice = filteredList.length ? Math.round(stats.prices.reduce((a, b) => a + b, 0) / filteredList.length) : 0;
+        const meanPrice = total ? Math.round(priceSum / total) : 0;
         if (anAvgPrice) anAvgPrice.textContent = `$${meanPrice.toLocaleString()}`;
-        
-        const minPrice = filteredList.length ? Math.min(...stats.prices) : 0;
-        const maxPrice = filteredList.length ? Math.max(...stats.prices) : 0;
-        if (anPriceRange) anPriceRange.textContent = `$${minPrice.toLocaleString()} – $${maxPrice.toLocaleString()}`;
-        
+        if (anPriceRange) anPriceRange.textContent = total ? `$${minPrice.toLocaleString()} – $${maxPrice.toLocaleString()}` : '$0 – $0';
         if (anAvgPpsqft) anAvgPpsqft.textContent = `$${stats.medPpsqft}/sqft`;
         if (anMedianSqft) anMedianSqft.textContent = `${stats.medSqft.toLocaleString()} sqft`;
         if (anMedianLot) anMedianLot.textContent = `${stats.medLot.toLocaleString()} sqft`;
+        if (anFavCount) anFavCount.textContent = favs.toLocaleString();
+        if (anRatedCount) anRatedCount.textContent = rated.toLocaleString();
 
-        const favs = filteredList.filter(p => p.favorite).length;
-        const rated = filteredList.filter(p => (p.rating || 0) > 0).length;
-        if (anFavCount) anFavCount.textContent = favs;
-        if (anRatedCount) anRatedCount.textContent = rated;
-
-        // Price distribution
-        if (priceDistributionBars) {
-            priceDistributionBars.innerHTML = '';
-            const brackets = {
-                '< $375k': filteredList.filter(p => p.price < 375000).length,
-                '$375k–$425k': filteredList.filter(p => p.price >= 375000 && p.price < 425000).length,
-                '$425k–$475k': filteredList.filter(p => p.price >= 425000 && p.price < 475000).length,
-                '$475k–$550k': filteredList.filter(p => p.price >= 475000 && p.price < 550000).length,
-                '$550k+': filteredList.filter(p => p.price >= 550000).length,
-            };
-            const maxVal = Math.max(...Object.values(brackets), 1);
-            for (const [bracket, count] of Object.entries(brackets)) {
-                const pct = Math.round((count / maxVal) * 100);
+        const renderBarList = (container, entries, unit = 'homes') => {
+            if (!container) return;
+            container.textContent = '';
+            const maxVal = Math.max(...entries.map(([, count]) => count), 1);
+            const frag = document.createDocumentFragment();
+            for (const [label, count] of entries) {
+                const barPct = Math.round((count / maxVal) * 100);
+                const sharePct = total ? Math.round((count / total) * 100) : 0;
                 const item = document.createElement('div');
                 item.className = 'dist-bar-item';
                 item.innerHTML = `
                     <div class="dist-bar-label">
-                        <span>${bracket}</span>
-                        <strong class="mono">${count} homes</strong>
+                        <span>${escapeHtml(label)}</span>
+                        <strong class="mono">${count.toLocaleString()} ${unit} <span class="dist-share-pct">(${sharePct}%)</span></strong>
                     </div>
                     <div class="dist-track">
-                        <div class="dist-fill" style="width: ${pct}%;"></div>
+                        <div class="dist-fill" style="width: ${barPct}%;"></div>
                     </div>
                 `;
-                priceDistributionBars.appendChild(item);
+                frag.appendChild(item);
             }
-        }
+            container.appendChild(frag);
+        };
 
-        // City distribution
+        renderBarList(priceDistributionBars, Object.entries(brackets));
+
         if (cityDistributionList) {
-            cityDistributionList.innerHTML = '';
-            const cityCounts = {};
-            filteredList.forEach(p => {
-                const c = p.city || 'Other';
-                cityCounts[c] = (cityCounts[c] || 0) + 1;
-            });
             const sortedCities = Object.entries(cityCounts).sort((a, b) => b[1] - a[1]);
-            const visibleCities = sortedCities.slice(0, 12);
-            const otherCityCount = sortedCities.slice(12).reduce((sum, [, count]) => sum + count, 0);
+            const visibleCities = sortedCities.slice(0, 10).map(([city, count]) => [`${city}, WA`, count]);
+            const otherCityCount = sortedCities.slice(10).reduce((sum, [, count]) => sum + count, 0);
             if (otherCityCount > 0) visibleCities.push(['Other cities', otherCityCount]);
-
-            for (const [city, count] of visibleCities) {
-                const row = document.createElement('div');
-                row.className = 'city-dist-item';
-                row.innerHTML = `
-                    <span>${escapeHtml(city === 'Other cities' ? city : `${city}, WA`)}</span>
-                    <span class="city-count-badge mono">${count}</span>
-                `;
-                cityDistributionList.appendChild(row);
-            }
+            renderBarList(cityDistributionList, visibleCities, '');
         }
 
-        // Garage distribution
-        if (garageDistributionList) {
-            garageDistributionList.innerHTML = '';
-            const garageCounts = { '2 Car': 0, '3+ Car': 0, 'Other': 0, 'Unknown': 0 };
-            filteredList.forEach(p => {
-                if (!hasListingMetric(p, 'garage')) garageCounts['Unknown']++;
-                else if (p.garage >= 3) garageCounts['3+ Car']++;
-                else if (p.garage === 2) garageCounts['2 Car']++;
-                else garageCounts['Other']++;
-            });
-            for (const [g, count] of Object.entries(garageCounts)) {
-                const row = document.createElement('div');
-                row.className = 'city-dist-item';
-                row.innerHTML = `
-                    <span>${g}</span>
-                    <span class="city-count-badge mono">${count}</span>
-                `;
-                garageDistributionList.appendChild(row);
-            }
-        }
-
-        // Year distribution
-        if (yearDistributionList) {
-            yearDistributionList.innerHTML = '';
-            const yearCounts = {
-                'Pre-1990': filteredList.filter(p => hasListingMetric(p, 'year_built') && p.year_built < 1990).length,
-                '1990–2009': filteredList.filter(p => hasListingMetric(p, 'year_built') && p.year_built >= 1990 && p.year_built < 2010).length,
-                '2010+ (Modern)': filteredList.filter(p => hasListingMetric(p, 'year_built') && p.year_built >= 2010).length,
-                'Unknown': filteredList.filter(p => !hasListingMetric(p, 'year_built')).length,
-            };
-            for (const [y, count] of Object.entries(yearCounts)) {
-                const row = document.createElement('div');
-                row.className = 'city-dist-item';
-                row.innerHTML = `
-                    <span>${y}</span>
-                    <span class="city-count-badge mono">${count}</span>
-                `;
-                yearDistributionList.appendChild(row);
-            }
-        }
+        renderBarList(garageDistributionList, Object.entries(garageCounts));
+        renderBarList(yearDistributionList, Object.entries(yearCounts));
     }
 
     // -------------------------------------------------------------------------
@@ -4874,7 +4945,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (typeof data.favorite === 'boolean') property.favorite = data.favorite;
                 if (Number.isInteger(data.rating) && data.rating >= 0 && data.rating <= 5) property.rating = data.rating;
                 if (typeof data.user_notes === 'string') property.user_notes = data.user_notes;
-                property._searchCorpus = `${property.address} ${property.city} ${property.zip || ''} ${property.description || ''} ${property.user_notes || ''}`.toLowerCase();
+                delete property._searchCorpus;
             });
             applyFilters(false);
         }

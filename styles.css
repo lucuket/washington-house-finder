@@ -213,7 +213,7 @@ html, body {
     border-color: var(--brand-primary-light);
     color: var(--brand-primary);
     cursor: pointer;
-    transition: all 0.15s ease;
+    transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, opacity 0.15s ease;
     font-family: inherit;
 }
 
@@ -239,7 +239,7 @@ html, body {
     font-family: inherit;
     border-radius: var(--radius-md);
     cursor: pointer;
-    transition: all 0.15s ease;
+    transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, opacity 0.15s ease;
     border: 1px solid transparent;
     text-decoration: none;
     white-space: nowrap;
@@ -647,7 +647,7 @@ html, body {
     font-weight: 600;
     color: var(--text-secondary);
     cursor: pointer;
-    transition: all 0.12s ease;
+    transition: background-color 0.12s ease, border-color 0.12s ease, color 0.12s ease, opacity 0.12s ease;
 }
 
 .pill-btn:hover {
@@ -897,7 +897,7 @@ html, body {
     border: none;
     border-radius: var(--radius-sm);
     cursor: pointer;
-    transition: all 0.12s ease;
+    transition: background-color 0.12s ease, border-color 0.12s ease, color 0.12s ease, opacity 0.12s ease;
 }
 
 .view-tab-btn:hover {
@@ -998,8 +998,8 @@ html, body {
 
 #btn-close-map { min-height: 44px; flex-shrink: 0; }
 .map-panel-header > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.map-container-wrapper .leaflet-map-view { margin-top: 44px; height: calc(100% - 44px); }
-.map-container-wrapper .map-overlay-bar { top: 54px; }
+.map-container-wrapper .leaflet-map-view { top: 44px; height: calc(100% - 44px); }
+.map-container-wrapper .map-overlay-bar { top: 50px; }
 .view-split .cards-grid { grid-template-columns: repeat(auto-fill, minmax(min(100%, 290px), 1fr)); }
 
 .listing-source-link {
@@ -1446,7 +1446,7 @@ html, body {
     font-size: 11px;
     background-color: var(--bg-surface-secondary);
     border: 1px solid var(--border-subtle);
-    transition: all 0.15s ease;
+    transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, opacity 0.15s ease;
 }
 
 .card-broadband-block.fiber-ready-block {
@@ -1600,7 +1600,7 @@ html, body {
     border-radius: var(--radius-md);
     background: linear-gradient(135deg, var(--action-primary) 0%, #b91c1c 100%);
     box-shadow: 0 1px 4px rgba(200, 32, 38, 0.25);
-    transition: all 0.15s ease;
+    transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, opacity 0.15s ease;
     display: inline-flex;
     align-items: center;
     gap: 4px;
@@ -1653,9 +1653,9 @@ html, body {
 
 #leaflet-map {
     width: 100% !important;
-    height: 100% !important;
+    height: calc(100% - 44px) !important;
     position: absolute;
-    top: 0;
+    top: 44px;
     left: 0;
     right: 0;
     bottom: 0;
@@ -1682,16 +1682,19 @@ html, body {
 .map-region-pills {
     display: flex;
     align-items: center;
-    gap: 3px;
+    gap: 2px;
     background-color: var(--bg-surface);
     border: 1px solid var(--border-strong);
-    padding: 3px;
+    padding: 2px 3px;
     border-radius: var(--radius-full);
-    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
     pointer-events: auto;
     overflow-x: auto;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
     max-width: 100%;
 }
+.map-region-pills::-webkit-scrollbar { display: none; }
 
 .map-region-pill {
     padding: 4px 10px;
@@ -1702,7 +1705,7 @@ html, body {
     border: none;
     border-radius: var(--radius-full);
     cursor: pointer;
-    transition: all 0.15s ease;
+    transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, opacity 0.15s ease;
     white-space: nowrap;
 }
 
@@ -1749,7 +1752,7 @@ html, body {
     font-weight: 700;
     color: var(--text-secondary);
     cursor: pointer;
-    transition: all 0.15s ease;
+    transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, opacity 0.15s ease;
     white-space: nowrap;
 }
 
@@ -1827,7 +1830,7 @@ html, body {
     color: var(--text-secondary);
     box-shadow: var(--shadow-xs);
     cursor: pointer;
-    transition: all 0.15s ease;
+    transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, opacity 0.15s ease;
 }
 
 .btn-map-action:hover {
@@ -2027,7 +2030,7 @@ html, body {
     justify-content: center;
     cursor: pointer;
     font-size: 16px;
-    transition: all 0.12s ease;
+    transition: background-color 0.12s ease, border-color 0.12s ease, color 0.12s ease, opacity 0.12s ease;
 }
 
 .btn-drawer-nav:hover, .btn-drawer-close:hover {
@@ -2156,7 +2159,7 @@ html, body {
     border: 2px solid transparent;
     cursor: pointer;
     opacity: 0.7;
-    transition: all 0.15s ease;
+    transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, opacity 0.15s ease;
     flex-shrink: 0;
 }
 
@@ -2387,7 +2390,7 @@ html, body {
     background-color: var(--info-bg);
     color: var(--info-ink);
     border: 1px solid var(--info-border);
-    transition: all 0.15s ease;
+    transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, opacity 0.15s ease;
 }
 
 .btn-fcc-link:hover {
@@ -2593,7 +2596,7 @@ html, body {
     border-radius: var(--radius-sm);
     text-decoration: none;
     cursor: pointer;
-    transition: all 0.15s ease;
+    transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, opacity 0.15s ease;
     border: 1px solid transparent;
     font-family: inherit;
 }
@@ -2704,7 +2707,7 @@ html, body {
     color: var(--info-ink);
     border: 1px solid var(--info-border);
     text-decoration: none;
-    transition: all 0.15s ease;
+    transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, opacity 0.15s ease;
 }
 
 .btn-drawer-fcc-header:hover {
@@ -2727,7 +2730,7 @@ html, body {
     color: var(--info-ink);
     border: 1px solid var(--info-border);
     text-decoration: none;
-    transition: all 0.12s ease;
+    transition: background-color 0.12s ease, border-color 0.12s ease, color 0.12s ease, opacity 0.12s ease;
 }
 
 .card-fcc-action-btn:hover {
@@ -2776,7 +2779,7 @@ html, body {
     border: 1px solid var(--border-subtle);
     border-radius: var(--radius-md);
     cursor: pointer;
-    transition: all 0.15s ease;
+    transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, opacity 0.15s ease;
 }
 
 .similar-home-item:hover {
@@ -3741,7 +3744,7 @@ body.density-compact .card-price {
     font-weight: 600;
     color: var(--text-secondary);
     cursor: pointer;
-    transition: all 0.15s ease;
+    transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, opacity 0.15s ease;
 }
 
 .deal-pill:hover {
@@ -4044,7 +4047,7 @@ body.density-compact .card-price {
 
 .deal-eval-metrics-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 8px;
 }
 
