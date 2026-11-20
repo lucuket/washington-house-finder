@@ -174,6 +174,10 @@ document.addEventListener('DOMContentLoaded', () => {
     let userDataCache = null;
     let storageWarningShown = false;
 
+    // Shared fast number formatter (avoids repeated Intl / locale lookups in hot loops)
+    const NUM_FMT = typeof Intl !== 'undefined' ? new Intl.NumberFormat('en-US') : null;
+    const fmtInt = value => (NUM_FMT ? NUM_FMT.format(value) : value.toLocaleString());
+
     // Security & Sanitization Utilities
     function hasListingMetric(property, field) {
         if (!Number.isFinite(property[field])) return false;
@@ -696,7 +700,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const started = performance.now();
         const wanted = new Set();
         const newMarkers = [];
-        const fmt = typeof Intl !== 'undefined' ? new Intl.NumberFormat('en-US') : null;
+        const fmt = typeof NUM_FMT !== 'undefined' ? NUM_FMT : (typeof Intl !== 'undefined' ? new Intl.NumberFormat('en-US') : null);
         const fmtPrice = value => fmt ? fmt.format(value) : value.toLocaleString();
 
         for (let i = 0; i < propertiesToDisplay.length; i++) {
@@ -706,7 +710,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const existing = markerInstances[p.id];
                 const markerKey = `${p.latitude},${p.longitude}:${p.price}:${!!p.favorite}`;
                 if (existing?._listingKey === markerKey) continue;
-                const formattedPrice = '$' + Math.round(p.price / 1000) + 'k';
+                const formattedPrice = p._shortPrice || (p._shortPrice = '$' + Math.round(p.price / 1000) + 'k');
                 const isFavorited = p.favorite ? '♥ ' : '';
 
                 const customIcon = L.divIcon({
@@ -750,17 +754,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 delete markerInstances[id];
             }
         }
-        if (removed.length && markersLayer.removeLayers) markersLayer.removeLayers(removed);
-        else removed.forEach(marker => markersLayer.removeLayer(marker));
-        if (newMarkers.length && typeof markersLayer.addLayers === 'function') {
-            markersLayer.addLayers(newMarkers);
-        } else {
-            newMarkers.forEach(m => markersLayer.addLayer(m));
+        if (removed.length) {
+            if (markersLayer.removeLayers) markersLayer.removeLayers(removed);
+            else removed.forEach(marker => markersLayer.removeLayer(marker));
+        }
+        if (newMarkers.length) {
+            if (typeof markersLayer.addLayers === 'function') markersLayer.addLayers(newMarkers);
+            else newMarkers.forEach(m => markersLayer.addLayer(m));
         }
 
         if (mapMarkerCount) {
             const unmapped = propertiesToDisplay.length - wanted.size;
-            mapMarkerCount.textContent = `${fmtPrice(wanted.size)} mapped${unmapped ? ` · ${unmapped} without coordinates` : ''}`;
+            mapMarkerCount.textContent = `${fmtPrice(wanted.size)} mapped${unmapped ? ` · ${unmapped} unmapped` : ''}`;
         }
         document.getElementById('leaflet-map').dataset.updateMs = (performance.now() - started).toFixed(2);
     }
@@ -1463,6 +1468,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (!(p.id in activePhotoIndices)) activePhotoIndices[p.id] = 0;
                 p._ppsqft = Math.round(p.price / Math.max(1, p.sqft));
                 p._cityLower = (p.city || '').toLowerCase();
+                p._shortPrice = '$' + Math.round(p.price / 1000) + 'k';
             });
 
             try {
@@ -1707,6 +1713,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const orderedCards = [];
         const displayBatch = filteredProperties.slice(0, currentCardLimit);
         const assumptionsKey = JSON.stringify(mortgageAssumptions);
+        const fmt = typeof fmtInt === 'function' ? fmtInt : (v => v.toLocaleString());
 
         displayBatch.forEach(p => {
             const previous = existingCards.get(`card-${p.id}`);
@@ -1725,12 +1732,17 @@ document.addEventListener('DOMContentLoaded', () => {
             card._listing = p;
             card._renderKey = renderKey;
             card._broadbandVersion = broadbandVersion;
-            card.setAttribute('aria-label', `${p.address}, ${p.city}, WA. Listing price $${p.price.toLocaleString()}`);
+            card.setAttribute('aria-label', `${p.address}, ${p.city}, WA. Listing price $${fmt(p.price)}`);
 
             const photoIdx = activePhotoIndices[p.id] || 0;
             const currentPhoto = safePhotoSrc(p.photos[photoIdx], 600);
             const totalPhotos = p.photos.length || 1;
-            const ppsqft = Math.round(p.price / Math.max(1, p.sqft));
+            const hasSqft = hasListingMetric(p, 'sqft') && p.sqft > 0;
+            const hasLot = hasListingMetric(p, 'lot_sqft');
+            const hasYear = hasListingMetric(p, 'year_built');
+            const hasHoa = hasListingMetric(p, 'hoa');
+            const hasGarage = hasListingMetric(p, 'garage');
+            const ppsqft = hasSqft ? Math.round(p.price / p.sqft) : 0;
             const estMonthly = calculateEstimatedMonthly(p.price, p.hoa);
             const isCompared = comparisonSet.has(p.id);
             const scoreVal = p._score ? p._score.total : 80;
@@ -1738,20 +1750,18 @@ document.addEventListener('DOMContentLoaded', () => {
             const dealEval = computeExecutiveDealEvaluation(p);
             const isTopDeal = dealEval && dealEval.dealScore >= 85;
 
-            // Stars HTML
             let starsHtml = '';
             for (let i = 1; i <= 5; i++) {
                 const filledClass = i <= (p.rating || 0) ? 'filled' : '';
                 starsHtml += `<button class="star ${filledClass}" data-rate="${i}" title="Rate ${i} stars" aria-label="Rate ${i} stars" aria-pressed="${i === (p.rating || 0)}">★</button>`;
             }
 
-            // On cards, show distinctive differential value signals (e.g. $/sqft vs median) without repeating basic specs
             let signalsHtml = '';
             signals.filter(s => s.label.includes('median')).forEach(s => {
                 signalsHtml += `<span class="chip chip-signal-${s.type}">${s.label}</span>`;
             });
 
-            const acres = (p.lot_sqft / 43560).toFixed(2);
+            const acres = hasLot ? (p.lot_sqft / 43560).toFixed(2) : '';
             const safeAddr = escapeHtml(p.address);
             const safeCity = escapeHtml(p.city);
             const safeZip = escapeHtml(p.zip || '');
@@ -1768,9 +1778,9 @@ document.addEventListener('DOMContentLoaded', () => {
                         ${isTopDeal ? `<span class="card-deal-badge" title="${escapeHtml(dealEval.gradeLabel)}">TOP DEAL</span>` : ''}
                     </div>
                     <span class="card-score-badge mono" title="Smart Shortlist Score: ${scoreVal}/100">Score ${scoreVal}</span>
-                    
+
                     <button class="card-favorite-btn ${p.favorite ? 'favorited' : ''}" data-id="${p.id}" title="${p.favorite ? 'Remove from shortlist' : 'Save to shortlist'}" aria-label="Toggle favorite" aria-pressed="${!!p.favorite}">
-                        <svg viewBox="0 0 24 24" width="16" height="16" fill="${p.favorite ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2">
+                        <svg viewBox="0 0 24 24" width="15" height="15" fill="${p.favorite ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2">
                             <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
                         </svg>
                     </button>
@@ -1786,40 +1796,42 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 <div class="card-body">
                     <div class="card-price-row">
-                        <span class="card-price mono">$${p.price.toLocaleString()}</span>
-                        <button type="button" class="card-mortgage-badge mono" data-id="${p.id}" title="${hasListingMetric(p, 'hoa') ? 'View payment assumptions and breakdown' : 'Estimate assumes $0 HOA because dues are unknown'}">Est. $${estMonthly.total.toLocaleString()}/mo${hasListingMetric(p, 'hoa') ? "" : "*"}</button>
+                        <span class="card-price mono">$${fmt(p.price)}</span>
+                        <button type="button" class="card-mortgage-badge mono" data-id="${p.id}" title="${hasHoa ? 'View payment assumptions and breakdown' : 'Estimate assumes $0 HOA because dues are unknown'}">Est. $${fmt(estMonthly.total)}/mo${hasHoa ? '' : '*'}</button>
                     </div>
 
                     <div class="card-address-block">
                         <strong class="card-street" title="${safeAddr}">${safeAddr}</strong>
-                        <span class="card-city-zip">${safeCity}, WA ${safeZip}</span>
-                        <a class="listing-source-link" href="${safeUrl(p.url)}" target="_blank" rel="noopener noreferrer" aria-label="View ${safeAddr} on Realtor.com (opens in a new tab)">View home on Realtor.com ↗</a>
+                        <div class="card-city-row">
+                            <span class="card-city-zip">${safeCity}, WA ${safeZip}</span>
+                            <a class="listing-source-link" href="${safeUrl(p.url)}" target="_blank" rel="noopener noreferrer" aria-label="View ${safeAddr} on Realtor.com (opens in a new tab)">Realtor.com ↗</a>
+                        </div>
                     </div>
 
                     <div class="card-specs-grid">
                         <div class="spec-item">
-                            <span class="spec-val mono">${listingMetric(p, 'beds')}</span>
+                            <span class="spec-val mono${hasListingMetric(p, 'beds') ? '' : ' is-unknown'}">${listingMetric(p, 'beds')}</span>
                             <span class="spec-lbl">Beds</span>
                         </div>
                         <div class="spec-item">
-                            <span class="spec-val mono">${listingMetric(p, 'baths')}</span>
+                            <span class="spec-val mono${hasListingMetric(p, 'baths') ? '' : ' is-unknown'}">${listingMetric(p, 'baths')}</span>
                             <span class="spec-lbl">Baths</span>
                         </div>
                         <div class="spec-item">
-                            <span class="spec-val mono">${listingMetric(p, 'sqft')}</span>
+                            <span class="spec-val mono${hasSqft ? '' : ' is-unknown'}">${listingMetric(p, 'sqft')}</span>
                             <span class="spec-lbl">SqFt</span>
                         </div>
                         <div class="spec-item">
-                            <span class="spec-val mono">${listingMetric(p, 'garage', ' Car')}</span>
+                            <span class="spec-val mono${hasGarage ? '' : ' is-unknown'}">${listingMetric(p, 'garage', ' Car')}</span>
                             <span class="spec-lbl">Garage</span>
                         </div>
                     </div>
 
                     <dl class="card-research-facts">
-                        <div><dt>Price / sqft</dt><dd class="mono">${hasListingMetric(p, 'sqft') && p.sqft > 0 ? `$${ppsqft}` : 'Unknown'}</dd></div>
-                        <div title="${listingMetric(p, 'lot_sqft', ' sqft')}"><dt>Lot size</dt><dd class="mono">${hasListingMetric(p, 'lot_sqft') ? `${acres} ac` : 'Unknown'}</dd></div>
-                        <div><dt>Year built</dt><dd class="mono">${listingMetric(p, 'year_built')}</dd></div>
-                        <div><dt>HOA / mo</dt><dd class="mono">${hasListingMetric(p, 'hoa') ? `$${p.hoa.toLocaleString()}` : 'Unknown'}</dd></div>
+                        <div><dt>Price / sqft</dt><dd class="mono${hasSqft ? '' : ' is-unknown'}">${hasSqft ? `$${ppsqft}` : 'Unknown'}</dd></div>
+                        <div title="${listingMetric(p, 'lot_sqft', ' sqft')}"><dt>Lot size</dt><dd class="mono${hasLot ? '' : ' is-unknown'}">${hasLot ? `${acres} ac` : 'Unknown'}</dd></div>
+                        <div><dt>Year built</dt><dd class="mono${hasYear ? '' : ' is-unknown'}">${listingMetric(p, 'year_built')}</dd></div>
+                        <div><dt>HOA / mo</dt><dd class="mono${hasHoa ? '' : ' is-unknown'}">${hasHoa ? `$${fmt(p.hoa)}` : 'Unknown'}</dd></div>
                     </dl>
                     ${signalsHtml ? `<div class="card-value-signals">${signalsHtml}</div>` : ''}
 
@@ -1829,15 +1841,11 @@ document.addEventListener('DOMContentLoaded', () => {
                         <div class="card-star-rating" data-id="${p.id}" title="Set rating">
                             ${starsHtml}
                         </div>
-                        <div style="display: flex; gap: 5px; align-items: center;">
-                            <a href="${safeFccUrl}" target="_blank" rel="noopener noreferrer" class="card-fcc-action-btn" onclick="event.stopPropagation();" title="Open ${safeAddr} on official FCC National Broadband Map">
-                                <span>FCC ↗</span>
-                            </a>
-                            <a href="${safeUrl(svUrl)}" target="_blank" rel="noopener noreferrer" class="card-fcc-action-btn card-sv-action-btn" onclick="event.stopPropagation();" title="Inspect utility pole and exterior ONT in Google Street View">
-                                <span>SV ↗</span>
-                            </a>
+                        <div class="card-utility-links">
+                            <a href="${safeFccUrl}" target="_blank" rel="noopener noreferrer" class="card-fcc-action-btn" onclick="event.stopPropagation();" title="Open ${safeAddr} on official FCC National Broadband Map">FCC ↗</a>
+                            <a href="${safeUrl(svUrl)}" target="_blank" rel="noopener noreferrer" class="card-fcc-action-btn card-sv-action-btn" onclick="event.stopPropagation();" title="Inspect utility pole and exterior ONT in Google Street View">SV ↗</a>
                             <button class="card-note-trigger ${p.user_notes ? 'has-note' : ''}" data-id="${p.id}" title="Edit private notes">
-                                <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                                <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
                                 <span>Note</span>
                             </button>
                         </div>
@@ -1855,52 +1863,79 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
             `;
 
+            if (typeof card.querySelector === 'function') {
+                const favBtn = card.querySelector('.card-favorite-btn');
+                card._refs = {
+                    favorite: favBtn,
+                    favoriteSvg: favBtn?.querySelector?.('svg') || null,
+                    stars: card.querySelectorAll ? [...card.querySelectorAll('.star')] : [],
+                    note: card.querySelector('.card-note-trigger'),
+                    score: card.querySelector('.card-score-badge'),
+                    mortgage: card.querySelector('.card-mortgage-badge')
+                };
+            }
+
             orderedCards.push(card);
         });
 
-        // Add Load More button if more cards exist
         if (filteredProperties.length > currentCardLimit) {
             const loadMoreWrapper = document.createElement('div');
             loadMoreWrapper.className = 'load-more-container';
-            loadMoreWrapper.style.gridColumn = '1 / -1';
-            loadMoreWrapper.style.textAlign = 'center';
-            loadMoreWrapper.style.padding = '20px 0';
             loadMoreWrapper.innerHTML = `
-                <button class="btn btn-secondary" id="btn-load-more-cards" style="padding: 10px 24px; font-weight: 700; font-size: 13px;">
-                    Load More Listings (Showing ${displayBatch.length} of ${filteredProperties.length})
+                <button class="btn btn-secondary" id="btn-load-more-cards">
+                    Load More Listings (Showing ${fmt(displayBatch.length)} of ${fmt(filteredProperties.length)})
                 </button>
             `;
             orderedCards.push(loadMoreWrapper);
         }
 
         const wantedCards = new Set(orderedCards);
-        [...cardsGrid.children].forEach(card => { if (!wantedCards.has(card)) card.remove(); });
-        orderedCards.forEach((card, index) => {
-            if (cardsGrid.children[index] !== card) cardsGrid.insertBefore(card, cardsGrid.children[index] || null);
-        });
+        if (existingCards.size === 0 && typeof document.createDocumentFragment === 'function') {
+            const frag = document.createDocumentFragment();
+            orderedCards.forEach(card => frag.appendChild(card));
+            cardsGrid.replaceChildren(frag);
+        } else {
+            [...cardsGrid.children].forEach(card => { if (!wantedCards.has(card)) card.remove(); });
+            orderedCards.forEach((card, index) => {
+                if (cardsGrid.children[index] !== card) cardsGrid.insertBefore(card, cardsGrid.children[index] || null);
+            });
+        }
         cardsGrid.dataset.renderMs = (performance.now() - started).toFixed(2);
     }
 
     function updateExistingCard(card, p) {
         if (card._broadbandVersion !== broadbandVersion) {
-            card.querySelector('.card-broadband-block').outerHTML = renderCardBroadbandHtml(p);
+            const bbEl = card.querySelector('.card-broadband-block');
+            if (bbEl) bbEl.outerHTML = renderCardBroadbandHtml(p);
             card._broadbandVersion = broadbandVersion;
         }
-        const favorite = card.querySelector('.card-favorite-btn');
-        favorite.classList.toggle('favorited', !!p.favorite);
-        favorite.setAttribute('aria-pressed', String(!!p.favorite));
-        favorite.title = p.favorite ? 'Remove from shortlist' : 'Save to shortlist';
-        favorite.querySelector('svg').setAttribute('fill', p.favorite ? 'currentColor' : 'none');
-        card.querySelectorAll('.star').forEach(star => {
+        const refs = card._refs;
+        const favorite = refs?.favorite || card.querySelector('.card-favorite-btn');
+        if (favorite) {
+            favorite.classList.toggle('favorited', !!p.favorite);
+            favorite.setAttribute('aria-pressed', String(!!p.favorite));
+            favorite.title = p.favorite ? 'Remove from shortlist' : 'Save to shortlist';
+            const favSvg = refs?.favoriteSvg || favorite.querySelector('svg');
+            if (favSvg) favSvg.setAttribute('fill', p.favorite ? 'currentColor' : 'none');
+        }
+        const stars = refs?.stars || card.querySelectorAll('.star');
+        stars.forEach(star => {
             const filled = Number(star.dataset.rate) <= (p.rating || 0);
             star.classList.toggle('filled', filled);
             star.setAttribute('aria-pressed', String(Number(star.dataset.rate) === p.rating));
         });
-        card.querySelector('.card-note-trigger').classList.toggle('has-note', !!p.user_notes);
-        const score = card.querySelector('.card-score-badge');
-        score.textContent = `Score ${p._score?.total || 0}`;
-        score.title = `Smart Shortlist Score: ${p._score?.total || 0}/100`;
-        card.querySelector('.card-mortgage-badge').textContent = `Est. $${calculateEstimatedMonthly(p.price, p.hoa).total.toLocaleString()}/mo${hasListingMetric(p, 'hoa') ? '' : '*'}`;
+        const noteBtn = refs?.note || card.querySelector('.card-note-trigger');
+        if (noteBtn) noteBtn.classList.toggle('has-note', !!p.user_notes);
+        const score = refs?.score || card.querySelector('.card-score-badge');
+        if (score) {
+            score.textContent = `Score ${p._score?.total || 0}`;
+            score.title = `Smart Shortlist Score: ${p._score?.total || 0}/100`;
+        }
+        const mortgage = refs?.mortgage || card.querySelector('.card-mortgage-badge');
+        if (mortgage) {
+            const fmt = typeof fmtInt === 'function' ? fmtInt : (v => v.toLocaleString());
+            mortgage.textContent = `Est. $${fmt(calculateEstimatedMonthly(p.price, p.hoa).total)}/mo${hasListingMetric(p, 'hoa') ? '' : '*'}`;
+        }
     }
 
     function toggleComparison(propId, shouldAdd, checkboxEl = null) {
@@ -2223,7 +2258,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function getCardBroadbandSummary(prop) {
         const regional = getRegionalBroadbandDetails(prop);
         if (broadbandLoading) return {
-            isCableOnly: false, badgeClass: 'badge-fiber-ready', badgeText: 'Loading coverage…',
+            blockClass: 'unverified-block', isCableOnly: false, badgeClass: 'badge-unverified', badgeText: 'Loading coverage…',
             badgeTitle: 'Loading saved broadband coverage; address service remains unverified.',
             speedText: '', providersText: 'Saved coverage loading', fccUrl: regional.fccMapUrl
         };
@@ -2233,10 +2268,13 @@ document.addEventListener('DOMContentLoaded', () => {
             const cable = nearbyProviders(nearby, 'cable');
             const wireline = [...fiber, ...cable];
             const speed = nearbySpeed(wireline, 'download_mbps');
+            const hasFiber = fiber.length > 0;
+            const hasCable = cable.length > 0;
             return {
-                isCableOnly: !fiber.length && !!cable.length,
-                badgeClass: fiber.length ? 'badge-fiber-ready' : 'badge-cable-only',
-                badgeText: fiber.length ? 'Fiber nearby' : cable.length ? 'Cable nearby' : 'Wireline unverified',
+                blockClass: hasFiber ? 'fiber-ready-block' : hasCable ? 'cable-only-block' : 'unverified-block',
+                isCableOnly: !hasFiber && hasCable,
+                badgeClass: hasFiber ? 'badge-fiber-ready' : hasCable ? 'badge-cable-only' : 'badge-unverified',
+                badgeText: hasFiber ? 'Fiber nearby' : hasCable ? 'Cable nearby' : 'Wireline unverified',
                 badgeTitle: 'ISPMap neighborhood cell; service at this address is unverified',
                 speedText: !wireline.length ? 'No wireline nearby' : speed.endsWith(' Mbps') ? `Up to ${speed}` : speed,
                 providersText: wireline.length ? [...new Set(wireline.map(p => p.name))].join(', ') : 'Verify at address',
@@ -2249,8 +2287,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const coverage = city ? `${fiberPct}% of city homes` : 'Not in FCC city table';
         const hasCityFiber = Boolean(city && fiberPct > 0);
         return {
+            blockClass: hasCityFiber ? 'fiber-ready-block' : 'unverified-block',
             isCableOnly: !hasCityFiber,
-            badgeClass: hasCityFiber ? 'badge-fiber-ready' : 'badge-cable-only',
+            badgeClass: hasCityFiber ? 'badge-fiber-ready' : 'badge-unverified',
             badgeText: city ? (hasCityFiber ? 'City fiber coverage' : 'No city fiber reported') : 'City data unavailable',
             badgeTitle: 'FCC city-level residential coverage at 100 Mbps or faster; not address verification',
             speedText: coverage,
@@ -2266,7 +2305,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // -------------------------------------------------------------------------
     function renderCardBroadbandHtml(prop) {
         const summary = getCardBroadbandSummary(prop);
-        return `<div class="card-broadband-block ${summary.isCableOnly ? 'cable-only-block' : 'fiber-ready-block'}">
+        const blockClass = summary.blockClass || (summary.isCableOnly ? 'cable-only-block' : 'fiber-ready-block');
+        return `<div class="card-broadband-block ${blockClass}">
             <div class="bb-card-top-row">
                 <span class="bb-type-pill ${summary.badgeClass}" title="${escapeHtml(summary.badgeTitle)}">${escapeHtml(summary.badgeText)}</span>
                 <span class="bb-speed-tag mono" title="${escapeHtml(summary.badgeTitle)}">${escapeHtml(summary.speedText)}</span>
@@ -2441,7 +2481,7 @@ document.addEventListener('DOMContentLoaded', () => {
         drawerImgTot.textContent = totalPhotos;
         preloadAdjacentPhoto(prop.photos, photoIdx);
 
-        drawerThumbnailsStrip.innerHTML = '';
+        const thumbFrag = document.createDocumentFragment();
         prop.photos.forEach((src, idx) => {
             const thumb = document.createElement('img');
             thumb.src = thumbUrl(src, 160);
@@ -2451,24 +2491,12 @@ document.addEventListener('DOMContentLoaded', () => {
             thumb.height = 64;
             thumb.tabIndex = 0;
             thumb.setAttribute('role', 'button');
-            thumb.addEventListener('keydown', event => {
-                if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); thumb.click(); }
-            });
+            thumb.dataset.idx = String(idx);
             thumb.className = `drawer-thumb ${idx === photoIdx ? 'active' : ''}`;
             thumb.alt = `Photo ${idx + 1}`;
-            thumb.addEventListener('click', () => {
-                activePhotoIndices[prop.id] = idx;
-                applySafeImgSrc(drawerActiveImg, src);
-                drawerImgCur.textContent = idx + 1;
-                drawerThumbnailsStrip.querySelectorAll('.drawer-thumb').forEach((t, i) => t.classList.toggle('active', i === idx));
-                const cardImg = document.getElementById(`img-${prop.id}`);
-                const cardCounter = document.getElementById(`counter-${prop.id}`);
-                if (cardImg) applySafeImgSrc(cardImg, src, 600);
-                if (cardCounter) cardCounter.innerHTML = `<span>${idx + 1}/${prop.photos.length}</span>`;
-                preloadAdjacentPhoto(prop.photos, idx);
-            });
-            drawerThumbnailsStrip.appendChild(thumb);
+            thumbFrag.appendChild(thumb);
         });
+        drawerThumbnailsStrip.replaceChildren(thumbFrag);
 
         // Price & Monthly Estimation
         drawerPrice.textContent = `$${prop.price.toLocaleString()}`;
@@ -2739,10 +2767,10 @@ document.addEventListener('DOMContentLoaded', () => {
             if (i < propArray.length) {
                 const p = propArray[i];
                 const safeAddr = escapeHtml(p.address);
-                const safePhoto = safePhotoSrc(p.photos?.[0] || '', 400);
+                const safePhoto = safePhotoSrc(p.photos?.[0] || '', 600);
                 slot.classList.add('filled');
                 slot.innerHTML = `
-                    <img src="${safePhoto}" alt="${safeAddr}" class="dock-thumb-img" title="${safeAddr} ($${p.price.toLocaleString()})" loading="lazy" onerror="if(!this.dataset.fallback){this.dataset.fallback='1';this.src='${PHOTO_PLACEHOLDER}';}">
+                    <img src="${safePhoto}" alt="${safeAddr}" class="dock-thumb-img" title="${safeAddr} ($${p.price.toLocaleString()})" decoding="async" onerror="if(!this.dataset.fallback){this.dataset.fallback='1';this.src='${PHOTO_PLACEHOLDER}';}">
                     <button class="dock-thumb-remove" data-id="${escapeHtml(p.id)}" title="Remove" aria-label="Remove">✕</button>
                 `;
             } else {
@@ -2791,7 +2819,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             const safePhoto = cleanPhoto !== '#' ? cleanPhoto : PHOTO_PLACEHOLDER;
                             return `
                             <td>
-                                <img src="${safePhoto}" class="comp-img-header" alt="${safeAddr}" loading="lazy" onerror="if(!this.dataset.fallback){this.dataset.fallback='1';this.src='${PHOTO_PLACEHOLDER}';}">
+                                <img src="${safePhoto}" class="comp-img-header" alt="${safeAddr}" decoding="async" onerror="if(!this.dataset.fallback){this.dataset.fallback='1';this.src='${PHOTO_PLACEHOLDER}';}">
                                 <div class="comp-price">$${p.price.toLocaleString()}</div>
                                 <strong>${safeAddr}</strong><br>
                                 <span style="font-size: 11px; color: var(--text-secondary);">${safeCity}, WA ${safeZip}</span>
@@ -3677,14 +3705,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
             `;
 
-            card.querySelector('.deal-open-drawer-btn').addEventListener('click', () => {
-                openPropertyDrawer(p.id);
-            });
-
-            card.querySelector('.compare-check').addEventListener('change', (e) => {
-                toggleComparison(p.id, e.target.checked, e.target);
-            });
-
             fragment.appendChild(card);
         });
 
@@ -3777,12 +3797,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     <p class="odd-specs">${listingMetric(p, 'beds')} beds · ${listingMetric(p, 'baths')} baths · ${listingMetric(p, 'sqft')} sqft · Built ${listingMetric(p, 'year_built')}<br>${hasListingMetric(p, 'lot_sqft') ? `${(p.lot_sqft / 43560).toFixed(2)} ac lot` : 'Lot unknown'} · ${hasListingMetric(p, 'garage') ? listingMetric(p, 'garage', '-car garage') : 'Garage unknown'} · ${listingHoa(p)}</p>
                     <div class="odd-evidence"><span>From the listing</span><blockquote>“${feature.leadingTrim ? '…' : ''}${escapeHtml(feature.evidence)}${feature.trailingTrim ? '…' : ''}”</blockquote></div>
                     ${feature.note ? `<p class="odd-feature-note">${escapeHtml(feature.note)}</p>` : ''}
-                    <div class="odd-card-actions"><label class="compare-checkbox-label"><input type="checkbox" class="compare-check" data-id="${escapeHtml(p.id)}" ${comparisonSet.has(p.id) ? 'checked' : ''}><span>Compare</span></label><button class="btn btn-secondary btn-sm odd-open-details">Take a look ↗</button></div>
+                    <div class="odd-card-actions"><label class="compare-checkbox-label"><input type="checkbox" class="compare-check" data-id="${escapeHtml(p.id)}" aria-label="Compare ${address}" ${comparisonSet.has(p.id) ? 'checked' : ''}><span>Compare</span></label><button class="btn btn-secondary btn-sm odd-open-details" data-id="${escapeHtml(p.id)}">Take a look ↗</button></div>
                 </div>`;
-            card.querySelector('.odd-open-details').addEventListener('click', () => openPropertyDrawer(p.id));
-            const checkbox = card.querySelector('input');
-            checkbox.setAttribute('aria-label', `Compare ${p.address}`);
-            checkbox.addEventListener('change', () => toggleComparison(p.id, checkbox.checked, checkbox));
             fragment.appendChild(card);
         });
         oddFindsGrid.appendChild(fragment);
@@ -4258,12 +4274,13 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
 
-        let sliderDebounceTimer = null;
-        function triggerFilterDebounced(delay = 40) {
-            clearTimeout(sliderDebounceTimer);
-            sliderDebounceTimer = setTimeout(() => {
+        let sliderRafId = null;
+        function triggerFilterDebounced() {
+            if (sliderRafId !== null) return;
+            sliderRafId = requestAnimationFrame(() => {
+                sliderRafId = null;
                 applyFilters();
-            }, delay);
+            });
         }
 
         // Price Dual Sliders
@@ -4717,6 +4734,56 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         if (btnDrawerImgNext) {
             btnDrawerImgNext.addEventListener('click', () => stepDrawerPhoto(1));
+        }
+        if (drawerThumbnailsStrip) {
+            const selectDrawerThumb = (thumb) => {
+                if (!thumb || !selectedPropId) return;
+                const prop = getPropertyById(selectedPropId);
+                const idx = parseInt(thumb.dataset.idx, 10);
+                if (!prop || !Array.isArray(prop.photos) || !Number.isInteger(idx) || !prop.photos[idx]) return;
+                const src = prop.photos[idx];
+                activePhotoIndices[prop.id] = idx;
+                applySafeImgSrc(drawerActiveImg, src);
+                if (drawerImgCur) drawerImgCur.textContent = idx + 1;
+                drawerThumbnailsStrip.querySelectorAll('.drawer-thumb').forEach((t, i) => t.classList.toggle('active', i === idx));
+                const cardImg = document.getElementById(`img-${prop.id}`);
+                const cardCounter = document.getElementById(`counter-${prop.id}`);
+                if (cardImg) applySafeImgSrc(cardImg, src, 600);
+                if (cardCounter) cardCounter.innerHTML = `<span>${idx + 1}/${prop.photos.length}</span>`;
+                preloadAdjacentPhoto(prop.photos, idx);
+            };
+            drawerThumbnailsStrip.addEventListener('click', (e) => {
+                selectDrawerThumb(e.target.closest('.drawer-thumb'));
+            });
+            drawerThumbnailsStrip.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    const thumb = e.target.closest('.drawer-thumb');
+                    if (thumb) {
+                        e.preventDefault();
+                        selectDrawerThumb(thumb);
+                    }
+                }
+            });
+        }
+        if (dealsEvaluationGrid) {
+            dealsEvaluationGrid.addEventListener('click', (e) => {
+                const btn = e.target.closest('.deal-open-drawer-btn');
+                if (btn?.dataset.id) openPropertyDrawer(btn.dataset.id);
+            });
+            dealsEvaluationGrid.addEventListener('change', (e) => {
+                const chk = e.target.closest('.compare-check');
+                if (chk?.dataset.id) toggleComparison(chk.dataset.id, chk.checked, chk);
+            });
+        }
+        if (oddFindsGrid) {
+            oddFindsGrid.addEventListener('click', (e) => {
+                const btn = e.target.closest('.odd-open-details');
+                if (btn?.dataset.id) openPropertyDrawer(btn.dataset.id);
+            });
+            oddFindsGrid.addEventListener('change', (e) => {
+                const chk = e.target.closest('.compare-check');
+                if (chk?.dataset.id) toggleComparison(chk.dataset.id, chk.checked, chk);
+            });
         }
         if (btnDrawerFullscreen) {
             btnDrawerFullscreen.addEventListener('click', () => {

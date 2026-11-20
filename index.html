@@ -28,9 +28,9 @@
     <link rel="stylesheet" href="vendor/markercluster/MarkerCluster.css">
     <link rel="stylesheet" href="vendor/markercluster/MarkerCluster.Default.css">
 
-    <!-- Application Stylesheet -->
-    <link rel="stylesheet" href="styles.css?v=20261118-opt1">
-    <link rel="stylesheet" href="theme.css?v=20261118-opt1">
+    <!-- Application Stylesheets (Tokens first, then layout & components) -->
+    <link rel="stylesheet" href="theme.css?v=20261120-overhaul2">
+    <link rel="stylesheet" href="styles.css?v=20261120-overhaul2">
     <script>
         // Start fetching the compact listing bundle immediately while CSS/JS parse.
         (() => {
@@ -523,35 +523,23 @@
 
                         <!-- Gallery Cards Grid -->
                         <div class="cards-grid" id="cards-grid" role="region" aria-label="Property Listings Grid">
-                            <!-- Dynamically populated via app.js -->
+                            <!-- Zero-CLS initial skeletons replaced on load -->
+                            <div class="skeleton-card" aria-hidden="true"><div class="skeleton-media"></div><div class="skeleton-body"><div class="skeleton-line w-60"></div><div class="skeleton-line w-80"></div><div class="skeleton-line w-100"></div></div></div>
+                            <div class="skeleton-card" aria-hidden="true"><div class="skeleton-media"></div><div class="skeleton-body"><div class="skeleton-line w-60"></div><div class="skeleton-line w-80"></div><div class="skeleton-line w-100"></div></div></div>
+                            <div class="skeleton-card" aria-hidden="true"><div class="skeleton-media"></div><div class="skeleton-body"><div class="skeleton-line w-60"></div><div class="skeleton-line w-80"></div><div class="skeleton-line w-100"></div></div></div>
+                            <div class="skeleton-card" aria-hidden="true"><div class="skeleton-media"></div><div class="skeleton-body"><div class="skeleton-line w-60"></div><div class="skeleton-line w-80"></div><div class="skeleton-line w-100"></div></div></div>
+                            <div class="skeleton-card" aria-hidden="true"><div class="skeleton-media"></div><div class="skeleton-body"><div class="skeleton-line w-60"></div><div class="skeleton-line w-80"></div><div class="skeleton-line w-100"></div></div></div>
+                            <div class="skeleton-card" aria-hidden="true"><div class="skeleton-media"></div><div class="skeleton-body"><div class="skeleton-line w-60"></div><div class="skeleton-line w-80"></div><div class="skeleton-line w-100"></div></div></div>
                         </div>
                     </div>
 
-                    <div class="map-resize-handle" id="map-resize-handle" role="separator" tabindex="0" aria-label="Resize listings and map" aria-controls="cards-container-wrapper map-container-wrapper" aria-orientation="vertical" aria-valuemin="30" aria-valuemax="75" aria-valuenow="60" aria-valuetext="Listings 60%, map 40%" title="Drag to resize listings and map, or use arrow keys"></div>
+                    <div class="map-resize-handle" id="map-resize-handle" role="separator" tabindex="0" aria-label="Resize listings and map" aria-controls="cards-container-wrapper map-container-wrapper" aria-orientation="vertical" aria-valuemin="30" aria-valuemax="75" aria-valuenow="58" aria-valuetext="Listings 58%, map 42%" title="Drag to resize listings and map, or use arrow keys"></div>
 
                     <!-- Map Column -->
                     <div class="map-container-wrapper" id="map-container-wrapper">
                         <div class="map-panel-header">
-                            <span>Washington map <span id="map-marker-count" class="map-marker-count"></span></span>
-                            <button class="btn btn-secondary btn-sm" id="btn-close-map" aria-label="Close map and show more listings">Close map &times;</button>
-                        </div>
-                        <div id="leaflet-map" class="leaflet-map-view" role="application" aria-label="Interactive Washington Map"></div>
-                        
-                        <!-- Map Overlay Controls Toolbar -->
-                        <div class="map-overlay-bar">
-                            <!-- Quick Jump WA Region Pills -->
-                            <div class="map-region-pills" id="map-region-pills" role="toolbar" aria-label="Washington Regions">
-                                <button class="map-region-pill active" data-region="all" title="View Full Washington State">All WA</button>
-                                <button class="map-region-pill" data-region="everett" title="Zoom to Everett / Snohomish County">Everett / North Sound</button>
-                                <button class="map-region-pill" data-region="puget-sound" title="Zoom to Seattle / Tacoma / Olympia">Seattle / Tacoma</button>
-                                <button class="map-region-pill" data-region="spokane" title="Zoom to Spokane Region">Spokane</button>
-                                <button class="map-region-pill" data-region="tri-cities" title="Zoom to Tri-Cities (Kennewick/Pasco/Richland)">Tri-Cities</button>
-                                <button class="map-region-pill" data-region="yakima" title="Zoom to Yakima">Yakima</button>
-                                <button class="map-region-pill" data-region="vancouver" title="Zoom to Vancouver, WA">Vancouver</button>
-                            </div>
-
-                            <div class="map-quick-actions">
-                                <!-- Basemap Layer Switcher -->
+                            <span class="map-header-title">Map <span id="map-marker-count" class="map-marker-count"></span></span>
+                            <div class="map-header-controls">
                                 <div class="map-basemap-segmented" id="map-basemap-segmented" role="radiogroup" aria-label="Map Style">
                                     <button class="map-basemap-btn active" data-basemap="streets" title="Street Map">Streets</button>
                                     <button class="map-basemap-btn" data-basemap="satellite" title="Satellite Imagery">Satellite</button>
@@ -559,20 +547,37 @@
                                 </div>
                                 <label class="map-search-area-toggle" title="Filter listings to visible map boundary">
                                     <input type="checkbox" id="map-bounds-filter-toggle">
-                                    <span>Search map area</span>
+                                    <span>Search area</span>
                                 </label>
-                                <button class="btn-map-action" id="btn-map-fit-results" title="Fit map to the matching homes">Fit results</button>
+                                <button class="btn-map-action" id="btn-map-fit-results" title="Fit map to the matching homes">Fit</button>
                                 <button class="btn-map-action" id="btn-map-reset-view" title="Reset map to Washington state">
-                                    <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 3 21 3 21 9"></polyline><polyline points="9 21 3 21 3 15"></polyline><line x1="21" y1="3" x2="14" y2="10"></line><line x1="3" y1="21" x2="10" y2="14"></line></svg>
+                                    <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 3 21 3 21 9"></polyline><polyline points="9 21 3 21 3 15"></polyline><line x1="21" y1="3" x2="14" y2="10"></line><line x1="3" y1="21" x2="10" y2="14"></line></svg>
                                     <span>Reset WA</span>
                                 </button>
+                                <button class="btn btn-secondary btn-sm" id="btn-close-map" aria-label="Close map and show more listings">&times;</button>
                             </div>
                         </div>
+                        <div class="map-stage-wrapper">
+                            <div id="leaflet-map" class="leaflet-map-view" role="application" aria-label="Interactive Washington Map"></div>
 
-                        <!-- Mobile Floating Property Preview Bottom Card (Appears on pin/bubble tap) -->
-                        <div class="mobile-map-preview-card hidden" id="mobile-map-preview-card">
-                            <button class="mobile-preview-close" id="btn-close-mobile-preview" aria-label="Close Preview">&times;</button>
-                            <div class="mobile-preview-content" id="mobile-preview-content"></div>
+                            <!-- Slim Floating Region Quick-Jump Bar -->
+                            <div class="map-overlay-bar">
+                                <div class="map-region-pills" id="map-region-pills" role="toolbar" aria-label="Washington Regions">
+                                    <button class="map-region-pill active" data-region="all" title="View Full Washington State">All WA</button>
+                                    <button class="map-region-pill" data-region="everett" title="Zoom to Everett / Snohomish County">Everett</button>
+                                    <button class="map-region-pill" data-region="puget-sound" title="Zoom to Seattle / Tacoma / Olympia">Seattle / Tacoma</button>
+                                    <button class="map-region-pill" data-region="spokane" title="Zoom to Spokane Region">Spokane</button>
+                                    <button class="map-region-pill" data-region="tri-cities" title="Zoom to Tri-Cities (Kennewick/Pasco/Richland)">Tri-Cities</button>
+                                    <button class="map-region-pill" data-region="yakima" title="Zoom to Yakima">Yakima</button>
+                                    <button class="map-region-pill" data-region="vancouver" title="Zoom to Vancouver, WA">Vancouver</button>
+                                </div>
+                            </div>
+
+                            <!-- Mobile Floating Property Preview Bottom Card -->
+                            <div class="mobile-map-preview-card hidden" id="mobile-map-preview-card">
+                                <button class="mobile-preview-close" id="btn-close-mobile-preview" aria-label="Close Preview">&times;</button>
+                                <div class="mobile-preview-content" id="mobile-preview-content"></div>
+                            </div>
                         </div>
                     </div>
 
@@ -830,40 +835,7 @@
                     </div>
                 </div>
 
-                <!-- Executive Deal & Comprehensive Valuation Card -->
-                <div class="drawer-section-card deal-eval-card" id="drawer-deal-eval-card">
-                    <div class="deal-eval-header">
-                        <div class="deal-eval-badge-pill">
-                            <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><polygon points="6 2 18 2 22 8 12 22 2 8 6 2"></polygon></svg>
-                            <span id="drawer-deal-grade-text">TOP VALUE EVALUATION</span>
-                        </div>
-                        <span class="deal-eval-score-badge mono" id="drawer-deal-score-badge">Deal Score: 92/100</span>
-                    </div>
-
-                    <div class="deal-eval-summary-box" id="drawer-deal-summary-box">
-                        <!-- Concrete synthesized valuation text -->
-                    </div>
-
-                    <div class="deal-eval-metrics-grid" id="drawer-deal-metrics-grid">
-                        <!-- Dynamic deal radar metrics -->
-                    </div>
-                </div>
-
-                <!-- Smart Score Breakdown Card -->
-                <div class="drawer-section-card score-card" id="drawer-score-card">
-                    <div class="score-card-header">
-                        <div class="score-badge-large mono" id="drawer-score-val">85</div>
-                        <div class="score-title-block">
-                            <strong>Smart Shortlist Score</strong>
-                            <span class="score-explain-text" id="drawer-score-summary">Evaluated across 7 market value factors</span>
-                        </div>
-                    </div>
-                    <div class="score-breakdown-bars" id="drawer-score-bars">
-                        <!-- Dynamic score factor bars -->
-                    </div>
-                </div>
-
-                <!-- Core Specs Grid -->
+                <!-- Core Specs Grid (Immediate above-the-fold priority) -->
                 <div class="drawer-section-card specs-card">
                     <h4>Property Specifications</h4>
                     <div class="drawer-specs-grid">
@@ -902,10 +874,67 @@
                     </div>
                 </div>
 
+                <!-- Personal Notes & Rating Section -->
+                <div class="drawer-section-card research-notes-card">
+                    <div class="research-notes-header">
+                        <h4>Personal Research &amp; Notes</h4>
+                        <span class="save-indicator mono" id="drawer-note-status">Auto-saved</span>
+                    </div>
+
+                    <div class="drawer-rating-row">
+                        <label>Your Rating:</label>
+                        <div class="star-picker-interactive" id="drawer-star-picker">
+                            <button class="star-pick" data-val="1" aria-label="Rate 1 star">★</button>
+                            <button class="star-pick" data-val="2" aria-label="Rate 2 stars">★</button>
+                            <button class="star-pick" data-val="3" aria-label="Rate 3 stars">★</button>
+                            <button class="star-pick" data-val="4" aria-label="Rate 4 stars">★</button>
+                            <button class="star-pick" data-val="5" aria-label="Rate 5 stars">★</button>
+                        </div>
+                        <span class="rating-label-text" id="drawer-rating-text">Not rated</span>
+                    </div>
+
+                    <div class="drawer-notes-input-block">
+                        <textarea id="drawer-notes-textarea" class="drawer-notes-textarea" rows="4" aria-label="Private research notes" placeholder="Add private impressions, workshop space potential, remodel ideas, commute notes..."></textarea>
+                    </div>
+                </div>
+
                 <!-- Description -->
                 <div class="drawer-section-card">
                     <h4>Listing Description</h4>
                     <p class="drawer-description" id="drawer-description">Listing description...</p>
+                </div>
+
+                <!-- Executive Deal & Comprehensive Valuation Card -->
+                <div class="drawer-section-card deal-eval-card" id="drawer-deal-eval-card">
+                    <div class="deal-eval-header">
+                        <div class="deal-eval-badge-pill">
+                            <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><polygon points="6 2 18 2 22 8 12 22 2 8 6 2"></polygon></svg>
+                            <span id="drawer-deal-grade-text">TOP VALUE EVALUATION</span>
+                        </div>
+                        <span class="deal-eval-score-badge mono" id="drawer-deal-score-badge">Deal Score: 92/100</span>
+                    </div>
+
+                    <div class="deal-eval-summary-box" id="drawer-deal-summary-box">
+                        <!-- Concrete synthesized valuation text -->
+                    </div>
+
+                    <div class="deal-eval-metrics-grid" id="drawer-deal-metrics-grid">
+                        <!-- Dynamic deal radar metrics -->
+                    </div>
+                </div>
+
+                <!-- Smart Score Breakdown Card -->
+                <div class="drawer-section-card score-card" id="drawer-score-card">
+                    <div class="score-card-header">
+                        <div class="score-badge-large mono" id="drawer-score-val">85</div>
+                        <div class="score-title-block">
+                            <strong>Smart Shortlist Score</strong>
+                            <span class="score-explain-text" id="drawer-score-summary">Evaluated across 7 market value factors</span>
+                        </div>
+                    </div>
+                    <div class="score-breakdown-bars" id="drawer-score-bars">
+                        <!-- Dynamic score factor bars -->
+                    </div>
                 </div>
 
                 <!-- High-Speed Internet & Broadband (FCC National Broadband Map) -->
@@ -984,30 +1013,6 @@
                         <div class="fcc-notice-text">
                             <span id="drawer-broadband-notice">FCC percentages describe residential coverage across the city, not this property. Check the address with the FCC map and provider; availability and speeds can vary by location.</span>
                         </div>
-                    </div>
-                </div>
-
-                <!-- Personal Notes & Rating Section -->
-                <div class="drawer-section-card research-notes-card">
-                    <div class="research-notes-header">
-                        <h4>Personal Research &amp; Notes</h4>
-                        <span class="save-indicator mono" id="drawer-note-status">Auto-saved</span>
-                    </div>
-
-                    <div class="drawer-rating-row">
-                        <label>Your Rating:</label>
-                        <div class="star-picker-interactive" id="drawer-star-picker">
-                            <button class="star-pick" data-val="1" aria-label="Rate 1 star">★</button>
-                            <button class="star-pick" data-val="2" aria-label="Rate 2 stars">★</button>
-                            <button class="star-pick" data-val="3" aria-label="Rate 3 stars">★</button>
-                            <button class="star-pick" data-val="4" aria-label="Rate 4 stars">★</button>
-                            <button class="star-pick" data-val="5" aria-label="Rate 5 stars">★</button>
-                        </div>
-                        <span class="rating-label-text" id="drawer-rating-text">Not rated</span>
-                    </div>
-
-                    <div class="drawer-notes-input-block">
-                        <textarea id="drawer-notes-textarea" class="drawer-notes-textarea" rows="4" aria-label="Private research notes" placeholder="Add private impressions, workshop space potential, remodel ideas, commute notes..."></textarea>
                     </div>
                 </div>
 
@@ -1423,6 +1428,6 @@
     
     <!-- Primary data loads asynchronously. The generated bundle is loaded only
          if JSON loading fails, including offline file:// previews. -->
-    <script defer src="app.js?v=20261118-opt1" data-listings-fallback="data.js?v=20261028"></script>
+    <script defer src="app.js?v=20261120-overhaul2" data-listings-fallback="data.js?v=20261028"></script>
 </body>
 </html>
